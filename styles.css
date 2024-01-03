@@ -132,7 +132,7 @@ nav a:hover {
     /* box-sizing: border-box; */
     margin: 0 auto;
     text-align: center;
-    transform: translateX(-45%);
+    transform: translateX(-30%);
  }
  
  .photo img {
@@ -142,7 +142,7 @@ nav a:hover {
 
  .nav-buttons {
     position: absolute;
-    bottom: 10px; /* Adjust the distance from the slider */
+    bottom: 10px;
     left: 50%;
     transform: translateX(-50%);
     display: flex;
@@ -157,10 +157,11 @@ nav a:hover {
     color: var(--secondary-color);
     border: none;
     padding: 5px 10px;
-    font-size: 9px;
+    font-size: 8px;
     cursor: pointer;
     border-radius: 5px;
     transition: background-color 0.2s ease;
+    margin-left:55;
     margin: 15 15;
  }
 
@@ -170,3 +171,33 @@ nav a:hover {
  
  /* .prev-btn { left: 0; }
  .next-btn { right: 0; } */
+
+ .centered-image {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh; 
+}
+
+.centered-image img {
+    width: 200%;
+    height: auto;
+    max-width: 100%;
+}
+
+.photo-album-masonry {
+    column-count: 3; /* Adjust the number of columns as needed */
+    column-gap: 16px;
+}
+
+.photo {
+    display: inline-block;
+    width: 100%;
+    box-sizing: border-box;
+    margin-bottom: 16px;
+}
+
+.photo img {
+    width: 100%;
+    height: auto;
+}
