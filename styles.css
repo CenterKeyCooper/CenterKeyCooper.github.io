@@ -173,16 +173,21 @@ nav a:hover {
  .next-btn { right: 0; } */
 
  .centered-image {
+    position: relative;
     display: flex;
     justify-content: center;
     align-items: center;
-    height: 100vh; 
+    /* height: 100vh;  */
+    margin-bottom: 20px;
 }
 
 .centered-image img {
-    width: 200%;
+    width: 100%;
     height: auto;
     max-width: 100%;
+    position: relative; 
+    z-index: 1;
+    margin-bottom: 20px;
 }
 
 .photo-album-masonry {
