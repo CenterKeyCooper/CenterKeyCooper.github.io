@@ -4,11 +4,18 @@
     --background-color: #f0f0f0;
 }
 
+p {
+    margin-bottom: 20px;
+}
+
 body {
     font-family: 'Courier New', monospace;
     margin: 0;
     padding: 0;
     background-color: var(--background-color);
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
 }
 
 header {
@@ -19,9 +26,14 @@ header {
 }
 
 section {
+    flex: 1;
     max-width: 800px;
     margin: 2em auto;
     padding: 0 1em;
+}
+
+.space {
+    margin-bottom: 50px;
 }
 
 section img {
@@ -29,6 +41,7 @@ section img {
     height: auto; 
     float: right; 
     margin: 0 1em 1em 0; 
+    margin-bottom: 20px;
 }
 
 footer {
@@ -36,4 +49,33 @@ footer {
     color: var(--primary-color);
     padding: 1em;
     text-align: center;
+    clear: both;
+}
+nav {
+    text-align: center;
+}
+
+nav ul {
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+}
+
+nav li {
+    display: block;
+    margin-bottom: 20px;
+}
+
+nav a {
+    text-decoration: none;
+    color: #333;
+}
+
+nav a:hover {
+    text-decoration: underline;
+}
+
+.header-link a {
+    color: var(--primary-color);
+    margin-bottom: 20px;
 }
