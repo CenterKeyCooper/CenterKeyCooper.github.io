@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="styles.css">
+    <title>teaching</title>
+</head>
+<body>
+    <header class="green-background">
+        <h1>teaching</h1>
+        <nav>
+            <ul>
+                <li class="header-link"><a href="index.html">main page</a></li>
+            </ul>
+        </nav>
+    </header>
+    <section class="space"></section>
+    <section>
+        <!-- <img src="Photos/Teaching/CS Camp June 2022.png" alt="Camp Flyer Front" style="float: left; max-width: 40%;">
+        <img src="Photos/Teaching/CS Camp June 2022 backside.png" alt="Camp Flyer Back " style=" max-width: 40%;"> -->
+        <h2>CS Camp</h2>
+        <section id="campcontent"></section>
+        <section id="content"></section>
+    </section>
+    <section class="photo-album-slider">
+        <div class="photo">
+            <img src="Photos/Teaching/CS Camp June 2022.png" alt="Camp Flyer Front" style="max-width: 40%;  margin-bottom: 40px;">
+        </div>
+        <div class="photo">
+            <img src="Photos/Teaching/CS Camp June 2022 backside.png" alt="Camp Flyer Back " style=" max-width: 40%; margin-bottom: 40px;">
+        </div>
+        <section class="space"></section>
+        <div class="nav-buttons">
+            <button id="sliderButton" onclick="nextSlide()">Backward</button>
+            <button id="sliderButton" onclick="prevSlide()">Forward</button>
+        </div>
+    </section>
+
+  
+
+    <script>
+        let currentSlide = 0;
+
+        function showSlide(index) {
+            const slides = document.querySelectorAll('.photo');
+            currentSlide = (index + slides.length) % slides.length;
+
+            slides.forEach((slide, i) => {
+                slide.style.display = i === currentSlide ? 'block' : 'none';
+            });
+        }
+
+        function nextSlide() {
+            showSlide(currentSlide + 1);
+        }
+
+        function prevSlide() {
+            showSlide(currentSlide - 1);
+        }
+
+        // Show the initial slide
+        showSlide(currentSlide);
+    </script>
+
+    <section id="techbio"></section>
+    <section class="space"></section>
+    <footer class="green-background">
+        <p>&copy; 2024 Cooper Wilk</p>
+    </footer>
+
+    <script src="content.js"></script>
+</body>
+</html>

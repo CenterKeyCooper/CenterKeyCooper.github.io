@@ -13,12 +13,22 @@
     </header>
     <section class="space"></section>
     <nav>
-        <ul>
+        <ul id="emojis">
+            <li style="margin-bottom: 15px;"><a href="me.html">🙋🏻‍♂️ me 🤳🏻</a></li>
+            <li style="margin-bottom: 15px;"><a href="technical.html">💼 technical 👔</a></li>
+            <li style="margin-bottom: 15px;"><a href="survivorut.html">🤘 survivor ut 🔥</a></li>
+            <li style="margin-bottom: 15px;"><a href="teaching.html">📚 teaching 🍎</a></li>
+            <li style="margin-bottom: 15px;"><a href="parks.html">🏞️ parks 🌄</a></li>
+            <li style="margin-bottom: 15px;"><a href="games.html">🎲 games 🃏</a></li>
+            <li style="margin-bottom: 15px;"><a href="listicuffs.html">📋 listicuffs 🥊</a></li>
+        </ul>
+
+        <ul id="clean">
             <li><a href="me.html">me</a></li>
             <li><a href="technical.html">technical</a></li>
             <li><a href="survivorut.html">survivor ut</a></li>
             <li><a href="teaching.html">teaching</a></li>
-            <li><a href="outdoors.html">parks</a></li>
+            <li><a href="parks.html">parks</a></li>
             <li><a href="games.html">games</a></li>
             <li><a href="listicuffs.html">listicuffs</a></li>
         </ul>
@@ -26,6 +36,19 @@
     <section class="space"></section>
     <footer>
         <p>&copy; 2024 Cooper Wilk</p>
+        <button id="toggleButton" onclick="toggleOptions()">Show Emojis</button>
     </footer>
+
+    <script>
+        function toggleOptions() {
+            var clean = document.getElementById('clean');
+            var emojis = document.getElementById('emojis');
+
+            clean.style.display = (clean.style.display === 'none') ? 'block' : 'none';
+            emojis.style.display = (emojis.style.display === 'block') ? 'none' : 'block';
+            var buttonText = (clean.style.display === 'none') ? 'Show Emojis' : 'Show Clean';
+            button.textContent = buttonText;
+        }
+    </script>
 </body>
 </html>

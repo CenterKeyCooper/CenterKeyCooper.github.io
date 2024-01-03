@@ -51,6 +51,15 @@ footer {
     text-align: center;
     clear: both;
 }
+
+.orange-background {
+    background-color: #a26a03;
+}
+
+.green-background {
+    background-color: #009957;
+}
+
 nav {
     text-align: center;
 }
@@ -75,7 +84,89 @@ nav a:hover {
     text-decoration: underline;
 }
 
+#emojis {
+    display: none;
+}
+
+#clean {
+    display: block;
+}
+
 .header-link a {
     color: var(--primary-color);
-    margin-bottom: 20px;
+    margin-top: 10px;
+    margin-bottom: 10px;
 }
+
+#toggleButton {
+    background-color: #9b9b9be1;
+    color: var(--secondary-color);
+    border: none;
+    padding: 5px 10px;
+    font-size: 9px;
+    cursor: pointer;
+    border-radius: 5px;
+    transition: background-color 0.2s ease;
+}
+
+#toggleButton:hover {
+    background-color: #8e8e8ee1;
+}
+
+.photo-album-slider {
+    position: relative;
+    overflow: hidden;
+    white-space: nowrap;
+    display: inline-block;
+    position: relative;
+    text-align: center;
+ }
+ 
+.center-container {
+    text-align: center;
+}
+
+ .photo {
+    display: inline-block;
+    width: 150%;
+    /* box-sizing: border-box; */
+    margin: 0 auto;
+    text-align: center;
+    transform: translateX(-45%);
+ }
+ 
+ .photo img {
+    height: auto;
+    margin: 0 auto;
+ }
+
+ .nav-buttons {
+    position: absolute;
+    bottom: 10px; /* Adjust the distance from the slider */
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+}
+
+ #sliderButton {
+    /* position: absolute;
+    top: 50%;
+    transform: translateY(-50%); */
+
+    background-color: #9b9b9be1;
+    color: var(--secondary-color);
+    border: none;
+    padding: 5px 10px;
+    font-size: 9px;
+    cursor: pointer;
+    border-radius: 5px;
+    transition: background-color 0.2s ease;
+    margin: 15 15;
+ }
+
+ #sliderButton:hover {
+    background-color: #8e8e8ee1;
+}
+ 
+ /* .prev-btn { left: 0; }
+ .next-btn { right: 0; } */
