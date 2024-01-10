@@ -227,6 +227,7 @@ nav a:hover {
 }
 
 .ranking-input {
+    font-family: 'Courier New', monospace;
     width: 80%;
     padding: 8px;
     margin: 5px;
@@ -235,13 +236,14 @@ nav a:hover {
     border-radius: 8px; /* Adding a slight border radius for a softer look */
     text-align: center;
 }
-
+ 
 #submit-btn {
+    font-family: 'Courier New', monospace;
     margin-top: 15px;
     padding: 10px 20px;
     font-size: 1rem; /* Equivalent to 16px, using rem for better scalability */
     cursor: pointer;
-    background-color: #4CAF50; /* Green color for a visually appealing button */
+    background-color: #9b9b9be1; /* Green color for a visually appealing button */
     color: rgba(255, 255, 255, 0.862); /* White text for better contrast */
     border: none; /* Remove default button border */
     border-radius: 4px; /* Adding a border radius for a rounded button look */
@@ -251,7 +253,7 @@ nav a:hover {
 }
 
 #submit-btn:hover {
-    background-color: #45a049; /* Darker green on hover for visual feedback */
+    background-color: #8e8e8ee1; /* Darker green on hover for visual feedback */
 }
 
 
@@ -273,4 +275,9 @@ nav a:hover {
     align-items: center;
     font-size: 1rem;
     color: white;
+    transition: transform 0.2s cubic-bezier(0.36, 1.67, 0.37, 0.83); /* Quicker with a slight bounce on hover */
+}
+
+.card:hover {
+    transform: translateY(-8px);
 }
