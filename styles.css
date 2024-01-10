@@ -211,8 +211,8 @@ nav a:hover {
     height: auto;
 }
 
-body {
-    font-family: 'Arial', sans-serif;
+.listicuffs-body {
+    /* font-family: 'Arial', sans-serif; */
     text-align: center;
     margin: 20px;
 }
@@ -253,6 +253,7 @@ body {
 #submit-btn:hover {
     background-color: #45a049; /* Darker green on hover for visual feedback */
 }
+
 
 #selectedItems {
     display: flex;
