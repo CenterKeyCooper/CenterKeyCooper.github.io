@@ -56,7 +56,10 @@
     </form>
 
     <div id="selectedItems"></div>
-    <div id="selectedItems"></div>
+
+    <button type="button" id="submit-btn" onclick="clearCardData()" style="display: ${getCardData().length > 0 ? 'inline-block' : 'none'};">Clear</button>
+
+
 
 
     <section class="space"></section>
@@ -71,10 +74,20 @@
         // Sample categories and items
         const categories = ["Horror Movies", "Card Games", "National Parks", "Dinner Dishes", "Alternative-Rock Albums", "Board Games", "Nicknames for Cooper", "TSSA Board Members", "Racket Sports"];
         let currentCategory;
+
+        let cardsData;
     
         // Function to get a random category
         function getRandomCategory() {
             return categories[Math.floor(Math.random() * categories.length)];
+        }
+
+        function loadPage() {
+            cardsData = getCardData();
+            setupChallenge();
+            console.log('Card Data displayed: ', cardsData);
+            displaySelectedItems(cardsData);
+            
         }
     
         // Function to set up a new challenge
@@ -83,6 +96,23 @@
             document.getElementById('category').innerText = `Your Category: ${currentCategory}`;
             document.getElementById('rankingForm').reset();
         }
+
+        function saveCardData(cardsData) {
+            localStorage.setItem('cardsData', JSON.stringify(cardsData));
+            console.log('Card data saved:', cardsData);
+        }
+
+        function getCardData() {
+            const storedData = localStorage.getItem('cardsData');
+            return storedData ? JSON.parse(storedData) : [];
+        }
+
+        function clearCardData(cardsData) {
+            cardsData = [];
+            localStorage.removeItem('cardsData');
+            console.log('Saved data cleared.');
+            location.reload();
+        }
     
         // Function to handle form submission
         function submitRanking() {
@@ -90,6 +120,7 @@
             const rankingInputs = document.querySelectorAll('.ranking-input');
             // const rankedAnswers = Array.from(rankingInputs).map(input => input.value.trim());
             const rankedAnswers = Array.from(document.querySelectorAll('.ranking-input')).map(input => input.value.trim());
+            localStorage.setItem('cardsData', JSON.stringify(cardsData));
 
             // Validate that all inputs are filled
             if (rankedAnswers.some(answer => answer === '')) {
@@ -102,31 +133,42 @@
     
             // Set up a new challenge after submission
             
-            displaySelectedItems(rankedAnswers);
             setupChallenge();
+            displaySelectedItems(rankedAnswers);
         }
         function displaySelectedItems(selectedItems) {
             const selectedItemsContainer = document.getElementById('selectedItems');
-            selectedItemsContainer.innerHTML = '';
             if (selectedItemsContainer) {
                 // Hex codes for the dark pastel rainbow
                 const colors = ['#5EB88E', '#589EAB', '#6D8ED3', '#8E7EBF', '#B77789', '#C88275'];
 
-                selectedItems.forEach((item, index) => {
+                // const existingCardData = getCardData();
+
+                if (cardsData.length === 0) {
+                    // selectedItemsContainer.innerHTML = '';
+                    console.log('No existing card data.');
+                }
+
+                // Append 6 new cards
+                for (let i = 0; i < selectedItems.length; i++) {
                     const card = document.createElement('div');
                     card.classList.add('card');
-                    card.style.backgroundColor = colors[index % 6];
-                    card.textContent = item;
+                    card.style.backgroundColor = colors[i % 6];
+                    
+                    // Use existing card data if available, or display the selected item
+                    card.textContent = selectedItems[i] || '';
 
                     selectedItemsContainer.appendChild(card);
-                });
+                }
+
+                saveCardData([...cardsData.slice(6), ...selectedItems]);
             } else {
                 console.error('Element with id "selectedItems" not found');
             }
         }
     
         // Initialize the challenge when the page loads
-        window.onload = setupChallenge;
+        window.onload = loadPage;
 
         
     </script>
