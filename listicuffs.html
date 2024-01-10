@@ -17,12 +17,12 @@
         </nav>
     </header>
     <section class="space"></section>
-    <section>
+    <!-- <section>
         <img src="Photos/Me/CooperAndKayla.jpg" alt="Me and Kayla" style="float: left;">
         <img src="Photos/Me/CooperAndKayla.jpg" alt="Me and Kayla">
         <h2>About Me</h2>
         <section id="content"></section>
-    </section>
+    </section> -->
 
     <div id="category"></div>
 
@@ -56,6 +56,7 @@
     </form>
 
     <div id="selectedItems"></div>
+    <div id="selectedItems"></div>
 
 
     <section class="space"></section>
@@ -68,7 +69,7 @@
 
     <script>
         // Sample categories and items
-        const categories = ["Horror Movies", "Card Games", "National Parks", "Dinner Dishes", "Alternative-Rock Albums"];
+        const categories = ["Horror Movies", "Card Games", "National Parks", "Dinner Dishes", "Alternative-Rock Albums", "Board Games", "Nicknames for Cooper", "TSSA Board Members", "Racket Sports"];
         let currentCategory;
     
         // Function to get a random category
@@ -104,22 +105,24 @@
             displaySelectedItems(rankedAnswers);
             setupChallenge();
         }
-
         function displaySelectedItems(selectedItems) {
             const selectedItemsContainer = document.getElementById('selectedItems');
             selectedItemsContainer.innerHTML = '';
+            if (selectedItemsContainer) {
+                // Hex codes for the dark pastel rainbow
+                const colors = ['#5EB88E', '#589EAB', '#6D8ED3', '#8E7EBF', '#B77789', '#C88275'];
 
-            // Hex codes for the dark pastel rainbow
-            const colors = ['#5EB88E', '#589EAB', '#6D8ED3', '#8E7EBF', '#B77789', '#C88275'];
+                selectedItems.forEach((item, index) => {
+                    const card = document.createElement('div');
+                    card.classList.add('card');
+                    card.style.backgroundColor = colors[index % 6];
+                    card.textContent = item;
 
-            selectedItems.forEach((item, index) => {
-                const card = document.createElement('div');
-                card.classList.add('card');
-                card.style.backgroundColor = colors[index];
-                card.textContent = item;
-
-                selectedItemsContainer.appendChild(card);
-            });
+                    selectedItemsContainer.appendChild(card);
+                });
+            } else {
+                console.error('Element with id "selectedItems" not found');
+            }
         }
     
         // Initialize the challenge when the page loads
