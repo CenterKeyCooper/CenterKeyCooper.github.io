@@ -23,11 +23,108 @@
         <h2>About Me</h2>
         <section id="content"></section>
     </section>
+
+    <div id="category"></div>
+
+    <form id="rankingForm">
+        <div>
+            <label class="ranking-label" style="color: #5eb86a">1</label>
+            <input type="text" class="ranking-input" placeholder="(Best)">
+        </div>
+        <div>
+            <label class="ranking-label" style="color: #589EAB">2</label>
+            <input type="text" class="ranking-input" placeholder="-">
+        </div>
+        <div>
+            <label class="ranking-label" style="color: #6D8ED3">3</label>
+            <input type="text" class="ranking-input" placeholder="-">
+        </div>
+        <div>
+            <label class="ranking-label" style="color: #8E7EBF">4</label>
+            <input type="text" class="ranking-input" placeholder="-">
+        </div>
+        <div>
+            <label class="ranking-label" style="color: #B77789">5</label>
+            <input type="text" class="ranking-input" placeholder="-">
+        </div>
+        <div>
+            <label class="ranking-label" style="color: #C88275">6</label>
+            <input type="text" class="ranking-input" placeholder="(Worst)">
+        </div>
+        
+        <button type="button" id="submit-btn" onclick="submitRanking()">Submit</button>
+    </form>
+
+
+
     <section class="space"></section>
     <footer>
         <p>&copy; 2024 Cooper Wilk</p>
     </footer>
 
     <script src="content.js"></script>
+
+
+    <script>
+        // Sample categories and items
+        const categories = ["Horror Movies", "Card Games", "National Parks", "Dinner Dishes", "Alternative-Rock Albums"];
+        let currentCategory;
+    
+        // Function to get a random category
+        function getRandomCategory() {
+            return categories[Math.floor(Math.random() * categories.length)];
+        }
+    
+        // Function to set up a new challenge
+        function setupChallenge() {
+            currentCategory = getRandomCategory();
+            document.getElementById('category').innerText = `Your Category: ${currentCategory}`;
+            document.getElementById('rankingForm').reset();
+        }
+    
+        // Function to handle form submission
+        function submitRanking() {
+            // Retrieve the ranked answers from the text inputs
+            const rankingInputs = document.querySelectorAll('.ranking-input');
+            // const rankedAnswers = Array.from(rankingInputs).map(input => input.value.trim());
+            const rankedAnswers = Array.from(document.querySelectorAll('.ranking-input')).map(input => input.value.trim());
+
+            // Validate that all inputs are filled
+            if (rankedAnswers.some(answer => answer === '')) {
+                alert('you need to fill out everything >:(');
+                return;
+            }
+    
+            // Log or process the ranked answers as needed
+            console.log('Ranked Answers:', rankedAnswers);
+    
+            // Set up a new challenge after submission
+            
+            // displaySelectedItems(rankedAnswers);
+            setupChallenge();
+        }
+
+        function displaySelectedItems(selectedItems) {
+            const selectedItemsContainer = document.getElementById('selectedItems');
+            selectedItemsContainer.innerHTML = '';
+
+            // Hex codes for the dark pastel rainbow
+            const colors = ['#5EB88E', '#589EAB', '#6D8ED3', '#8E7EBF', '#B77789', '#C88275'];
+
+            selectedItems.forEach((item, index) => {
+                const card = document.createElement('div');
+                card.classList.add('card');
+                card.style.backgroundColor = colors[index];
+                card.textContent = item;
+
+                selectedItemsContainer.appendChild(card);
+            });
+        }
+    
+        // Initialize the challenge when the page loads
+        window.onload = setupChallenge;
+
+        
+    </script>
 </body>
 </html>
