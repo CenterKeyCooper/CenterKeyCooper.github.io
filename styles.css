@@ -281,3 +281,15 @@ nav a:hover {
 .card:hover {
     transform: translateY(-8px);
 }
+
+audio {
+    display:block;
+    margin: 0 auto;
+    width: 100%;
+    max-width: 400px;
+    margin-top: 20px;
+    background-color: var(--background-color); /* Set your desired background color for the audio player */
+    border: 1px solid #ddd; /* Set your desired border styles */
+    border-radius: 30px; /* Set your desired border-radius for rounded corners */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Add a subtle box shadow */
+  }
