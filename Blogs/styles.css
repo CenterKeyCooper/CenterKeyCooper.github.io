@@ -1,0 +1,295 @@
+:root {
+    --primary-color: #f0f0f0;  
+    --secondary-color: #333; 
+    --background-color: #f0f0f0;
+}
+
+p {
+    margin-bottom: 20px;
+}
+
+body {
+    font-family: 'Courier New', monospace;
+    margin: 0;
+    padding: 0;
+    background-color: var(--background-color);
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+header {
+    background-color:var(--secondary-color); /* #333; */
+    color: var(--primary-color); /*#fff; */
+    padding: 1em;
+    text-align: center;
+}
+
+section {
+    flex: 1;
+    max-width: 800px;
+    margin: 2em auto;
+    padding: 0 1em;
+}
+
+.space {
+    margin-bottom: 50px;
+}
+
+section img {
+    max-width: 20%;
+    height: auto; 
+    float: right; 
+    margin: 0 1em 1em 0; 
+    margin-bottom: 20px;
+}
+
+footer {
+    background-color: var(--secondary-color);
+    color: var(--primary-color);
+    padding: 1em;
+    text-align: center;
+    clear: both;
+}
+
+.orange-background {
+    background-color: #a26a03;
+}
+
+.green-background {
+    background-color: #009957;
+}
+
+.seafoam-background {
+    background-color: #008761;
+}
+
+nav {
+    text-align: center;
+}
+
+nav ul {
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+}
+
+nav li {
+    display: block;
+    margin-bottom: 20px;
+}
+
+nav a {
+    text-decoration: none;
+    color: #333;
+}
+
+nav a:hover {
+    text-decoration: underline;
+}
+
+#emojis {
+    display: none;
+}
+
+#clean {
+    display: block;
+}
+
+.header-link a {
+    color: var(--primary-color);
+    margin-top: 10px;
+    margin-bottom: 10px;
+}
+
+#toggleButton {
+    background-color: #9b9b9be1;
+    color: var(--secondary-color);
+    border: none;
+    padding: 5px 10px;
+    font-size: 9px;
+    cursor: pointer;
+    border-radius: 5px;
+    transition: background-color 0.2s ease;
+}
+
+#toggleButton:hover {
+    background-color: #8e8e8ee1;
+}
+
+.photo-album-slider {
+    position: relative;
+    overflow: hidden;
+    white-space: nowrap;
+    display: inline-block;
+    position: relative;
+    text-align: center;
+ }
+ 
+.center-container {
+    text-align: center;
+}
+
+ .photo {
+    display: inline-block;
+    width: 150%;
+    /* box-sizing: border-box; */
+    margin: 0 auto;
+    text-align: center;
+    transform: translateX(-16%);
+ }
+ 
+ .photo img {
+    height: auto;
+    margin: 0 auto;
+ }
+
+ .nav-buttons {
+    position: absolute;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+}
+
+ #sliderButton {
+    /* position: absolute;
+    top: 50%;
+    transform: translateY(-50%); */
+
+    background-color: #9b9b9be1;
+    color: var(--secondary-color);
+    border: none;
+    padding: 5px 10px;
+    font-size: 8px;
+    cursor: pointer;
+    border-radius: 5px;
+    transition: background-color 0.2s ease;
+    margin-left:55;
+    margin: 15 15;
+ }
+
+ #sliderButton:hover {
+    background-color: #8e8e8ee1;
+}
+ 
+ /* .prev-btn { left: 0; }
+ .next-btn { right: 0; } */
+
+ .centered-image {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    /* height: 100vh;  */
+    margin-bottom: 20px;
+}
+
+.centered-image img {
+    width: 100%;
+    height: auto;
+    max-width: 100%;
+    position: relative; 
+    z-index: 1;
+    margin-bottom: 20px;
+}
+
+.photo-album-masonry {
+    column-count: 3; /* Adjust the number of columns as needed */
+    column-gap: 16px;
+}
+
+.photo {
+    display: inline-block;
+    width: 100%;
+    box-sizing: border-box;
+    margin-bottom: 16px;
+}
+
+.photo img {
+    width: 100%;
+    height: auto;
+}
+
+.listicuffs-body {
+    /* font-family: 'Arial', sans-serif; */
+    text-align: center;
+    margin: 20px;
+}
+
+#category {
+    font-size: 1.5rem;
+    margin-bottom: 10px;
+}
+
+.ranking-label{
+    font-weight: bold;
+}
+
+.ranking-input {
+    font-family: 'Courier New', monospace;
+    width: 80%;
+    padding: 8px;
+    margin: 5px;
+    font-size: 1rem;
+    border: 1px solid #ccc; /* Adding a subtle border for clarity */
+    border-radius: 8px; /* Adding a slight border radius for a softer look */
+    text-align: center;
+}
+ 
+#submit-btn {
+    font-family: 'Courier New', monospace;
+    margin-top: 15px;
+    padding: 10px 20px;
+    font-size: 1rem; /* Equivalent to 16px, using rem for better scalability */
+    cursor: pointer;
+    background-color: #9b9b9be1; /* Green color for a visually appealing button */
+    color: rgba(255, 255, 255, 0.862); /* White text for better contrast */
+    border: none; /* Remove default button border */
+    border-radius: 4px; /* Adding a border radius for a rounded button look */
+    transition: background-color 0.3s ease; /* Smooth transition on hover */
+    display: block; /* Make the button a block-level element */
+    margin: auto;
+}
+
+#submit-btn:hover {
+    background-color: #8e8e8ee1; /* Darker green on hover for visual feedback */
+}
+
+
+#selectedItems {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-top: 20px;
+}
+
+.card {
+    width: 100px;
+    height: 150px;
+    margin: 10px;
+    border-radius: 8px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 1rem;
+    color: white;
+    transition: transform 0.2s cubic-bezier(0.36, 1.67, 0.37, 0.83); /* Quicker with a slight bounce on hover */
+}
+
+.card:hover {
+    transform: translateY(-8px);
+}
+
+audio {
+    display:block;
+    margin: 0 auto;
+    width: 100%;
+    max-width: 400px;
+    margin-top: 20px;
+    background-color: var(--background-color); /* Set your desired background color for the audio player */
+    border: 1px solid #ddd; /* Set your desired border styles */
+    border-radius: 30px; /* Set your desired border-radius for rounded corners */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Add a subtle box shadow */
+  }
