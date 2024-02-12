@@ -293,3 +293,18 @@ audio {
     border-radius: 30px; /* Set your desired border-radius for rounded corners */
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Add a subtle box shadow */
   }
+
+
+
+
+  pre {
+    background-color: #f4f4f4;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    overflow-x: auto;
+  }
+
+  code {
+    font-family: 'Courier New', Courier, monospace;
+  }
