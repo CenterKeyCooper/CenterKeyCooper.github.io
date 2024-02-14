@@ -42,7 +42,14 @@ section img {
     float: right; 
     margin: 0 1em 1em 0; 
     margin-bottom: 20px;
+    transition: transform 0.3s ease-out, box-shadow 0.3s ease-out;
 }
+
+section img:hover {
+    transform: scale(1.05);
+    /* box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); */
+}
+
 
 footer {
     background-color: var(--secondary-color);
@@ -54,6 +61,10 @@ footer {
 
 .orange-background {
     background-color: #a26a03;
+}
+
+.pink-background {
+    background-color: #B55385;
 }
 
 .green-background {
