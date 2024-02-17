@@ -325,7 +325,15 @@ audio {
   }
 
   .blog-image-container img {
-    max-width: 80%; 
-    height: auto; 
-    margin: 0 auto; 
+    max-width: 100%; /* Ensure responsiveness */
+    height: auto; /* Maintain the aspect ratio */
+    width: 400px; /* Set a consistent pixel width for the images */
+    margin: 0 auto; /* Center the image horizontally within its container */
+  }
+  
+  /* Media query for smaller screens (e.g., mobile) */
+  @media only screen and (max-width: 600px) {
+    .blog-image-container img {
+      width: 80%; /* Adjust the width for smaller screens */
+    }
   }
