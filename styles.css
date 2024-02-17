@@ -322,6 +322,8 @@ audio {
 
   .blog-image-container {
     text-align: center;
+    max-width: 600px;
+    margin: 0 auto;
   }
 
   .blog-image-container img {
