@@ -319,3 +319,13 @@ audio {
   code {
     font-family: 'Courier New', Courier, monospace;
   }
+
+  .blog-image-container {
+    text-align: center;
+  }
+
+  .blog-image-container img {
+    max-width: 80%; 
+    height: auto; 
+    margin: 0 auto; 
+  }
