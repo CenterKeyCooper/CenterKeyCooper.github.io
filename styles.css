@@ -384,6 +384,7 @@ audio {
     align-items: center;
     outline: none; /* Remove outline on focus */
     font-family: 'Courier New', monospace;
+    transition: transform 0.05s ease;
     
   }
 

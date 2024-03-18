@@ -18,10 +18,20 @@ function selectButton(button) {
       // Remove the previously selected button
       selectedButton.style.visibility = 'hidden';
       checkForWin(button.textContent);
+      selectedButton = null;
+      //Animation
+      button.style.transform = 'scale(1.1)'
+      // button.style.backgroundColor = '#d0dfe4';
+      setTimeout(() => {
+        button.style.transform = 'scale(1)'
+        // button.style.backgroundColor = '#add8e6';
+      }, 50);
     }
+    else{
     // Select the current button
-    button.classList.add('selected');
-    selectedButton = button;
+      button.classList.add('selected');
+      selectedButton = button;
+    }
   }
 }
 
