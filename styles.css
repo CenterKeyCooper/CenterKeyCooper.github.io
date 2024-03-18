@@ -36,6 +36,11 @@ section {
     margin-bottom: 50px;
 }
 
+.small-space {
+    /* margin-top: 20px; */
+    margin-bottom: 0px;
+}
+
 section img {
     max-width: 20%;
     height: auto; 
