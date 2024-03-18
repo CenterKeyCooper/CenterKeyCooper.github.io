@@ -98,7 +98,7 @@ targetNumber = tempResult;
 
 document.getElementById('targetNumber').textContent = targetNumber;
 
-// numbers = numbers.slice().sort(() => Math.random() - 0.5);
+numbers = numbers.slice().sort(() => Math.random() - 0.5);
 
 // Assign the random numbers to the buttons
 let buttons = document.querySelectorAll('.button.number');
