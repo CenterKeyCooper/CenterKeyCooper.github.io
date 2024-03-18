@@ -1,100 +1,76 @@
-document.addEventListener('DOMContentLoaded', () => {
-    const digitsContainer = document.getElementById('digits-container');
-  
-    // Initial numbers on the screen
-    const numbers = [1, 2, 3, 4, 5, 6];
-    const operations = ['+', '-', '*', '/'];
-  
-    // Create number buttons
-    numbers.forEach(number => {
-      const button = createButton(number);
-      digitsContainer.appendChild(button);
-    });
-  
-    // Create operation buttons
-    operations.forEach(operation => {
-      const button = createButton(operation, true);
-      digitsContainer.appendChild(button);
-    });
-  
-    let selectedButtons = [];
-  
-    // Add click event listener to each button
-    digitsContainer.addEventListener('click', (event) => {
-      const clickedButton = event.target;
-  
-      if (clickedButton.tagName === 'BUTTON') {
-        if (selectedButtons.length < 2) {
-          // Highlight selected button
-          clickedButton.classList.add('selected');
-          selectedButtons.push(clickedButton);
-  
-          if (selectedButtons.length === 2) {
-            performOperation();
-          }
-        } else {
-          // Remove highlighting from previously selected buttons
-          selectedButtons.forEach(button => button.classList.remove('selected'));
-  
-          // Clear the selected buttons array
-          selectedButtons = [];
-        }
-      }
-    });
-  
-    // Function to create a button
-    function createButton(value, isOperation = false) {
-      const button = document.createElement('button');
-      button.textContent = value;
-      button.addEventListener('click', () => handleClick(value, isOperation));
-      return button;
+let selectedButton = null;
+let selectedOperation = '+';
+let targetNumber = Math.floor(Math.random() * 600) + 1;
+
+function selectButton(button) {
+  if (selectedButton === button) {
+    // Deselect the button
+    button.classList.remove('selected');
+    selectedButton = null;
+  } else {
+    if (selectedButton) {
+      // Perform the selected operation
+      let valueToAdd = parseInt(selectedButton.textContent);
+      let currentValue = parseInt(button.textContent);
+      button.textContent = operate(valueToAdd, currentValue);
+      // Remove the previously selected button
+      selectedButton.style.visibility = 'hidden';
+      checkForWin(button.textContent);
     }
-  
-    // Function to handle button click
-    function handleClick(value, isOperation) {
-      if (selectedButtons.length === 1 && isOperation) {
-        // If an operation is clicked after selecting a number, update the operation
-        selectedButtons[0].textContent = value;
-        selectedButtons[0].classList.remove('selected');
-        selectedButtons = [];
-      } else if (selectedButtons.length === 0 && !isOperation) {
-        // If a number is clicked, highlight it
-        selectedButtons.push(event.target);
-        selectedButtons[0].classList.add('selected');
-      }
-    }
-  
-    // Function to perform the selected operation
-    function performOperation() {
-      const num1 = parseFloat(selectedButtons[0].textContent);
-      const num2 = parseFloat(selectedButtons[1].textContent);
-      const operation = selectedButtons[2].textContent;
-  
-      let result;
-  
-      switch (operation) {
-        case '+':
-          result = num1 + num2;
-          break;
-        case '-':
-          result = num1 - num2;
-          break;
-        case '*':
-          result = num1 * num2;
-          break;
-        case '/':
-          result = num1 / num2;
-          break;
-        default:
-          result = 0;
-      }
-  
-      // Update the second number with the result
-      selectedButtons[1].textContent = result;
-      selectedButtons[0].classList.remove('selected');
-  
-      // Clear the selected buttons array
-      selectedButtons = [];
+    // Select the current button
+    button.classList.add('selected');
+    selectedButton = button;
+  }
+}
+
+function selectOperation(operation) {
+  selectedOperation = operation;
+  // Update selected class for operations buttons
+  let operationButtons = document.querySelectorAll('.operations .operation');
+  operationButtons.forEach(function(button) {
+    if (button.textContent === operation) {
+      button.classList.add('selected');
+    } else {
+      button.classList.remove('selected');
     }
   });
-  
+}
+
+function operate(value1, value2) {
+  switch(selectedOperation) {
+    case '+':
+      return value1 + value2;
+    case '-':
+      return value1 - value2;
+    case '*':
+      return value1 * value2;
+    case '/':
+      if (value2 !== 0) {
+        return value1 / value2;
+      } else {
+        return 'Error';
+      }
+    default:
+      return 'Error';
+  }
+}
+
+function checkForWin(value) {
+  if (parseInt(value) === targetNumber) {
+    document.body.classList.add('green-screen');
+  }
+}
+
+// Update the target number display
+document.getElementById('targetNumber').textContent = targetNumber;
+
+let numbers = [];
+for (let i = 0; i < 6; i++) {
+  numbers.push(Math.floor(Math.random() * 10) + 1);
+}
+
+// Assign the random numbers to the buttons
+let buttons = document.querySelectorAll('.button.number');
+buttons.forEach(function(button, index) {
+  button.textContent = numbers[index];
+});
