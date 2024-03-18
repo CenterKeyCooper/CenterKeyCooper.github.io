@@ -80,6 +80,14 @@ function checkForWin(value) {
   }
 }
 
+function resetPuzzle() {
+  document.body.classList.add('red-screen');
+  // Refresh the page
+  setTimeout(() => {
+    window.location.reload();
+  }, 250);
+}
+
 // Update the target number display
 
 
@@ -128,3 +136,13 @@ let buttons = document.querySelectorAll('.button.number');
 buttons.forEach(function(button, index) {
   button.textContent = numbers[index];
 });
+
+function resetButtons() {
+  let buttons = document.querySelectorAll('.button.number');
+  buttons.forEach(function(button, index) {
+    button.textContent = numbers[index];
+    button.style.visibility = 'visible';
+    button.classList.remove('selected');
+  });
+  selectedButton = null;
+}

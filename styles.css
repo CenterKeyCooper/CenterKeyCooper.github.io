@@ -361,11 +361,13 @@ audio {
 
   .container {
     display: flex;
+    grid-template-columns: repeat(3, 1fr); 
     flex-wrap: wrap;
     justify-content: center;
     align-items: center;
-    height: 40vh;
-    grid-template-columns: repeat(3, 1fr);
+    height: 30vh;
+    width: 400px;
+    margin: 0 auto;
   }
   
   .button {
@@ -392,6 +394,10 @@ audio {
     background-color: #c9a0ff; /* Pastel purple background for operation buttons */
   }
 
+  .operations .reset {
+    background-color: #d29e91; /* Pastel purple background for operation buttons */
+  }
+
   .operations .selected {
     background-color: #91d291;
     transform: scale(1.1);
@@ -408,6 +414,10 @@ audio {
   
   .green-screen {
     background-color: #91d291; /* Green background color */
+  }
+
+  .red-screen {
+    background-color: #d29e91; /* Green background color */
   }
   
   
