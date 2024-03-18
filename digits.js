@@ -1,6 +1,6 @@
 let selectedButton = null;
 let selectedOperation = '+';
-let targetNumber = Math.floor(Math.random() * 600) + 1;
+let targetNumber;
 
 function selectButton(button) {
   if (selectedButton === button) {
@@ -62,12 +62,43 @@ function checkForWin(value) {
 }
 
 // Update the target number display
-document.getElementById('targetNumber').textContent = targetNumber;
+
 
 let numbers = [];
 for (let i = 0; i < 6; i++) {
   numbers.push(Math.floor(Math.random() * 10) + 1);
 }
+
+let tempResult = numbers[0];
+for (let i = 1; i < numbers.length; i++) {
+  let randomOperation = ['+', '-', '*', '/'][Math.floor(Math.random() * 4)];
+  console.log(tempResult, randomOperation);
+  switch (randomOperation) {
+    case '+':
+      tempResult += numbers[i];
+      break;
+    case '-':
+      tempResult -= numbers[i];
+      break;
+    case '*':
+      tempResult *= numbers[i];
+      break;
+    case '/':
+      if (numbers[i] != 0 && tempResult % numbers[i] === 0) {
+        tempResult /= numbers[i];
+      }
+      else{
+        tempResult += numbers[i];
+      }
+      break;
+  }
+}
+
+targetNumber = tempResult;
+
+document.getElementById('targetNumber').textContent = targetNumber;
+
+// numbers = numbers.slice().sort(() => Math.random() - 0.5);
 
 // Assign the random numbers to the buttons
 let buttons = document.querySelectorAll('.button.number');
