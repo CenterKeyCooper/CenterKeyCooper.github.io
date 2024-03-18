@@ -66,7 +66,7 @@ function checkForWin(value) {
     // Refresh the page
     setTimeout(() => {
       window.location.reload();
-    }, 1000);
+    }, 350);
   }
 }
 

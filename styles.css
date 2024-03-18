@@ -365,6 +365,7 @@ audio {
     justify-content: center;
     align-items: center;
     height: 40vh;
+    grid-template-columns: repeat(3, 1fr);
   }
   
   .button {
