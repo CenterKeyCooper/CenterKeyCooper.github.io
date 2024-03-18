@@ -1,6 +1,8 @@
 let selectedButton = null;
 let selectedOperation = '+';
 let targetNumber;
+let puzzlesSolved = parseInt(localStorage.getItem('puzzlesSolved')) || 0;
+
 
 function selectButton(button) {
   if (selectedButton === button) {
@@ -58,6 +60,13 @@ function operate(value1, value2) {
 function checkForWin(value) {
   if (parseInt(value) === targetNumber) {
     document.body.classList.add('green-screen');
+    puzzlesSolved++;
+    localStorage.setItem('puzzlesSolved', puzzlesSolved);
+    document.getElementById('counter').textContent = puzzlesSolved;
+    // Refresh the page
+    setTimeout(() => {
+      window.location.reload();
+    }, 1000);
   }
 }
 
@@ -97,6 +106,10 @@ for (let i = 1; i < numbers.length; i++) {
 targetNumber = tempResult;
 
 document.getElementById('targetNumber').textContent = targetNumber;
+document.addEventListener('DOMContentLoaded', function() {
+  document.getElementById('counter').textContent = puzzlesSolved;
+});
+console.log("puzzles ", puzzlesSolved);
 
 numbers = numbers.slice().sort(() => Math.random() - 0.5);
 
