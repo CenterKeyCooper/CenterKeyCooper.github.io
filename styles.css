@@ -436,7 +436,7 @@ audio {
     grid-template-columns: repeat(10, 22px);
     grid-template-rows: repeat(10, 22px);
     gap: 2px;
-    margin: 0 auto;
+    margin: 0 auto; 
   }
   
   /* Apply larger gap to every 20th row */
@@ -452,9 +452,17 @@ audio {
   
   
   .dot {
+    display: flex;
+    justify-content: center; /* Center horizontally */
+    align-items: center; /* Center vertically */
     width: 8px;
     height: 8px;
     background-color: #b2b2b2; /* Default gray color */
+    color: #767676;
     border-radius: 50%;
+    font-weight: bold;
+    position: relative;
+    top: -1px;
+    line-height: 1000px;
   }
   

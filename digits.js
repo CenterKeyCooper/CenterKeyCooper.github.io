@@ -1,9 +1,12 @@
 let selectedButton = null;
 let selectedOperation = '+';
 let targetNumber;
+let used = 0;
 let puzzlesSolved = parseInt(localStorage.getItem('puzzlesSolved')) || 0;
 let seenTargetNumbers = JSON.parse(localStorage.getItem('seenTargetNumbers')) || [];
 let solvedTargetNumbers = JSON.parse(localStorage.getItem('solvedTargetNumbers')) || [];
+let perfectTargetNumbers = JSON.parse(localStorage.getItem('perfectTargetNumbers')) || [];
+
 
 
 function selectButton(button) {
@@ -17,6 +20,7 @@ function selectButton(button) {
       let valueToAdd = parseInt(selectedButton.textContent);
       let currentValue = parseInt(button.textContent);
       button.textContent = operate(valueToAdd, currentValue);
+      used += 1;
       // Remove the previously selected button
       selectedButton.style.visibility = 'hidden';
       checkForWin(button.textContent);
@@ -76,6 +80,9 @@ function checkForWin(value) {
     localStorage.setItem('puzzlesSolved', puzzlesSolved);
     document.getElementById('counter').textContent = puzzlesSolved;
     updateSolvedTargetNumbers(targetNumber);
+    if(used == 5){
+      updatePerfectTargetNumbers(targetNumber);
+    }
     // Refresh the page
     setTimeout(() => {
       window.location.reload();
@@ -102,6 +109,13 @@ function updateSolvedTargetNumbers(targetNumber) {
   if (!solvedTargetNumbers.includes(targetNumber)) {
     solvedTargetNumbers.push(targetNumber);
     localStorage.setItem('solvedTargetNumbers', JSON.stringify(solvedTargetNumbers));
+  }
+}
+
+function updatePerfectTargetNumbers(targetNumber) {
+  if (!perfectTargetNumbers.includes(targetNumber)) {
+    perfectTargetNumbers.push(targetNumber);
+    localStorage.setItem('perfectTargetNumbers', JSON.stringify(perfectTargetNumbers));
   }
 }
 
@@ -163,6 +177,7 @@ function resetButtons() {
     button.classList.remove('selected');
   });
   selectedButton = null;
+  used = 0;
 }
 
 
@@ -184,11 +199,21 @@ document.addEventListener('DOMContentLoaded', function() {
     
     if (solvedTargetNumbers.includes(i)) {
       dot.style.backgroundColor = '#a3c08b'; // Change color to green
+      dot.style.color = '#759858';
+    }
+
+    if (solvedTargetNumbers.includes(-i)) {
+      dot.style.backgroundColor = '#add8e6'; // Change color to blue
+      dot.style.color = '#76c4df';
+    }
+
+    if (perfectTargetNumbers.includes(i) || perfectTargetNumbers.includes(-i)) {
+      dot.textContent = '✦';
     }
 
     if(i <= 100){
       dot.style.height = '18px';
-      dot.style.width = '18px';
+      dot.style.width = '18px'; //
       gridContainer.appendChild(dot);
     }
     else {
