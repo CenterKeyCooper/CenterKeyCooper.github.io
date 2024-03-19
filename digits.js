@@ -2,6 +2,8 @@ let selectedButton = null;
 let selectedOperation = '+';
 let targetNumber;
 let puzzlesSolved = parseInt(localStorage.getItem('puzzlesSolved')) || 0;
+let seenTargetNumbers = JSON.parse(localStorage.getItem('seenTargetNumbers')) || [];
+let solvedTargetNumbers = JSON.parse(localStorage.getItem('solvedTargetNumbers')) || [];
 
 
 function selectButton(button) {
@@ -73,6 +75,7 @@ function checkForWin(value) {
     puzzlesSolved++;
     localStorage.setItem('puzzlesSolved', puzzlesSolved);
     document.getElementById('counter').textContent = puzzlesSolved;
+    updateSolvedTargetNumbers(targetNumber);
     // Refresh the page
     setTimeout(() => {
       window.location.reload();
@@ -86,6 +89,20 @@ function resetPuzzle() {
   setTimeout(() => {
     window.location.reload();
   }, 250);
+}
+
+function updateSeenTargetNumbers(targetNumber) {
+  if (!seenTargetNumbers.includes(targetNumber)) {
+    seenTargetNumbers.push(targetNumber);
+    localStorage.setItem('seenTargetNumbers', JSON.stringify(seenTargetNumbers));
+  }
+}
+
+function updateSolvedTargetNumbers(targetNumber) {
+  if (!solvedTargetNumbers.includes(targetNumber)) {
+    solvedTargetNumbers.push(targetNumber);
+    localStorage.setItem('solvedTargetNumbers', JSON.stringify(solvedTargetNumbers));
+  }
 }
 
 // Update the target number display
@@ -122,6 +139,7 @@ for (let i = 1; i < numbers.length; i++) {
 }
 
 targetNumber = tempResult;
+updateSeenTargetNumbers(targetNumber)
 
 document.getElementById('targetNumber').textContent = targetNumber;
 document.addEventListener('DOMContentLoaded', function() {
@@ -146,3 +164,34 @@ function resetButtons() {
   });
   selectedButton = null;
 }
+
+
+document.addEventListener('DOMContentLoaded', function() {
+  const gridContainer = document.getElementById('gridContainer');
+
+  // Generate 1000 dots
+  for (let i = 1; i <= 1000; i++) {
+    const dot = document.createElement('div');
+    dot.classList.add('dot');
+    console.log("dots", gridContainer);
+    if (seenTargetNumbers.includes(i)) {
+      dot.style.backgroundColor = '#e4e77e'; // Change color to yellow
+    }
+    
+    if (solvedTargetNumbers.includes(i)) {
+      dot.style.backgroundColor = '#a3c08b'; // Change color to green
+    }
+
+    // if (i <= 100) {
+
+    // }
+
+    // if ((i + 1) % 100 === 0 && i < 999) {
+    //   const spacer = document.createElement('div');
+    //   spacer.classList.add('space');
+    //   gridContainer.appendChild(spacer);
+    // }
+
+    gridContainer.appendChild(dot);
+  }
+});

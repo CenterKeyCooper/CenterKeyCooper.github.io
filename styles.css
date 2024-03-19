@@ -431,5 +431,30 @@ audio {
     height: 0; /* Match button height */
   }
   
+  .grid-container {
+    display: grid;
+    grid-template-columns: repeat(20, 10px);
+    grid-template-rows: repeat(50, 10px);
+    gap: 2px;
+    margin: 0 auto;
+  }
   
-
+  /* Apply larger gap to every 20th row */
+  .grid-container > div:nth-child(20n) {
+    margin-bottom: 8px;
+  }
+  
+  /* Apply larger size to the first 100 dots */
+  .grid-container > div:nth-child(-n + 100) .dot {
+    width: 18px;
+    height: 18px;
+    background-color: #ff0404;
+  }
+  
+  .dot {
+    width: 8px;
+    height: 8px;
+    background-color: #b2b2b2; /* Default gray color */
+    border-radius: 50%;
+  }
+  
