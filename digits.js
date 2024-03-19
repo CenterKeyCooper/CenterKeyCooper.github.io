@@ -168,6 +168,10 @@ function resetButtons() {
 
 document.addEventListener('DOMContentLoaded', function() {
   const gridContainer = document.getElementById('gridContainer');
+  // const gridContainer2 = document.getElementById('gridContainer2');
+  gridContainer2.style.gridTemplateColumns = 'repeat(20, 10px)';
+  gridContainer2.style.gridTemplateRows = 'repeat(50, 10px)';
+
 
   // Generate 1000 dots
   for (let i = 1; i <= 1000; i++) {
@@ -182,6 +186,15 @@ document.addEventListener('DOMContentLoaded', function() {
       dot.style.backgroundColor = '#a3c08b'; // Change color to green
     }
 
+    if(i <= 100){
+      dot.style.height = '18px';
+      dot.style.width = '18px';
+      gridContainer.appendChild(dot);
+    }
+    else {
+      gridContainer2.appendChild(dot);
+    }
+
     // if (i <= 100) {
 
     // }
@@ -192,6 +205,6 @@ document.addEventListener('DOMContentLoaded', function() {
     //   gridContainer.appendChild(spacer);
     // }
 
-    gridContainer.appendChild(dot);
+    
   }
 });
