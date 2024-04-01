@@ -11,9 +11,11 @@
     <div class="ballot-container" id="ballot-container">
         <label for="ballot-input">Enter Ranked Ballots (CSV):</label>
         <textarea id="ballot-input" rows="5"></textarea>
+        <div class="stv-controls">
+            <button id="run-stv">Run Single Transferable Vote</button>
+            <input type="number" id="num-winners" value=8>
+        </div>
         <button id="run-voting">Run Instant Runoff Voting</button>
-        <button id="run-stv">Run Single Transferable Vote</button>
-        <input type="number" id="num-winners" placeholder="Number of Winners">
     </div>
     <div class="result-container" id="result-container">
         <h2>Results</h2>

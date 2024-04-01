@@ -521,3 +521,32 @@ button:hover {
     text-align: center;
 }
 
+.stv-controls {
+  display: flex;
+  justify-content: center; /* Center horizontally */
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.stv-controls button {
+  margin-right: 10px;
+}
+
+#num-winners {
+  border-top-left-radius: 0px;
+  border-bottom-left-radius: 0px;
+  margin-left: 0px;
+  width: 25px;
+  background-color: #bcd8f7;
+  padding-right: 0px;
+  padding-left: 5px;
+  font-weight: bold;
+  font-family: 'Courier New', monospace;
+}
+
+#run-stv{
+  border-top-right-radius: 0px;
+  border-bottom-right-radius: 0px;
+  margin-right: 0px;
+}
+
