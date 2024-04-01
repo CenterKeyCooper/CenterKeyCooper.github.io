@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Instant Runoff Voting</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <h1>Instant Runoff Voting</h1>
+    <div class="ballot-container" id="ballot-container">
+        <label for="ballot-input">Enter Ranked Ballots (CSV):</label>
+        <textarea id="ballot-input" rows="5"></textarea>
+        <button id="run-voting">Run Instant Runoff Voting</button>
+        <button id="run-stv">Run Single Transferable Vote</button>
+        <input type="number" id="num-winners" placeholder="Number of Winners">
+    </div>
+    <div class="result-container" id="result-container">
+        <h2>Results</h2>
+        <div id="round-results"></div>
+        <div id="winner"></div>
+    </div>
+
+    <script src="voting.js"></script>
+</body>
+</html>
