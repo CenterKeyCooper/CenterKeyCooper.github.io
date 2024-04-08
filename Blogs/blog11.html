@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="styles.css">
+    <title>Blog</title>
+    <link rel="icon" href="icon.png" type="image/x-icon" />
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/devicons/devicon@v2.15.1/devicon.min.css">
+          
+</head>
+<body>
+    <header>
+        <h1 style = "text-decoration: underline;">Cooper Wilk</h1>
+        <nav>
+            <ul>
+                <li class="header-link"><a href="../index.html">main page</a></li>
+            </ul>
+        </nav>
+    </header>
+    <section class="space"></section>
+    <section>
+        <h2>April 7th, 2024</h2>
+        <img src="../Photos/Technical/Headshot.jpg" alt="Me" style="float: left;">
+        <h3>SWE accomplishments this week</h3>
+        <p>
+            This past week, we had the most fun challenge of the season: the smoothie making challenge. I also spent some time working on Graphics and constructing a new game on my website called Digits and added a new component to my website to calculate ranked choice and single transeferable voting. 
+        </p>
+        <p>
+            In terms of Software Engineering, our team started working on populating our API with sorting calls. I started working on adding the search bar and search features to the frontend. I feel like we also have good infrastructure in place to finish this milestone.        </p>
+        <h3>What was in my way</h3>
+        <p>
+            I spent a lot of time this week on my Graphics projectt, which was due on Thursday. Also, Survivor Texas starting took up a bit of time, but honestly, all of these were very fun.
+        </p>
+        <h3>Plans for next week</h3>
+        <p>
+            Next week, we will finish our milestone for the project by having our API filter calls completed and tested. I will finish my Graphics project and have a good time with Survivor Texas.        </p>
+
+        <h3>Paper #11. More on getters and setters</h3>
+        <p>
+            This paper probably did the best job of convincing me why data in classes should be private. I'd heard this before but I never really belived it or understood fully why until now. When working on long-term projects, it makes sense to enforce the modularity of your code by making modules not overly-dependent to any other objects, especially objects that do not immediately relate to them by separating complex interfaces.      </p>
+        <h3>Thoughts on instance methods, static methods and class methods</h3>
+        <p>
+            Instance methods operate on individual instances of a class and have access to instance-specific data through the "self" parameter. They are commonly used for actions or behaviors that are specific to each instance. Static methods, on the other hand, are not bound to any specific instance and do not have access to instance data. They are often used for utility functions that do not require access to instance variables. Class methods are similar to static methods but have access to the class itself via the "cls" parameter. They are commonly used for methods that need to access or modify class-level attributes or perform operations on the class itself. Each method type serves a distinct purpose in Python, providing flexibility and clarity in object-oriented programming.
+         </p>
+         <h3>Thoughts on SQL select, SQL subqueries, and SQL joins</h3>
+         <p>
+            SQL Select is like picking what you want from a buffet. You choose the columns of data you're interested in from a table. SQL Subqueries let you ask a question (subquery) to find specific information that helps answer the bigger question. SQL Joins let you have multiple tables, and joins help you connect the pieces (rows) that fit together based on common values, giving you a fuller picture of your data.          </p>
+        
+        <h3>What made me happy</h3>
+        <p>
+            I was most excited about our challenge on Thursday, because it was so so cool. Everyone wore their new crew shirts  and the challenge went amazingly well, all the players were really really into it.
+            <h3>Tip-of-the-week</h3>
+            <p>
+                My tip of the week is that there are no free online ranked choice voter programs, so you either have to build your own, or use the one that I made B), it is attached to this website.
+            </p>
+        
+            <p>
+            My other tip of the week is to still learn the functional aspects of JavaScript programming. I always hated it so I never learned it for real, but to add this game, Digits, to my website I had to learn a lot more about functional programming. For example to shuffle a list in JavaScript, you can do it in one line with this: numbers = numbers.slice().sort(() => Math.random() - 0.5);
+        </p>
+        <li><a href="../digits.html">Play Digits Here</a></li>
+ 
+    </section>
+    <section class="space"></section>
+    <footer>
+        <p>&copy; 2024 Cooper Wilk</p>
+    </footer>
+
+    <script src="content.js"></script>
+</body>
+</html>
