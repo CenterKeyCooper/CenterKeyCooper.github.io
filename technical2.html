@@ -36,9 +36,10 @@
             border-bottom: 2px solid #444;
         }
 
-        a {
+        /* a {
             text-decoration: none;
-        }
+            color: #ffcc00;
+        } */
 
         nav ul li a {
             text-decoration: none;
@@ -75,6 +76,17 @@
 
         nav ul li a:hover {
             color: #ffcc00;
+        }
+
+        a {
+            text-decoration: none;
+            color: #ffcc00;
+            font-size: 1.1em;
+            transition: color 0.3s ease-in-out;
+        }
+
+        a:hover {
+            color: #e8e8e8 ;
         }
 
         /* Section Styling */
@@ -243,12 +255,12 @@
 <body>
     <!-- Header -->
     <header>
-        <a href="index.html"><h1>Cooper Wilk</h1></a>
+        <h1><a href="index.html">Cooper Wilk</a></h1>
         <nav>
             <ul>
                 <li><a href="#about">About</a></li>
                 <li><a href="#projects">Projects</a></li>
-                <li><a href="#experience">Work Experience</a></li>
+                <li><a href="#experience">Work</a></li>
                 <li><a href="#classes">Classes</a></li>
             </ul>
         </nav>
@@ -340,18 +352,38 @@
         <div class="projects-container">
             <div class="project-card">
                 <img src="Photos/Technical/slam.png" alt="Project 1 Image">
-                <h3>Project 1</h3>
-                <p>Brief description of your project goes here. Highlight achievements or technologies used.</p>
+                <h3>SLAM</h3>
+                <p>Project Description</p>
+            </div>
+            <div class="project-card">
+                <img src="Photos/Technical/AYDLanding.png" alt="Project 2 Image">
+                <h3>AtYourDoor Frontend</h3>
+                <p>Project Description</p>
             </div>
             <div class="project-card">
                 <img src="Photos/Technical/AYDFigma.png" alt="Project 2 Image">
-                <h3>Project 2</h3>
-                <p>Brief description of your project goes here. Highlight achievements or technologies used.</p>
+                <h3>AtYourDoor Figma</h3>
+                <p>Project Description</p>
             </div>
             <div class="project-card">
-                <img src="project3-image.jpg" alt="Project 3 Image">
-                <h3>Project 3</h3>
-                <p>Brief description of your project goes here. Highlight achievements or technologies used.</p>
+                <img src="Photos/Technical/minecraft.png" alt="Project 3 Image">
+                <h3>Web GL Block World</h3>
+                <p>Project Description</p>
+            </div>
+            <div class="project-card">
+                <img src="Photos/Technical/dragon.png" alt="Project 3 Image">
+                <h3>Ray Tracer</h3>
+                <p>Project Description</p>
+            </div>
+            <div class="project-card">
+                <img src="Photos/Technical/3dcubes.png" alt="Project 3 Image">
+                <h3>3D Ray Tracer</h3>
+                <p>Project Description</p>
+            </div>
+            <div class="project-card">
+                <img src="Photos/Technical/glacial.png" alt="Project 3 Image">
+                <h3>Glacial</h3>
+                <p>Project Description</p>
             </div>
         </div>
     </section>
