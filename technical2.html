@@ -34,6 +34,7 @@
             top: 0;
             z-index: 1000;
             border-bottom: 2px solid #444;
+            flex-wrap: wrap;
         }
 
         /* a {
@@ -61,6 +62,9 @@
         nav ul {
             display: flex;
             list-style: none;
+            flex-wrap: wrap; /* Allow navigation items to wrap */
+            gap: 10px; /* Add spacing between items */
+            margin-left: auto; 
         }
 
         nav ul li {
@@ -261,7 +265,7 @@
                 <li><a href="#about">About</a></li>
                 <li><a href="#projects">Projects</a></li>
                 <li><a href="#experience">Work</a></li>
-                <li><a href="#classes">Classes</a></li>
+                <li><a href="#classes">Courses</a></li>
             </ul>
         </nav>
     </header>
@@ -306,7 +310,7 @@
         <div class="work-experience">
             <div class="job">
                 <h3>Software Engineer Intern</h3>
-                <span>HBK Capital Management | June - August 2024</span>
+                <span>HBK Capital Management | New York, NY | June - August 2024</span>
                 <p>
                     Built Flask API to perform vector calculations over portfolio data to keep all business logic out of the front end.
                 </p>
@@ -319,7 +323,7 @@
             </div>
             <div class="job">
                 <h3>Platinum Coder</h3>
-                <span>Outlier | December 2023 - Present</span>
+                <span>Outlier | Remote | December 2023 - Present</span>
                 <p>
                     Generate and clean training data for a code-focused Large Language Model used by Scale AI.
                 </p>
@@ -331,8 +335,8 @@
                 </p>
             </div>
             <div class="job">
-                <h3>Product Management Intern</h3>
-                <span>Dell | May - August 2023</span>
+                <h3>Technical Product Manager Intern</h3>
+                <span>Dell | Austin, TX | May - August 2023</span>
                 <p>
                     Worked as the product manager on a team of interns to develop visualization tools for InsideIQ for Power Max
                 </p>
@@ -350,6 +354,18 @@
     <section id="projects">
         <h2>Projects</h2>
         <div class="projects-container">
+            <div class="project-card">
+                <!-- <img src="Photos/Technical/if_else_ex.v.PNG" alt="Project 1 Image"> -->
+                <img src="Photos/Technical/digits.png" alt="Project 1 Image">
+                <h3>Digits</h3>
+                <p>Project Description</p>
+            </div>
+            <div class="project-card">
+                <!-- <img src="Photos/Technical/if_else_ex.v.PNG" alt="Project 1 Image"> -->
+                <img src="Photos/Technical/if_else_ex.PNG" alt="Project 1 Image">
+                <h3>Verilog Visualizer</h3>
+                <p>Project Description</p>
+            </div>
             <div class="project-card">
                 <img src="Photos/Technical/slam.png" alt="Project 1 Image">
                 <h3>SLAM</h3>
