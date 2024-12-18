@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Technical Portfolio</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/devicon.min.css">
+    <link rel="icon" href="icon.png" type="image/x-icon" />
 
     <style>
         /* General Reset */
@@ -33,6 +34,20 @@
             top: 0;
             z-index: 1000;
             border-bottom: 2px solid #444;
+        }
+
+        a {
+            text-decoration: none;
+        }
+
+        nav ul li a {
+            text-decoration: none;
+            color:  #ffcc00;
+            transition: color 0.3s ease-in-out;
+        }
+
+        nav ul li a:hover {
+            color: #e8e8e8;;
         }
 
         header h1 {
@@ -136,6 +151,7 @@
             transition: transform 0.3s ease, box-shadow 0.3s ease;
             cursor: pointer;
             text-align: center;
+            
         }
 
         .project-card:hover {
@@ -154,10 +170,19 @@
         .project-card h3 {
             margin-bottom: 10px;
             color: #ffcc00;
+            white-space: nowrap; /* Prevent the text from wrapping onto the next line */
+            overflow: hidden; /* Hide any overflowing text */
+            text-overflow: ellipsis; /* Add ellipses to indicate truncated text */
         }
 
         .project-card p {
             font-size: 0.9em;
+            max-height: 150px; /* Set the maximum height */
+            overflow: hidden; /* Hide overflowing text */
+            text-overflow: ellipsis; /* Add ellipsis for truncated text */
+            display: -webkit-box;
+            -webkit-line-clamp: 6; /* Limit the number of lines (adjust as needed) */
+            -webkit-box-orient: vertical; /* Use vertical orientation for the text box */
         }
 
         /* Work Experience */
@@ -184,6 +209,20 @@
             color: #aaa;
         }
 
+        .card-link {
+            text-decoration: none; /* Removes underline */
+            color: inherit; /* Ensures text color inside the card doesn't change */
+        }
+
+        .card-link .project-card {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .card-link .project-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.4);
+        }
+
         /* Footer */
         footer {
             background: #222;
@@ -204,7 +243,7 @@
 <body>
     <!-- Header -->
     <header>
-        <h1>Technical</h1>
+        <a href="index.html"><h1>Cooper Wilk</h1></a>
         <nav>
             <ul>
                 <li><a href="#about">About</a></li>
@@ -234,8 +273,12 @@
             <i class="devicon-javascript-plain"></i>
             <i class="devicon-typescript-plain"></i>
             <i class="devicon-html5-plain"></i>
-            <i class="devicon-css3-plain"></i>
+            <!-- <i class="devicon-css3-plain"></i> -->
             <i class="devicon-godot-plain"></i>
+            <i class="devicon-azuresqldatabase-plain"></i>
+            <i class="devicon-r-plain"></i>
+
+
         </div>
 
         <div style="text-align: center;">
@@ -277,7 +320,7 @@
             </div>
             <div class="job">
                 <h3>Product Management Intern</h3>
-                <span>Dell | May - August 2024</span>
+                <span>Dell | May - August 2023</span>
                 <p>
                     Worked as the product manager on a team of interns to develop visualization tools for InsideIQ for Power Max
                 </p>
@@ -319,24 +362,134 @@
     <section id="classes">
         <h2>Classes</h2>
         <div class="projects-container">
-            <div class="project-card">
-                <h3>Class Name 1</h3>
-                <p>Details about the class or what you accomplished here.</p>
-            </div>
-            <div class="project-card">
-                <h3>Class Name 2</h3>
-                <p>Details about the class or what you accomplished here.</p>
-            </div>
-            <div class="project-card">
-                <h3>Class Name 3</h3>
-                <p>Details about the class or what you accomplished here.</p>
-            </div>
+            
+            <a href="https://www.cs.utexas.edu/~lin/cs314h/index.html" target="_blank" class="card-link">
+                <div class="project-card">
+                    <h3>Data Structures Honors</h3>
+                    <p>Created a working, fast, Web-Index using a Trie and an accomplished Tetris Brain. Covered every type of Algorithm analysis, Tree, Queue, Heap, Table, and Graph you can name.</p>
+                </div>
+            </a>
+            
+            <a href="https://www.cs.utexas.edu/~isil/cs311h/" target="_blank" class="card-link">
+                <div class="project-card">
+                    <h3>Discrete Math Honors</h3>
+                    <p>Dived into combinatorics, recurrence relations, and graph theory. Applied the Master Theorem extensively and gained insights into Euler paths and practical applications of discrete mathematics.</p>
+                </div>
+            </a>
+            
+            <a href="https://www.cs.utexas.edu/people/faculty-researchers/ahmed-gheith" target="_blank" class="card-link">
+                <div class="project-card">
+                    <h3>Computer Architecture Honors</h3>
+                    <p>Implemented custom memory allocation (malloc) and developed an original programming language with a compiler and interpreter. Tackled advanced projects in ARM, x86, and Verilog, including a challenging pipelining project.</p>
+                </div>
+            </a>
+            
+            <a href="https://www.cs.utexas.edu/people/faculty-researchers/ahmed-gheith" target="_blank" class="card-link">
+                <div class="project-card">
+                    <h3>Operating Systems Honors</h3>
+                    <p>Contributed to an OS capable of running Doom by designing a file system supporting multi-page read/write operations. Gained hands-on experience with system-level programming and threading concepts.</p>
+                </div>
+            </a>
+            
+            <a href="https://www.cs.utexas.edu/~ecprice/courses/331/sp24/" target="_blank" class="card-link">
+                <div class="project-card">
+                    <h3>Algorithms Honors</h3>
+                    <p>Explored advanced algorithms, including Karatsuba multiplication. Learned from Dr. Price’s insights and expertise, enhancing problem-solving skills in computational efficiency.</p>
+                </div>
+            </a>
+            
+            <a href="https://www.cs.utexas.edu/~rossbach/cs378h-s20/index.html" target="_blank" class="card-link">
+                <div class="project-card">
+                    <h3>Concurrency Honors</h3>
+                    <p>Developed multi-threaded solutions using semaphores and gained experience coding projects in various programming languages. Gained a deep understanding of synchronization mechanisms.</p>
+                </div>
+            </a>
+            
+            <a href="https://amrl.cs.utexas.edu/CS378-F1Tenth-Autonomous-Driving-S21/" target="_blank" class="card-link">
+                <div class="project-card">
+                    <h3>Autonomous Driving Honors</h3>
+                    <p>Built a real-time simultaneous localization and mapping (SLAM) system using CUDA and a single lidar sensor. Gained practical insights into autonomous vehicle technologies and sensor fusion.</p>
+                </div>
+            </a>
+            
+            <a href="https://www.cs.utexas.edu/~theshark/courses/cs354r/" target="_blank" class="card-link">
+                <div class="project-card">
+                    <h3>Game Technology</h3>
+                    <p>Designed a game engine and developed a networked, multiplayer, procedurally generated game about penguins exploring an ice cave. Mastered collision detection, real-time rendering, and environmental manipulation.</p>
+                </div>
+            </a>
+            
+            <a href="https://www.cs.utexas.edu/~evouga/courses.html" target="_blank" class="card-link">
+                <div class="project-card">
+                    <h3>Graphics Honors</h3>
+                    <p>Implemented Phong shading, light simulation, and advanced rendering techniques in C++ and WebGL. Developed a Minecraft-inspired final project, combining creativity with mathematical rigor.</p>
+                </div>
+            </a>
+            
+            <a href="https://www.cs.utexas.edu/~downing/cs373/" target="_blank" class="card-link">
+                <div class="project-card">
+                    <h3>Software Engineering</h3>
+                    <p>Practiced agile methodologies, including user stories and Kanban boards. Collaborated with real clients to develop user-centric software solutions while mastering version control.</p>
+                </div>
+            </a>
+            
+            <a href="https://rpl.cs.utexas.edu/cs343h_fall2024/" target="_blank" class="card-link">
+                <div class="project-card">
+                    <h3>Artificial Intelligence Honors</h3>
+                    <p>Implemented AI techniques to enable Pac-Man to play itself and studied foundational concepts in probability and linear algebra. Complemented the ML class audited previously.</p>
+                </div>
+            </a>
+            
+            <a href="https://www.cs.utexas.edu/people/faculty-researchers/kia-teymourian" target="_blank" class="card-link">
+                <div class="project-card">
+                    <h3>Cloud Computing</h3>
+                    <p>Developed cloud-based applications using Java and functional programming. Managed distributed systems and integrated concepts from concurrency for efficient resource utilization.</p>
+                </div>
+            </a>
+            
+            <a href="" target="_blank" class="card-link">
+                <div class="project-card">
+                    <h3>Data Analysis</h3>
+                    <p>Performed detailed statistical analysis on Survivor data, exploring player performance across 46 seasons. Applied concepts from AP Stats to uncover patterns and anomalies.</p>
+                </div>
+            </a>
+            
+            <a href="" target="_blank" class="card-link">
+                <div class="project-card">
+                    <h3>Mathematical Statistics</h3>
+                    <p>Applied statistical methods to AI and ML projects. Enhanced understanding of estimation techniques and sampling distributions in real-world scenarios.</p>
+                </div>
+            </a>
+            
+            <a href="" target="_blank" class="card-link">
+                <div class="project-card">
+                    <h3>Linear Algebra</h3>
+                    <p>
+                        Learned fundamental concepts such as matrix operations, vector spaces, and eigenvalues. Gained a deep understanding of linear transformations, orthogonality, and least-squares solutions. Later applied these principles in solving real-world problems in Graphics, Game Technology, Autonomous Driving, and AI. Developed practical skills in optimization, projection, and decomposition techniques such as SVD and QR, which are pivotal for advanced computational applications.
+                    </p>
+                </div>
+            </a>
+            
+            <a href="" target="_blank" class="card-link">
+                <div class="project-card">
+                    <h3>Multivariable Calculus</h3>
+                    <p>Built a strong mathematical foundation for advanced topics in AI, Statistics, and Data Visualization. Learned practical applications of gradient and divergence calculations.</p>
+                </div>
+            </a>
+            
+            <a href="https://wilkelab.org/SDS375/syllabus.html" target="_blank" class="card-link">
+                <div class="project-card">
+                    <h3>Data Visualization</h3>
+                    <p>Specialized in presenting complex datasets through R, mastering data cleaning and encapsulation techniques to communicate insights effectively.</p>
+                </div>
+            </a>
+            
         </div>
     </section>
 
     <!-- Footer -->
     <footer>
-        <p>&copy; 2024 Your Name. Designed with <a href="#">love</a>.</p>
+        <p>&copy; 2024 Cooper Wilk. Designed with <a href="#">love</a>.</p>
     </footer>
 </body>
 </html>
