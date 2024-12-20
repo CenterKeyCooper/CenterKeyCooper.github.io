@@ -152,8 +152,7 @@
             transform: scale(1.2);
         }
 
-        /* Project Cards */
-        .projects-container {
+        .class-container {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
             gap: 20px;
@@ -204,20 +203,21 @@
         /* Projects Container */
         .projects-container {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); /* Set grid for wider project cards */
+            grid-template-columns: repeat(auto-fit, minmax(600px, 1fr)); /* Set grid for wider project cards */
             gap: 20px;
         }
 
         /* Project Card */
+
         .project-card {
             background: #333;
             border: 2px solid #444;
-            display: flex;
-            align-items: center;
             padding: 20px;
             border-radius: 8px;
             transition: transform 0.3s ease, box-shadow 0.3s ease;
             cursor: pointer;
+            text-align: center;
+            
         }
 
         .project-card:hover {
@@ -225,36 +225,32 @@
             box-shadow: 0 8px 15px rgba(0, 0, 0, 0.4);
         }
 
-        .project-card-content {
-            flex: 1;
-            margin-right: 20px;
-            text-align: left;
+        .project-card img {
+            width: 100%;
+            height: 250px;
+            object-fit: cover;
+            border-radius: 8px;
+            margin-bottom: 15px;
         }
 
         .project-card h3 {
             margin-bottom: 10px;
             color: #ffcc00;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            white-space: nowrap; /* Prevent the text from wrapping onto the next line */
+            overflow: hidden; /* Hide any overflowing text */
+            text-overflow: ellipsis; /* Add ellipses to indicate truncated text */
         }
 
         .project-card p {
             font-size: 0.9em;
-            max-height: 150px;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            max-height: 150px; /* Set the maximum height */
+            overflow: hidden; /* Hide overflowing text */
+            text-overflow: ellipsis; /* Add ellipsis for truncated text */
             display: -webkit-box;
-            -webkit-line-clamp: 6;
-            -webkit-box-orient: vertical;
+            -webkit-line-clamp: 6; /* Limit the number of lines (adjust as needed) */
+            -webkit-box-orient: vertical; /* Use vertical orientation for the text box */
         }
 
-        .project-card img {
-            width: 200px; /* Adjust the size of the image */
-            height: 200px;
-            object-fit: cover;
-            border-radius: 8px;
-        }
 
         /* Work Experience */
         .work-experience {
@@ -412,34 +408,38 @@
             <div class="project-card">
                 <div class="project-card-content">
                     <h3>Digits</h3>
+                    <img src="Photos/Technical/digits.png" alt="Project 1 Image">
                     <p>Project Description</p>
                 </div>
-                <img src="Photos/Technical/digits.png" alt="Project 1 Image">
+                
             </div>
         </a>
         <a href="survivorut.html" target="_blank" class="card-link">
             <div class="project-card">
                 <div class="project-card-content">
                     <h3>Survivor Texas</h3>
+                    <img src="Photos/SurvivorUT/Group Shot.jpg" alt="Project Image">
                     <p>Project Description</p>
                 </div>
-                <img src="Photos/SurvivorUT/Group Shot.jpg" alt="Project Image">
+                
             </div>
         </a>
         <div class="project-card">
             <div class="project-card-content">
                 <h3>Verilog Visualizer</h3>
+                <img src="Photos/Technical/if_else_ex.PNG" alt="Project Image">
                 <p>A fully functional visualizer for the hardware description language <a>Verilog</a>. An interpreter built in <a>C++</a> that converted any Verilog file to an intermediate representation and a visualizer built in <a>Java</a>.</p>
                 <!-- <img src="Photos/Technical/if_else_ex.PNG" alt="Project Image" style="width: 600px"> -->
             </div>
-            <img src="Photos/Technical/if_else_ex.PNG" alt="Project Image">
+            
         </div>
         <div class="project-card">
             <div class="project-card-content">
                 <h3>SLAM</h3>
+                <img src="Photos/Technical/slam.png" alt="Project Image">
                 <p>Project Description</p>
             </div>
-            <img src="Photos/Technical/slam.png" alt="Project Image">
+            
         </div>
         <div class="project-card">
             <div class="project-card-content">
@@ -447,37 +447,42 @@
                 <p>Comprehensive website constructed with <a href="https://react.dev/">React</a> in <a href="https://www.typescriptlang.org/">TypeScript</a> and CSS. Utilizes a custom-built API for custom <a href="https://sqlbolt.com/">SQL</a> database as well as third-party APIs like Stripe’s to process payments. Used by customers, concierges, and building administrators in multiple buildings in the DC/College Park Area.</p>
                 <div style=" justify-content: center;  display: flex">
                     <img src="Photos/Technical/AYDLanding.png" alt="Project Image" >
-                    <img src="Photos/Technical/AYDFigma.png" alt="Project Image">
+                    <!-- <img src="Photos/Technical/AYDFigma.png" alt="Project Image"> -->
                 </div>
             </div>     
         </div>
         <div class="project-card">
             <div class="project-card-content">
                 <h3>Web GL Block World</h3>
+                <img src="Photos/Technical/minecraft.png" alt="Project Image">
                 <p>A procedurally-generated 3D world similar to that found in the popular game Minecraft. Used <a href="https://get.webgl.org/">Web GL</a> to work advanced shading techniques such as procedurally-generated textures, ambient occlusion, bump mapping, and water effects.</p>
             </div>
-            <img src="Photos/Technical/minecraft.png" alt="Project Image">
+            
         </div>
         <div class="project-card">
             <div class="project-card-content">
                 <h3>Ray Tracer</h3>
+                <img src="Photos/Technical/dragon.png" alt="Project Image">
                 <p>Implement ray tracing "by hand," (no libraries for math functions) in <a href="https://cplusplus.com/">C++</a> to generate ray-traced images of complex scenes using Whitted illumination, including shading, reflections, refractions, texture maps, and a BVH tree to dramatically improve performance.</p>
             </div>
-            <img src="Photos/Technical/dragon.png" alt="Project Image">
+            
         </div>
         <div class="project-card">
             <div class="project-card-content">
                 <h3>3D Ray Tracer</h3>
+                <img src="Photos/Technical/3dcubes.png" alt="Project Image">
                 <p>Project Description</p>
+                
             </div>
-            <img src="Photos/Technical/3dcubes.png" alt="Project Image">
+            
         </div>
         <div class="project-card">
             <div class="project-card-content">
                 <h3>Glacial</h3>
+                <img src="Photos/Technical/glacial.png" alt="Project Image">
                 <p>Project Description</p>
             </div>
-            <img src="Photos/Technical/glacial.png" alt="Project Image">
+            
         </div>
     </div>
 </section>
@@ -488,7 +493,7 @@
     <!-- Classes Section -->
     <section id="classes">
         <h2>Classes</h2>
-        <div class="projects-container">
+        <div class="class-container">
             
             <a href="https://www.cs.utexas.edu/~lin/cs314h/index.html" target="_blank" class="card-link">
                 <div class="class-card">
