@@ -3,158 +3,620 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="styles.css">
-    <title>technical</title>
+    <title>Technical Portfolio</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/devicon.min.css">
     <link rel="icon" href="icon.png" type="image/x-icon" />
-    
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/devicons/devicon@v2.15.1/devicon.min.css">
-          
+
+    <style>
+        /* General Reset */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Courier New', Courier, monospace;
+            background-color: #1b1b1b;
+            color: #e8e8e8;
+            line-height: 1.6;
+            scroll-behavior: smooth;
+        }
+
+        /* Header and Navigation */
+        header {
+            background: #222;
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            border-bottom: 2px solid #444;
+            flex-wrap: wrap;
+        }
+
+        /* a {
+            text-decoration: none;
+            color: #ffcc00;
+        } */
+
+        nav ul li a {
+            text-decoration: none;
+            color:  #ffcc00;
+            transition: color 0.3s ease-in-out;
+        }
+
+        nav ul li a:hover {
+            color: #e8e8e8;;
+        }
+
+        header h1 {
+            font-size: 1.8em;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: #ffcc00;
+        }
+
+        nav ul {
+            display: flex;
+            list-style: none;
+            flex-wrap: wrap; /* Allow navigation items to wrap */
+            gap: 10px; /* Add spacing between items */
+            margin-left: auto; 
+        }
+
+        nav ul li {
+            margin: 0 15px;
+        }
+
+        nav ul li a {
+            text-decoration: none;
+            color: #e8e8e8;
+            font-size: 1.1em;
+            transition: color 0.3s ease-in-out;
+        }
+
+        nav ul li a:hover {
+            color: #ffcc00;
+        }
+
+        a {
+            text-decoration: none;
+            color: #ffcc00;
+            font-size: 1.1em;
+            transition: color 0.3s ease-in-out;
+        }
+
+        a:hover {
+            color: #e8e8e8 ;
+        }
+
+        /* Section Styling */
+        section {
+            padding: 50px 10%;
+            min-height: 100vh;
+        }
+
+        section:nth-child(even) {
+            background: #2b2b2b;
+        }
+
+        section h2 {
+            font-size: 2.5em;
+            text-align: center;
+            margin-bottom: 20px;
+            color: #ffcc00;
+        }
+
+        /* Headshot Section */
+        #about {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            gap: 20px;
+        }
+
+        #about img {
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            border: 3px solid #ffcc00;
+            object-fit: cover;
+        }
+
+        #about p {
+            font-size: 1.1em;
+            max-width: 600px;
+        }
+
+
+        /* Devicons Section */
+        .devicons {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .devicons i {
+            font-size: 50px;
+            color: #ffcc00;
+            transition: transform 0.3s ease-in-out;
+        }
+
+        .devicons i:hover {
+            transform: scale(1.2);
+        }
+
+        /* Project Cards */
+        .projects-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .class-card {
+            background: #333;
+            border: 2px solid #444;
+            padding: 20px;
+            border-radius: 8px;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            cursor: pointer;
+            text-align: center;
+            
+        }
+
+        .class-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.4);
+        }
+
+        .class-card img {
+            width: 100%;
+            height: 250px;
+            object-fit: cover;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+
+        .class-card h3 {
+            margin-bottom: 10px;
+            color: #ffcc00;
+            white-space: nowrap; /* Prevent the text from wrapping onto the next line */
+            overflow: hidden; /* Hide any overflowing text */
+            text-overflow: ellipsis; /* Add ellipses to indicate truncated text */
+        }
+
+        .class-card p {
+            font-size: 0.9em;
+            max-height: 150px; /* Set the maximum height */
+            overflow: hidden; /* Hide overflowing text */
+            text-overflow: ellipsis; /* Add ellipsis for truncated text */
+            display: -webkit-box;
+            -webkit-line-clamp: 6; /* Limit the number of lines (adjust as needed) */
+            -webkit-box-orient: vertical; /* Use vertical orientation for the text box */
+        }
+
+        /* Projects Container */
+        .projects-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(600px, 1fr)); /* Set grid for wider project cards */
+            gap: 20px;
+        }
+
+        /* Project Card */
+        .project-card {
+            background: #333;
+            border: 2px solid #444;
+            display: flex;
+            align-items: center;
+            padding: 20px;
+            border-radius: 8px;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            cursor: pointer;
+        }
+
+        .project-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.4);
+        }
+
+        .project-card-content {
+            flex: 1;
+            margin-right: 20px;
+            text-align: left;
+        }
+
+        .project-card h3 {
+            margin-bottom: 10px;
+            color: #ffcc00;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .project-card p {
+            font-size: 0.9em;
+            max-height: 150px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: -webkit-box;
+            -webkit-line-clamp: 6;
+            -webkit-box-orient: vertical;
+        }
+
+        .project-card img {
+            width: 200px; /* Adjust the size of the image */
+            height: 200px;
+            object-fit: cover;
+            border-radius: 8px;
+        }
+
+        /* Work Experience */
+        .work-experience {
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+        }
+
+        .job {
+            background: #333;
+            border: 2px solid #444;
+            padding: 20px;
+            border-radius: 8px;
+        }
+
+        .job h3 {
+            margin-bottom: 5px;
+            color: #ffcc00;
+        }
+
+        .job span {
+            font-size: 0.9em;
+            color: #aaa;
+        }
+
+        .card-link {
+            text-decoration: none; /* Removes underline */
+            color: inherit; /* Ensures text color inside the card doesn't change */
+        }
+
+        .card-link .class-card {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .card-link .class-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.4);
+        }
+
+        /* Footer */
+        footer {
+            background: #222;
+            padding: 10px 20px;
+            text-align: center;
+            color: #888;
+            border-top: 2px solid #444;
+        }
+
+        footer a {
+            text-decoration: none;
+            color: #ffcc00;
+        }
+
+        
+    </style>
 </head>
 <body>
+    <!-- Header -->
     <header>
-        <h1 style = "text-decoration: underline;">Cooper Wilk</h1>
+        <h1><a href="index.html">Cooper Wilk</a></h1>
         <nav>
             <ul>
-                <li class="header-link"><a href="index.html">main page</a></li>
+                <!-- <li><a href="#about">About</a></li> -->
+                <li><a href="#projects">Projects</a></li>
+                <li><a href="#experience">Work</a></li>
+                <li><a href="#classes">Courses</a></li>
             </ul>
         </nav>
     </header>
-    <section class="space"></section>
-    <section>
-        <img src="Photos/Technical/Headshot.jpg" alt="Headshot" style="transform: scaleX(-1);">
-        <!-- <p style="color:red">This part of the website is still under construction. Last commit: 9/19/24 9:20</p> -->
+
+    <!-- About Section -->
+    <section id="about">
         <h2>About Me</h2>
-        <!-- <section id="techbio"></section> -->
-        <p>I have been programming since I was in 7th grade (5th grade if you count Scratch). I love creating games but have branched off to more serious technical projects as I have honed my skills. I am now in Turing Scholars Honors Program at the University of Texas.</p>
-
-        <h2>Skills</h2>
-        <!-- <section id="content"></section> -->
-        
-        <i class="devicon-python-plain" style="font-size:50px"></i>
-        <i class="devicon-java-plain" style="font-size:50px"></i>
-        <i class="devicon-cplusplus-plain" style="font-size:50px"></i>
-        <i class="devicon-csharp-plain" style="font-size:50px"></i>
-        <i class="devicon-c-plain" style="font-size:50px"></i>
-        <i class="devicon-rust-plain" style="font-size:50px"></i>
-        <i class="devicon-go-original-wordmark" style="font-size:50px"></i>
-        <i class="devicon-javascript-plain" style="font-size:50px"></i>
-        <i class="devicon-typescript-plain" style="font-size:50px"></i>
-        <i class="devicon-html5-plain" style="font-size:50px"></i>
-        <i class="devicon-css3-plain" style="font-size:50px"></i>
-        <i class="devicon-godot-plain" style="font-size:50px"></i>
-                  
-          
-          
-
-
-        <h2>Classes</h2>
-        <section>
-            <h1> Data Structures(H)</h1>
-            <p>My favorite tree is a Trie, but do NOT make a Web Index using a Trie, just use a Map of Maps, the speedup is minimal when it exists at all. Still to say you did it though. Tetris Brain was one of my favorite projects I've worked on for a class, was able to clear 1000s of lines (much better than me) all thanks to genetic algorithms</p>
-            <h1> Discrete Math(H)</h1>
-            <p>Stars and bars, baby. Learned too much about recurrence relations and how combinatorics can sneak its way into everything. The Master Theorem always wins, but don’t forget about graph theory—there’s a lot more to those Euler paths than just drawing lines</p>
-            <h1>Computer Architecture(H)</h1>
-            <p>The highlight of my life was having my Malloc implementation work on the first try. Incredibly cool class, learned a ton (too much?) about ARM, X86, and Verilog, learned a ton (the right amount) of C. Created an interpreter and compiler for an orignial language, malloc, coroutines, and the most intense project I have ever done in my life, pipelining pt.2</p>
-            <h1>Operating Systems(H)</h1>
-            <p>An incredibly important class, I learned much much more about system and got my hands very dirty. Proud to say that our class's OS successfully ran Doom and our File System (which I worked on) could successfully read and write.</p>
-            <h1>Algorithms(H)</h1>
-            <p>Even the first week impressed me a ton, I still think Karatsubah Multiplication is one of the most eye-opening algorithms I've learned about. Dr. Price is one of the most impressive people I have spoken to.</p>
-            <h1>Concurrency(H)</h1>
-            <p>The answer is usually a semaphore, and the Little Book of those is extremely helpful. Every project in this class was in a different language, which was only really cool after the fact</p>
-            <h1>Autonomous Driving(H)</h1>
-            <p>Those Waymo and Cruise cars you see driving around are a lot more impressive to me now. To be fair though, they have like 30 cameras and sensors and we only had a single lidar, an array of 1024 distances from -145° to 145° so you should give me credit for making simultaneous localization and mapping actually real time (I can't believe CUDA was useful already).
-            <h1>Game Technology</h1>
-            <p>From collision detection to real-time rendering, this class was like peeking behind the curtain of your favorite video games. We even got to code our own game engine. I’m not saying I made the next Halo, but my networked, multiplayer, procedurally generated, and enviornmentally manipulatable game about penguins exploring an ice cave is a lot of fun!</p>
-            <h1>Graphics(H)</h1>
-            <p>Learned how to make things look smooth and shiny (Phong shading, anyone?) and how to simulate light bouncing around, in C++ and WebGL. Also the final project for the class was quite fun, minecraft is one of my favorite games of all times. The math was Tough. The payoff was Worth it.</p>
-            <h1>Software Engineering</h1>
-            <p>This is where all the “agile” buzzwords came into play. User stories, Kanban boards, and actual clients—I got a taste of what it's like to build software that doesn’t just work but works for people. Spoiler: version control is your best friend.</p>
-            <h1>Artificial Intelligence(H)</h1>
-            <p>What do you know, linear algebra and probability rear their lovely heads. This does work nicely with the ML class I audited last semester, but now we're also getting pacman to play itself. Eerily similar to autonomous driving believe it or not.</p>
-            <h1>Cloud Computing</h1>
-            <p>One of the likely most practical classes I'll take. It's just a shame that every project costs 5¢ an hour! Also keeps me on my java, functional toes and meshed quite well with concurrency.</p>
-
-
-
-            <h1>Data Analysis</h1>
-            <p>AP Stats++, an excuse to do comically in depth data analysis of the 46-season long Survivor Data set. (Ozzy breaks the physicality score I gave every player because he won every individual challenge except for 1 in S13)</p>
-            <h1>Mathematical Statistics</h1>
-            <p>Used quite heavily in my AI class and the ML class I audited. 100% keeps me on my mathematical toes as a Senior.</p>
-            <h1>Linear Algebra</h1>
-            <p>Unfortunately this was the most useful math class I took. Annoyingly useful in my Graphics, Game Tech, Autonomous Driving and AI class</p>
-            <h1>Multivavriable Calculi</h1>
-            <p>I am not sure what the plural for calculus is, but I took th ese my freshman and sophomore year, good foundations to have especially in applying Math Stats.</p>
-            <h1>Data Visualization</h1>
-            <p>I do not like R, what I don't like even more is how useful and effective R is! I learned a lot of visualization and data cleaning techniques, how to encapsulate the big picture takeaway from messy, high variable, data sets.</p>
-        </section>
-
-        <h2>Projects</h2>
-        <section>
-            <h1>Tetris Brain</h1>
-            <h1>Web Crawler</h1>
-            <h1>Original Language Compiler</h1>
-            <h1>Verilog Visualizer</h1>
-            <div class="centered-image">
-                <img src="Photos/Technical/if_else_ex.v.PNG" alt="verilog">
-            </div>
-            <div class="centered-image">
-                <img src="Photos/Technical/if_else_ex.PNG" alt="visualized">
-            </div>
-            <h1>AYD Website</h1>
-            <div class="centered-image">
-                <img src="Photos/Technical/AYDLanding.png" alt="landing page">
-            </div>
-            <h1>SLAM</h1>
-            <div class="centered-image">
-                <img src="Photos/Technical/slam.png" alt="slam">
-            </div>
-            <h1>Ray Tracer</h1>
-            <div class="centered-image">
-                <img src="Photos/Technical/dragon.png" alt="rt">
-            </div>
-            <h1>3D Ray Tracer</h1>
-            <div class="centered-image">
-                <img src="Photos/Technical/3dcubes.png" alt="3d">
-            </div>
-            <h1>Web GL Block World</h1>
-            <div class="centered-image">
-                <img src="Photos/Technical/minecraft.png" alt="minecraft">
-            </div>
-            <h1>Spline Generator</h1>
-            <h1>Glacial</h1>
-            <div class="centered-image">
-                <img src="Photos/Technical/glacial.png" alt="verilog">
-            </div>
-        </section>
-
-        <h2>HBK - Software Engineer</h2>
+        <img src="Photos/Technical/Headshot.jpg" alt="My Headshot">
         <p>
-        Built Flask API to perform vector calculations over portfolio data to keep all business logic out of the front end.
+            Hi, I'm Cooper, the President of the Turing Scholars Computer Science Honors Program at the University of Texas. I'm passionate about software engineering, building creative projects, and tackling exciting technical challenges. Welcome to my portfolio where I showcase my work experience, projects, and coursework.
         </p>
-        <p>
-        Created frontend from scratch to provide front desk more control of BPV portfolio. First instance of React at HBK
-        </p>
-        <p>
-        Wrote Python automation scripts connecting internal databases to save time for front desk and other quants.
-        </p>
-        <p></p>
 
-        <h2>Dell - Technical Product Manager</h2>
-        <p>
-            Worked as the product manager on a team of interns to develop visualization tools for InsideIQ for Power Max
-            Organized and delegated deliverables for software engineers to create a viable product for the Dell infrastructure
-            Increased speed of production 10-15x by writing Python scripts to generate complex SQL queries
+        <div class="devicons">
+            <i class="devicon-python-plain"></i>
+            <i class="devicon-java-plain"></i>
+            <i class="devicon-cplusplus-plain"></i>
+            <i class="devicon-csharp-plain"></i>
+            <i class="devicon-c-plain"></i>
+            <i class="devicon-rust-plain"></i>
+            <i class="devicon-go-original-wordmark"></i>
+            <i class="devicon-javascript-plain"></i>
+            <i class="devicon-typescript-plain"></i>
+            <i class="devicon-html5-plain"></i>
+            <!-- <i class="devicon-css3-plain"></i> -->
+            <i class="devicon-godot-plain"></i>
+            <i class="devicon-azuresqldatabase-plain"></i>
+            <i class="devicon-r-plain"></i>
 
-        </p>
-        <div class="centered-image">
-            <img src="Photos/Technical/DellCity.JPG" alt="Headshot">
+
+        </div>
+
+        <div style="text-align: center;">
+            <p>Email: <a href="mailto:cooper.wilk@utexas.edu" style="color: #ffcc00;">cooper.wilk@utexas.edu</a></p>
+            <p>LinkedIn: <a href="https://www.linkedin.com/in/cooper-wilk/" style="color: #ffcc00;" target="_blank">linkedin.com/in/cooper-wilk</a></p>
+            <p>GitHub: <a href="https://github.com/CenterKeyCooper" style="color: #ffcc00;" target="_blank">github.com/CenterKeyCooper</a></p>
         </div>
     </section>
-    <section class="space"></section>
-    <footer>
-        <p>&copy; 2024 Cooper Wilk</p>
-    </footer>
 
-    <script src="content.js"></script>
+    <!-- Work Experience Section -->
+    <section id="experience">
+        <h2>Work Experience</h2>
+        <div class="work-experience">
+            <div class="job">
+                <h3>Software Engineer Intern</h3>
+                <span>HBK Capital Management | New York, NY | June - August 2024</span>
+                <p>
+                    Built Flask API to perform vector calculations over portfolio data to keep all business logic out of the front end.
+                </p>
+                <p>
+                    Created frontend from scratch to provide front desk more control of BPV portfolio. First instance of React at HBK
+                </p>
+                <p>
+                    Wrote Python automation scripts connecting internal databases to save time for front desk and other quants.
+                </p>            
+            </div>
+            <div class="job">
+                <h3>Platinum Coder</h3>
+                <span>Outlier | Remote | December 2023 - Present</span>
+                <p>
+                    Generate and clean training data for a code-focused Large Language Model used by Scale AI.
+                </p>
+                <p>
+                    Write responses to prompts with clean, safe, and optimal code in C#, C++, Python, JavaScript, Java, and Swift.
+                </p>
+                <p>
+                    Review code generated by other Platinum Coders for quality control and to maintain integrity of training data.
+                </p>
+            </div>
+            <div class="job">
+                <h3>Technical Product Manager Intern</h3>
+                <span>Dell | Austin, TX | May - August 2023</span>
+                <p>
+                    Worked as the product manager on a team of interns to develop visualization tools for InsideIQ for Power Max
+                </p>
+                <p>
+                    Organized and delegated deliverables for software engineers to create a viable product for the Dell infrastructure
+                </p>   
+                <p>
+                    Increased speed of production 10-15x by writing Python scripts to generate complex SQL queries
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Projects Section --><section id="projects">
+    <h2>Projects</h2>
+    <div class="projects-container">
+        <a href="digits.html" target="_blank" class="card-link">
+            <div class="project-card">
+                <div class="project-card-content">
+                    <h3>Digits</h3>
+                    <p>Project Description</p>
+                </div>
+                <img src="Photos/Technical/digits.png" alt="Project 1 Image">
+            </div>
+        </a>
+        <a href="survivorut.html" target="_blank" class="card-link">
+            <div class="project-card">
+                <div class="project-card-content">
+                    <h3>Survivor Texas</h3>
+                    <p>Project Description</p>
+                </div>
+                <img src="Photos/SurvivorUT/Group Shot.jpg" alt="Project Image">
+            </div>
+        </a>
+        <div class="project-card">
+            <div class="project-card-content">
+                <h3>Verilog Visualizer</h3>
+                <p>A fully functional visualizer for the hardware description language <a>Verilog</a>. An interpreter built in <a>C++</a> that converted any Verilog file to an intermediate representation and a visualizer built in <a>Java</a>.</p>
+                <img src="Photos/Technical/if_else_ex.PNG" alt="Project Image" style="width: 600px">
+            </div>
+            <img src="Photos/Technical/if_else_ex.v.PNG" alt="Project Image">
+        </div>
+        <div class="project-card">
+            <div class="project-card-content">
+                <h3>SLAM</h3>
+                <p>Project Description</p>
+            </div>
+            <img src="Photos/Technical/slam.png" alt="Project Image">
+        </div>
+        <div class="project-card">
+            <div class="project-card-content">
+                <h3>AtYourDoor Frontend</h3>
+                <p>Comprehensive website constructed with <a href="https://react.dev/">React</a> in <a href="https://www.typescriptlang.org/">TypeScript</a> and CSS. Utilizes a custom-built API for custom <a href="https://sqlbolt.com/">SQL</a> database as well as third-party APIs like Stripe’s to process payments. Used by customers, concierges, and building administrators in multiple buildings in the DC/College Park Area.</p>
+                <div style=" justify-content: center;  display: flex">
+                    <img src="Photos/Technical/AYDLanding.png" alt="Project Image" >
+                    <img src="Photos/Technical/AYDFigma.png" alt="Project Image">
+                </div>
+            </div>     
+        </div>
+        <div class="project-card">
+            <div class="project-card-content">
+                <h3>Web GL Block World</h3>
+                <p>A procedurally-generated 3D world similar to that found in the popular game Minecraft. Used <a href="https://get.webgl.org/">Web GL</a> to work advanced shading techniques such as procedurally-generated textures, ambient occlusion, bump mapping, and water effects.</p>
+            </div>
+            <img src="Photos/Technical/minecraft.png" alt="Project Image">
+        </div>
+        <div class="project-card">
+            <div class="project-card-content">
+                <h3>Ray Tracer</h3>
+                <p>Implement ray tracing "by hand," (no libraries for math functions) in <a href="https://cplusplus.com/">C++</a> to generate ray-traced images of complex scenes using Whitted illumination, including shading, reflections, refractions, texture maps, and a BVH tree to dramatically improve performance.</p>
+            </div>
+            <img src="Photos/Technical/dragon.png" alt="Project Image">
+        </div>
+        <div class="project-card">
+            <div class="project-card-content">
+                <h3>3D Ray Tracer</h3>
+                <p>Project Description</p>
+            </div>
+            <img src="Photos/Technical/3dcubes.png" alt="Project Image">
+        </div>
+        <div class="project-card">
+            <div class="project-card-content">
+                <h3>Glacial</h3>
+                <p>Project Description</p>
+            </div>
+            <img src="Photos/Technical/glacial.png" alt="Project Image">
+        </div>
+    </div>
+</section>
+
+
+
+
+    <!-- Classes Section -->
+    <section id="classes">
+        <h2>Classes</h2>
+        <div class="projects-container">
+            
+            <a href="https://www.cs.utexas.edu/~lin/cs314h/index.html" target="_blank" class="card-link">
+                <div class="class-card">
+                    <h3>Data Structures Honors</h3>
+                    <p>Created a working, fast, Web-Index using a Trie and an accomplished Tetris Brain. Covered every type of Algorithm analysis, Tree, Queue, Heap, Table, and Graph you can name.</p>
+                </div>
+            </a>
+            
+            <a href="https://www.cs.utexas.edu/~isil/cs311h/" target="_blank" class="card-link">
+                <div class="class-card">
+                    <h3>Discrete Math Honors</h3>
+                    <p>Dived into combinatorics, recurrence relations, and graph theory. Applied the Master Theorem extensively and gained insights into Euler paths and practical applications of discrete mathematics.</p>
+                </div>
+            </a>
+            
+            <a href="https://www.cs.utexas.edu/people/faculty-researchers/ahmed-gheith" target="_blank" class="card-link">
+                <div class="class-card">
+                    <h3>Computer Architecture Honors</h3>
+                    <p>Implemented custom memory allocation (malloc) and developed an original programming language with a compiler and interpreter. Tackled advanced projects in ARM, x86, and Verilog, including a challenging pipelining project.</p>
+                </div>
+            </a>
+            
+            <a href="https://www.cs.utexas.edu/people/faculty-researchers/ahmed-gheith" target="_blank" class="card-link">
+                <div class="class-card">
+                    <h3>Operating Systems Honors</h3>
+                    <p>Contributed to an OS capable of running Doom by designing a file system supporting multi-page read/write operations. Gained hands-on experience with system-level programming and threading concepts.</p>
+                </div>
+            </a>
+            
+            <a href="https://www.cs.utexas.edu/~ecprice/courses/331/sp24/" target="_blank" class="card-link">
+                <div class="class-card">
+                    <h3>Algorithms Honors</h3>
+                    <p>Explored advanced algorithms, including Karatsuba multiplication. Learned from Dr. Price’s insights and expertise, enhancing problem-solving skills in computational efficiency.</p>
+                </div>
+            </a>
+            
+            <a href="https://www.cs.utexas.edu/~rossbach/cs378h-s20/index.html" target="_blank" class="card-link">
+                <div class="class-card">
+                    <h3>Concurrency Honors</h3>
+                    <p>Developed multi-threaded solutions using semaphores and gained experience coding projects in various programming languages. Gained a deep understanding of synchronization mechanisms.</p>
+                </div>
+            </a>
+            
+            <a href="https://amrl.cs.utexas.edu/CS378-F1Tenth-Autonomous-Driving-S21/" target="_blank" class="card-link">
+                <div class="class-card">
+                    <h3>Autonomous Driving Honors</h3>
+                    <p>Built a real-time simultaneous localization and mapping (SLAM) system using CUDA and a single lidar sensor. Gained practical insights into autonomous vehicle technologies and sensor fusion.</p>
+                </div>
+            </a>
+            
+            <a href="https://www.cs.utexas.edu/~theshark/courses/cs354r/" target="_blank" class="card-link">
+                <div class="class-card">
+                    <h3>Game Technology</h3>
+                    <p>Designed a game engine and developed a networked, multiplayer, procedurally generated game about penguins exploring an ice cave. Mastered collision detection, real-time rendering, and environmental manipulation.</p>
+                </div>
+            </a>
+            
+            <a href="https://www.cs.utexas.edu/~evouga/courses.html" target="_blank" class="card-link">
+                <div class="class-card">
+                    <h3>Graphics Honors</h3>
+                    <p>Implemented Phong shading, light simulation, and advanced rendering techniques in C++ and WebGL. Developed a Minecraft-inspired final project, combining creativity with mathematical rigor.</p>
+                </div>
+            </a>
+            
+            <a href="https://www.cs.utexas.edu/~downing/cs373/" target="_blank" class="card-link">
+                <div class="class-card">
+                    <h3>Software Engineering</h3>
+                    <p>Practiced agile methodologies, including user stories and Kanban boards. Collaborated with real clients to develop user-centric software solutions while mastering version control.</p>
+                </div>
+            </a>
+            
+            <a href="https://rpl.cs.utexas.edu/cs343h_fall2024/" target="_blank" class="card-link">
+                <div class="class-card">
+                    <h3>Artificial Intelligence Honors</h3>
+                    <p>Implemented AI techniques to enable Pac-Man to play itself and studied foundational concepts in probability and linear algebra. Complemented the ML class audited previously.</p>
+                </div>
+            </a>
+            
+            <a href="https://www.cs.utexas.edu/people/faculty-researchers/kia-teymourian" target="_blank" class="card-link">
+                <div class="class-card">
+                    <h3>Cloud Computing</h3>
+                    <p>Developed cloud-based applications using Java and functional programming. Managed distributed systems and integrated concepts from concurrency for efficient resource utilization.</p>
+                </div>
+            </a>
+            
+            <a href="" target="_blank" class="card-link">
+                <div class="class-card">
+                    <h3>Data Analysis</h3>
+                    <p>Performed detailed statistical analysis on Survivor data, exploring player performance across 46 seasons. Applied concepts from AP Stats to uncover patterns and anomalies.</p>
+                </div>
+            </a>
+            
+            <a href="" target="_blank" class="card-link">
+                <div class="class-card">
+                    <h3>Mathematical Statistics</h3>
+                    <p>Applied statistical methods to AI and ML projects. Enhanced understanding of estimation techniques and sampling distributions in real-world scenarios.</p>
+                </div>
+            </a>
+            
+            <a href="" target="_blank" class="card-link">
+                <div class="class-card">
+                    <h3>Linear Algebra</h3>
+                    <p>
+                        Learned fundamental concepts such as matrix operations, vector spaces, and eigenvalues. Gained a deep understanding of linear transformations, orthogonality, and least-squares solutions. Later applied these principles in solving real-world problems in Graphics, Game Technology, Autonomous Driving, and AI. Developed practical skills in optimization, projection, and decomposition techniques such as SVD and QR, which are pivotal for advanced computational applications.
+                    </p>
+                </div>
+            </a>
+            
+            <a href="" target="_blank" class="card-link">
+                <div class="class-card">
+                    <h3>Multivariable Calculus</h3>
+                    <p>Built a strong mathematical foundation for advanced topics in AI, Statistics, and Data Visualization. Learned practical applications of gradient and divergence calculations.</p>
+                </div>
+            </a>
+            
+            <a href="https://wilkelab.org/SDS375/syllabus.html" target="_blank" class="card-link">
+                <div class="class-card">
+                    <h3>Data Visualization</h3>
+                    <p>Specialized in presenting complex datasets through R, mastering data cleaning and encapsulation techniques to communicate insights effectively.</p>
+                </div>
+            </a>
+            
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <p>&copy; 2024 Cooper Wilk. Designed with <a href="#">love</a>.</p>
+    </footer>
 </body>
 </html>
