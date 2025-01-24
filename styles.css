@@ -563,3 +563,17 @@ input {
   border: 2px solid #2c3e50;
   border-radius: 10px;
 }
+
+.crop-top-bottom {
+  object-fit: cover; /* Ensures the image content is adjusted */
+  object-position: center; /* Keeps the center part of the image visible */
+  width: 100%; /* Adjust the width to fit the container */
+  height: 200px; /* Set a fixed height to crop top and bottom */
+  display: block;
+}
+
+.rotate-horizontal {
+  transform: scaleX(-1); /* Flips the image horizontally */
+  display: block;
+  width: 100%; /* Optional, ensures consistency */
+}
