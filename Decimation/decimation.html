@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Decimation Tracker</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header>
+    <h1>Decimation Tracker</h1>
+    <nav>
+      <ul>
+        <li><a href="#setup-phase">Setup</a></li>
+        <li><a href="#night-phase">Night</a></li>
+        <li><a href="#day-phase">Day</a></li>
+        <li><a href="#results">Results</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <div class="container">
+    <!-- Setup Phase -->
+    <section id="setup-phase">
+      <h2>Setup Phase</h2>
+      <div class="input-grid">
+        <label for="player1">Player 1:</label>
+        <input type="text" id="player1">
+        <label for="player2">Player 2:</label>
+        <input type="text" id="player2">
+        <label for="player3">Player 3:</label>
+        <input type="text" id="player3">
+        <label for="player4">Player 4:</label>
+        <input type="text" id="player4">
+        <label for="player5">Player 5:</label>
+        <input type="text" id="player5">
+        <label for="player6">Player 6:</label>
+        <input type="text" id="player6">
+        <label for="player7">Player 7:</label>
+        <input type="text" id="player7">
+        <label for="player8">Player 8:</label>
+        <input type="text" id="player8">
+        <label for="player9">Player 9:</label>
+        <input type="text" id="player9">
+        <label for="player10">Player 10:</label>
+        <input type="text" id="player10">
+      </div>
+      <button id="start-game">Start Game</button>
+    </section>
+
+    <!-- Night and Day Phases -->
+    <div id="phases-container">
+      <!-- Phases will be dynamically added here -->
+    </div>
+
+    <!-- Results -->
+    <section id="results" class="hidden">
+      <h2>Results</h2>
+      <p id="results-text"></p>
+    </section>
+  </div>
+
+  <footer>
+    <p>Created with ❤️ by <a href="#">Cooper</a></p>
+  </footer>
+  <script src="script.js"></script>
+</body>
+</html>
