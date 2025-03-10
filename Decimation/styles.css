@@ -144,6 +144,12 @@
     color: red;
     font-weight: bold;
   }
+
+  /* Immunity */
+.immune {
+    color: green;
+    font-weight: bold;
+  }
   
   /* Footer */
   footer {

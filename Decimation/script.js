@@ -6,6 +6,7 @@ let players = [];
 let currentNight = 1;
 let currentDay = 1;
 let alivePlayers = [];
+let immunePlayers = new Set(); // Track immune players
 
 // Initialize the game
 startGameButton.addEventListener('click', () => {
@@ -15,6 +16,7 @@ startGameButton.addEventListener('click', () => {
     alive: true,
   }));
   alivePlayers = [...players];
+  immunePlayers.clear(); // Reset immune players
   setupPhase.classList.add('hidden');
   renderNightPhase();
 });
@@ -46,7 +48,12 @@ function renderNightPhase() {
               </select>
             </td>
             <td>
-              ${[1, 2, 4, 5, 8].includes(player.role) ? '<input type="text" placeholder="Optional action">' : 'None'}
+              ${player.role === 1 ? `
+                <select class="role-guess">
+                  <option value="none">Guess Role</option>
+                  ${Array.from({ length: 9 }, (_, i) => `<option value="${i + 2}">Role ${i + 2}</option>`).join('')}
+                </select>
+              ` : 'None'}
             </td>
           </tr>
         `).join('')}
@@ -60,61 +67,110 @@ function renderNightPhase() {
   const confirmNightButton = document.getElementById(`confirm-night-${currentNight}`);
   const nightTable = document.getElementById(`night-table-${currentNight}`);
 
-  // Highlight potential deaths
+  // Highlight potential deaths and immunity
   const highlightPotentialDeaths = () => {
     const attackSelects = nightTable.querySelectorAll('.attack-select');
+    const roleGuesses = nightTable.querySelectorAll('.role-guess');
     const potentialDeaths = new Set();
+    const immuneCandidates = new Set();
 
+    // Check for Role 1's special action
+    alivePlayers.forEach((player, index) => {
+      if (player.role === 1) {
+        const attackIndex = attackSelects[index].value;
+        const guessedRole = roleGuesses[index]?.value;
+        if (attackIndex !== 'none' && guessedRole !== 'none') {
+          const target = alivePlayers[attackIndex];
+          if (target.role === parseInt(guessedRole)) {
+            potentialDeaths.add(attackIndex); // Target dies
+            immuneCandidates.add(index); // Role 1 becomes immune for this round
+          }
+        }
+      }
+    });
+
+    // Check for regular attacks
     attackSelects.forEach((select, attackerIndex) => {
       const targetIndex = select.value;
-      if (targetIndex !== 'none') {
+      if (targetIndex !== 'none' && !immuneCandidates.has(attackerIndex)) {
         const attacker = alivePlayers[attackerIndex];
         const target = alivePlayers[targetIndex];
-        if (attacker.role > target.role) {
+        if (attacker.role > target.role && !immunePlayers.has(targetIndex)) {
           potentialDeaths.add(targetIndex);
         }
       }
     });
 
+    // Highlight rows
     nightTable.querySelectorAll('tbody tr').forEach((row, index) => {
       if (potentialDeaths.has(index.toString())) {
         row.classList.add('dead');
+      } else if (immuneCandidates.has(index)) {
+        row.classList.add('immune');
       } else {
-        row.classList.remove('dead');
+        row.classList.remove('dead', 'immune');
       }
     });
   };
 
-  // Add event listeners for highlighting potential deaths
+  // Add event listeners for highlighting potential deaths and immunity
   nightTable.addEventListener('change', highlightPotentialDeaths);
 
   confirmNightButton.addEventListener('click', () => {
     confirmNightButton.disabled = true;
     const attackSelects = nightTable.querySelectorAll('.attack-select');
+    const roleGuesses = nightTable.querySelectorAll('.role-guess');
     const optionalInputs = nightTable.querySelectorAll('input[type="text"]');
 
     // Lock selects and inputs
     attackSelects.forEach(select => (select.disabled = true));
+    roleGuesses.forEach(select => (select.disabled = true));
     optionalInputs.forEach(input => (input.disabled = true));
 
     const attacks = Array.from(attackSelects).map(select => select.value);
     const deaths = new Set();
+    const newImmunePlayers = new Set();
 
+    // Process Role 1's special action
+    alivePlayers.forEach((player, index) => {
+      if (player.role === 1) {
+        const attackIndex = attacks[index];
+        const guessedRole = roleGuesses[index]?.value;
+        if (attackIndex !== 'none' && guessedRole !== 'none') {
+          const target = alivePlayers[attackIndex];
+          if (target.role === parseInt(guessedRole)) {
+            if (!immunePlayers.has(attackIndex)) { // Ensure target is not immune
+              deaths.add(attackIndex); // Target dies
+            }
+            newImmunePlayers.add(index); // Role 1 becomes immune for this round
+          }
+        }
+      }
+    });
+
+    // Process regular attacks
     attacks.forEach((attackIndex, attackerIndex) => {
-      if (attackIndex !== 'none') {
+      if (attackIndex !== 'none' && !newImmunePlayers.has(attackerIndex)) {
         const attacker = alivePlayers[attackerIndex];
         const target = alivePlayers[attackIndex];
-        if (attacker.role > target.role) {
+        if (attacker.role > target.role && !immunePlayers.has(attackIndex)) {
           deaths.add(attackIndex);
         }
       }
     });
 
-    // Remove dead players
-    const deadPlayers = Array.from(deaths).map(index => alivePlayers[index].name);
-    alivePlayers = alivePlayers.filter((_, index) => !deaths.has(index.toString()));
+    // Update immune players for this round
+    immunePlayers = new Set([...newImmunePlayers]); // Reset immunity to only new immune players
+
+    // Generate the log (excluding immune players)
+    const deadPlayers = Array.from(deaths)
+      .filter(index => !immunePlayers.has(index)) // Exclude immune players
+      .map(index => alivePlayers[index].name);
     const nightLog = document.getElementById(`night-log-${currentNight}`);
     nightLog.textContent = `Players who died: ${deadPlayers.join(', ') || 'None'}`;
+
+    // Remove dead players (excluding immune players)
+    alivePlayers = alivePlayers.filter((_, index) => !deaths.has(index.toString()) || immunePlayers.has(index));
 
     // Scroll to the next phase
     setTimeout(() => {
