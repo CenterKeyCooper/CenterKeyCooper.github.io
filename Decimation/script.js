@@ -23,6 +23,9 @@ startGameButton.addEventListener('click', () => {
 
 // Render the night phase
 function renderNightPhase() {
+  // Reset immune players at the start of each night
+  immunePlayers.clear();
+
   const nightSection = document.createElement('section');
   nightSection.id = `night-${currentNight}`;
   nightSection.innerHTML = `
@@ -74,7 +77,7 @@ function renderNightPhase() {
     const potentialDeaths = new Set();
     const immuneCandidates = new Set();
 
-    // Check for Role 1's special action
+    // First pass: Check for Role 1's special action
     alivePlayers.forEach((player, index) => {
       if (player.role === 1) {
         const attackIndex = attackSelects[index].value;
@@ -82,30 +85,30 @@ function renderNightPhase() {
         if (attackIndex !== 'none' && guessedRole !== 'none') {
           const target = alivePlayers[attackIndex];
           if (target.role === parseInt(guessedRole)) {
-            potentialDeaths.add(attackIndex); // Target dies
-            immuneCandidates.add(index); // Role 1 becomes immune for this round
+            potentialDeaths.add(Number(attackIndex)); // Target dies
+            immuneCandidates.add(Number(index)); // Role 1 becomes immune for this round
           }
         }
       }
     });
 
-    // Check for regular attacks
+    // Second pass: Check for regular attacks
     attackSelects.forEach((select, attackerIndex) => {
       const targetIndex = select.value;
-      if (targetIndex !== 'none' && !immuneCandidates.has(attackerIndex)) {
+      if (targetIndex !== 'none' && !immuneCandidates.has(Number(attackerIndex))) {
         const attacker = alivePlayers[attackerIndex];
         const target = alivePlayers[targetIndex];
-        if (attacker.role > target.role && !immunePlayers.has(targetIndex)) {
-          potentialDeaths.add(targetIndex);
+        if (attacker.role > target.role && !immunePlayers.has(Number(targetIndex))) {
+          potentialDeaths.add(Number(targetIndex));
         }
       }
     });
 
     // Highlight rows
     nightTable.querySelectorAll('tbody tr').forEach((row, index) => {
-      if (potentialDeaths.has(index.toString())) {
+      if (potentialDeaths.has(Number(index)) && !immuneCandidates.has(Number(index))) {
         row.classList.add('dead');
-      } else if (immuneCandidates.has(index)) {
+      } else if (immuneCandidates.has(Number(index)) || immunePlayers.has(Number(index))) {
         row.classList.add('immune');
       } else {
         row.classList.remove('dead', 'immune');
@@ -131,7 +134,7 @@ function renderNightPhase() {
     const deaths = new Set();
     const newImmunePlayers = new Set();
 
-    // Process Role 1's special action
+    // First pass: Process Role 1's special action
     alivePlayers.forEach((player, index) => {
       if (player.role === 1) {
         const attackIndex = attacks[index];
@@ -139,22 +142,22 @@ function renderNightPhase() {
         if (attackIndex !== 'none' && guessedRole !== 'none') {
           const target = alivePlayers[attackIndex];
           if (target.role === parseInt(guessedRole)) {
-            if (!immunePlayers.has(attackIndex)) { // Ensure target is not immune
-              deaths.add(attackIndex); // Target dies
+            if (!immunePlayers.has(Number(attackIndex))) { // Ensure target is not immune
+              deaths.add(Number(attackIndex)); // Target dies
             }
-            newImmunePlayers.add(index); // Role 1 becomes immune for this round
+            newImmunePlayers.add(Number(index)); // Role 1 becomes immune for this round
           }
         }
       }
     });
 
-    // Process regular attacks
+    // Second pass: Process regular attacks
     attacks.forEach((attackIndex, attackerIndex) => {
-      if (attackIndex !== 'none' && !newImmunePlayers.has(attackerIndex)) {
+      if (attackIndex !== 'none' && !newImmunePlayers.has(Number(attackerIndex))) {
         const attacker = alivePlayers[attackerIndex];
         const target = alivePlayers[attackIndex];
-        if (attacker.role > target.role && !immunePlayers.has(attackIndex)) {
-          deaths.add(attackIndex);
+        if (attacker.role > target.role && !immunePlayers.has(Number(attackIndex))) {
+          deaths.add(Number(attackIndex));
         }
       }
     });
@@ -164,13 +167,29 @@ function renderNightPhase() {
 
     // Generate the log (excluding immune players)
     const deadPlayers = Array.from(deaths)
-      .filter(index => !immunePlayers.has(index)) // Exclude immune players
+      .filter(index => !immunePlayers.has(Number(index))) // Exclude immune players
       .map(index => alivePlayers[index].name);
     const nightLog = document.getElementById(`night-log-${currentNight}`);
     nightLog.textContent = `Players who died: ${deadPlayers.join(', ') || 'None'}`;
 
     // Remove dead players (excluding immune players)
-    alivePlayers = alivePlayers.filter((_, index) => !deaths.has(index.toString()) || immunePlayers.has(index));
+    alivePlayers = alivePlayers.filter((_, index) => !deaths.has(Number(index)) || immunePlayers.has(Number(index)));
+
+    // Check if the game is over
+    const roleSum = alivePlayers.reduce((sum, player) => sum + player.role, 0);
+    if (roleSum <= 10) {
+      const gameOverSection = document.createElement('section');
+      gameOverSection.innerHTML = `
+        <h2>Game Over</h2>
+        <p>The game has ended. The remaining players are:</p>
+        <ul>
+          ${alivePlayers.map(player => `<li>${player.name} (Role ${player.role})</li>`).join('')}
+        </ul>
+      `;
+      container.appendChild(gameOverSection);
+      gameOverSection.scrollIntoView({ behavior: 'smooth' });
+      return;
+    }
 
     // Scroll to the next phase
     setTimeout(() => {
@@ -215,7 +234,8 @@ function renderDayPhase() {
     }
 
     // Check if the game is over
-    if (alivePlayers.length <= 1) {
+    const roleSum = alivePlayers.reduce((sum, player) => sum + player.role, 0);
+    if (roleSum <= 10) {
       const gameOverSection = document.createElement('section');
       gameOverSection.innerHTML = `
         <h2>Game Over</h2>
