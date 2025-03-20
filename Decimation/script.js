@@ -7,6 +7,7 @@ let currentNight = 1;
 let currentDay = 1;
 let alivePlayers = [];
 let immunePlayers = new Set(); // Track immune players
+let doctorLastVisit = null; // Track the last player visited by the Doctor
 
 // Initialize the game
 startGameButton.addEventListener('click', () => {
@@ -17,6 +18,7 @@ startGameButton.addEventListener('click', () => {
   }));
   alivePlayers = [...players];
   immunePlayers.clear(); // Reset immune players
+  doctorLastVisit = null; // Reset Doctor's last visit
   setupPhase.classList.add('hidden');
   renderNightPhase();
 });
@@ -56,7 +58,17 @@ function renderNightPhase() {
                   <option value="none">Guess Role</option>
                   ${Array.from({ length: 9 }, (_, i) => `<option value="${i + 2}">Role ${i + 2}</option>`).join('')}
                 </select>
-              ` : 'None'}
+              ` : ''}
+              ${player.role === 5 ? `
+                <select class="doctor-visit">
+                  <option value="none">No one</option>
+                  ${alivePlayers
+                    .map((p, i) => ({ index: i, player: p })) // Map to include original index
+                    .filter(({ player }) => player.role !== doctorLastVisit) // Exclude last visited player
+                    .map(({ index, player }) => `<option value="${player.role}">${player.name}</option>`)
+                    .join('')}
+                </select>
+              ` : ''}
             </td>
           </tr>
         `).join('')}
@@ -74,6 +86,7 @@ function renderNightPhase() {
   const highlightPotentialDeaths = () => {
     const attackSelects = nightTable.querySelectorAll('.attack-select');
     const roleGuesses = nightTable.querySelectorAll('.role-guess');
+    const doctorVisits = nightTable.querySelectorAll('.doctor-visit');
     const potentialDeaths = new Set();
     const immuneCandidates = new Set();
 
@@ -92,7 +105,18 @@ function renderNightPhase() {
       }
     });
 
-    // Second pass: Check for regular attacks
+    // Second pass: Check for Role 5's special action
+    doctorVisits.forEach((select, index) => {
+      const visitRole = select.value;
+      if (visitRole !== 'none') {
+        const visitIndex = alivePlayers.findIndex(p => p.role === Number(visitRole));
+        if (visitIndex !== -1) {
+          immuneCandidates.add(Number(visitIndex)); // Visited player becomes immune
+        }
+      }
+    });
+
+    // Third pass: Check for regular attacks
     attackSelects.forEach((select, attackerIndex) => {
       const targetIndex = select.value;
       if (targetIndex !== 'none' && !immuneCandidates.has(Number(attackerIndex))) {
@@ -123,11 +147,13 @@ function renderNightPhase() {
     confirmNightButton.disabled = true;
     const attackSelects = nightTable.querySelectorAll('.attack-select');
     const roleGuesses = nightTable.querySelectorAll('.role-guess');
+    const doctorVisits = nightTable.querySelectorAll('.doctor-visit');
     const optionalInputs = nightTable.querySelectorAll('input[type="text"]');
 
     // Lock selects and inputs
     attackSelects.forEach(select => (select.disabled = true));
     roleGuesses.forEach(select => (select.disabled = true));
+    doctorVisits.forEach(select => (select.disabled = true));
     optionalInputs.forEach(input => (input.disabled = true));
 
     const attacks = Array.from(attackSelects).map(select => select.value);
@@ -151,7 +177,19 @@ function renderNightPhase() {
       }
     });
 
-    // Second pass: Process regular attacks
+    // Second pass: Process Role 5's special action
+    doctorVisits.forEach((select, index) => {
+      const visitRole = select.value;
+      if (visitRole !== 'none') {
+        const visitIndex = alivePlayers.findIndex(p => p.role === Number(visitRole));
+        if (visitIndex !== -1) {
+          newImmunePlayers.add(Number(visitIndex)); // Visited player becomes immune
+          doctorLastVisit = Number(visitRole); // Update Doctor's last visit (using role, not index)
+        }
+      }
+    });
+
+    // Third pass: Process regular attacks
     attacks.forEach((attackIndex, attackerIndex) => {
       if (attackIndex !== 'none' && !newImmunePlayers.has(Number(attackerIndex))) {
         const attacker = alivePlayers[attackerIndex];
