@@ -150,6 +150,13 @@
     color: green;
     font-weight: bold;
   }
+
+  /* Extra Life */
+  .extra-life {
+    /* color: blueviolet; */
+    font-weight: bold;
+    text-decoration: underline silver;
+  }
   
   /* Footer */
   footer {

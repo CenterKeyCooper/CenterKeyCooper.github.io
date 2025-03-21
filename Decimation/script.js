@@ -15,6 +15,7 @@ startGameButton.addEventListener('click', () => {
     role: i + 1,
     name: document.getElementById(`player${i + 1}`).value,
     alive: true,
+    extraLife: i === 6, // Role 7 (index 6) starts with an extra life
   }));
   alivePlayers = [...players];
   immunePlayers.clear(); // Reset immune players
@@ -45,7 +46,7 @@ function renderNightPhase() {
         ${alivePlayers.map((player, index) => `
           <tr>
             <td>Role ${player.role}</td>
-            <td>${player.name}</td>
+            <td ${player.extraLife ? 'class="extra-life"' : ''}>${player.name}</td>
             <td>
               <select class="attack-select">
                 <option value="none">No one</option>
@@ -203,15 +204,25 @@ function renderNightPhase() {
     // Update immune players for this round
     immunePlayers = new Set([...newImmunePlayers]); // Reset immunity to only new immune players
 
-    // Generate the log (excluding immune players)
+    // Process deaths (including Role 7's extra life)
     const deadPlayers = Array.from(deaths)
       .filter(index => !immunePlayers.has(Number(index))) // Exclude immune players
-      .map(index => alivePlayers[index].name);
-    const nightLog = document.getElementById(`night-log-${currentNight}`);
-    nightLog.textContent = `Players who died: ${deadPlayers.join(', ') || 'None'}`;
+      .map(index => {
+        const player = alivePlayers[index];
+        if (player.role === 7 && player.extraLife) {
+          player.extraLife = false; // Lose extra life
+          return null; // Do not remove from game
+        }
+        return index; // Mark for removal
+      })
+      .filter(index => index !== null); // Filter out null values
 
-    // Remove dead players (excluding immune players)
-    alivePlayers = alivePlayers.filter((_, index) => !deaths.has(Number(index)) || immunePlayers.has(Number(index)));
+    // Generate the log
+    const nightLog = document.getElementById(`night-log-${currentNight}`);
+    nightLog.textContent = `Players who died: ${deadPlayers.map(index => alivePlayers[index].name).join(', ') || 'None'}`;
+
+    // Remove dead players (excluding Role 7 with extra life)
+    alivePlayers = alivePlayers.filter((_, index) => !deadPlayers.includes(index));
 
     // Check if the game is over
     const roleSum = alivePlayers.reduce((sum, player) => sum + player.role, 0);
@@ -264,9 +275,14 @@ function renderDayPhase() {
     const dayLog = document.getElementById(`day-log-${currentDay}`);
 
     if (votedOutIndex !== 'none') {
-      const votedOutPlayer = alivePlayers[votedOutIndex].name;
-      alivePlayers.splice(votedOutIndex, 1);
-      dayLog.textContent = `Player voted out: ${votedOutPlayer}`;
+      const votedOutPlayer = alivePlayers[votedOutIndex];
+      if (votedOutPlayer.role === 7 && votedOutPlayer.extraLife) {
+        votedOutPlayer.extraLife = false; // Lose extra life
+        dayLog.textContent = `Player voted out: ${votedOutPlayer.name} (lost extra life)`;
+      } else {
+        alivePlayers.splice(votedOutIndex, 1);
+        dayLog.textContent = `Player voted out: ${votedOutPlayer.name}`;
+      }
     } else {
       dayLog.textContent = `Player voted out: No one`;
     }
