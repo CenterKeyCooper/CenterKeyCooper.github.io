@@ -180,7 +180,7 @@ footer a {
     }
 
     nav ul {
-        flex-direction: column;
+        /* flex-direction: column; */
         gap: 10px;
     }
 
