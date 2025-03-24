@@ -6,8 +6,10 @@ let players = [];
 let currentNight = 1;
 let currentDay = 1;
 let alivePlayers = [];
-let immunePlayers = new Set(); // Track immune players
-let doctorLastVisit = null; // Track the last player visited by the Doctor
+let immunePlayers = new Set();
+let doctorLastVisit = null;
+let role2State = { index: null, options: ['nothing', 'on-guard'], lastAction: null }; // Starts with on-guard option
+let roleToIndexMap = new Map();
 
 // Initialize the game
 startGameButton.addEventListener('click', () => {
@@ -15,18 +17,24 @@ startGameButton.addEventListener('click', () => {
     role: i + 1,
     name: document.getElementById(`player${i + 1}`).value,
     alive: true,
-    extraLife: i === 6, // Role 7 (index 6) starts with an extra life
+    extraLife: i === 6,
   }));
   alivePlayers = [...players];
-  immunePlayers.clear(); // Reset immune players
-  doctorLastVisit = null; // Reset Doctor's last visit
+  immunePlayers.clear();
+  doctorLastVisit = null;
+  roleToIndexMap.clear();
+  alivePlayers.forEach((player, index) => roleToIndexMap.set(player.role, index));
+  role2State = { 
+    index: roleToIndexMap.get(2), 
+    options: ['nothing', 'on-guard'], // Starts with on-guard option
+    lastAction: null 
+  };
   setupPhase.classList.add('hidden');
   renderNightPhase();
 });
 
 // Render the night phase
 function renderNightPhase() {
-  // Reset immune players at the start of each night
   immunePlayers.clear();
 
   const nightSection = document.createElement('section');
@@ -60,12 +68,23 @@ function renderNightPhase() {
                   ${Array.from({ length: 9 }, (_, i) => `<option value="${i + 2}">Role ${i + 2}</option>`).join('')}
                 </select>
               ` : ''}
+              ${player.role === 2 ? `
+                <select class="role2-action">
+                  ${role2State.options.map(option => `<option value="${option}">${option}</option>`).join('')}
+                </select>
+              ` : ''}
+              ${player.role === 4 ? `
+                <select class="role4-visit">
+                  <option value="none">No one</option>
+                  ${alivePlayers.map((p, i) => `<option value="${p.role}">${p.name}</option>`).join('')}
+                </select>
+              ` : ''}
               ${player.role === 5 ? `
                 <select class="doctor-visit">
                   <option value="none">No one</option>
                   ${alivePlayers
-                    .map((p, i) => ({ index: i, player: p })) // Map to include original index
-                    .filter(({ player }) => player.role !== doctorLastVisit) // Exclude last visited player
+                    .map((p, i) => ({ index: i, player: p }))
+                    .filter(({ player }) => player.role !== doctorLastVisit)
                     .map(({ index, player }) => `<option value="${player.role}">${player.name}</option>`)
                     .join('')}
                 </select>
@@ -88,10 +107,12 @@ function renderNightPhase() {
     const attackSelects = nightTable.querySelectorAll('.attack-select');
     const roleGuesses = nightTable.querySelectorAll('.role-guess');
     const doctorVisits = nightTable.querySelectorAll('.doctor-visit');
+    const role4Visits = nightTable.querySelectorAll('.role4-visit');
+    const role2Actions = nightTable.querySelectorAll('.role2-action');
     const potentialDeaths = new Set();
     const immuneCandidates = new Set();
 
-    // First pass: Check for Role 1's special action
+    // Process Role 1's special action
     alivePlayers.forEach((player, index) => {
       if (player.role === 1) {
         const attackIndex = attackSelects[index].value;
@@ -99,25 +120,74 @@ function renderNightPhase() {
         if (attackIndex !== 'none' && guessedRole !== 'none') {
           const target = alivePlayers[attackIndex];
           if (target.role === parseInt(guessedRole)) {
-            potentialDeaths.add(Number(attackIndex)); // Target dies
-            immuneCandidates.add(Number(index)); // Role 1 becomes immune for this round
+            potentialDeaths.add(Number(attackIndex));
+            immuneCandidates.add(Number(index));
           }
         }
       }
     });
 
-    // Second pass: Check for Role 5's special action
-    doctorVisits.forEach((select, index) => {
-      const visitRole = select.value;
-      if (visitRole !== 'none') {
-        const visitIndex = alivePlayers.findIndex(p => p.role === Number(visitRole));
-        if (visitIndex !== -1) {
-          immuneCandidates.add(Number(visitIndex)); // Visited player becomes immune
+    // Process Role 2's special action
+    role2Actions.forEach((select, index) => {
+      const action = select.value;
+      if (action === 'on-guard' || action === 'on-armed-guard') {
+        immuneCandidates.add(Number(role2State.index));
+        if (action === 'on-armed-guard') {
+          attackSelects.forEach((select, attackerIndex) => {
+            if (select.value === role2State.index.toString() && !immuneCandidates.has(Number(attackerIndex))) {
+              potentialDeaths.add(Number(attackerIndex));
+            }
+          });
+          
+          // Check Role 4 visits
+          const role4Index = alivePlayers.findIndex(p => p.role === 4);
+          if (role4Index !== -1) {
+            const role4Select = nightTable.querySelector(`tr:nth-child(${role4Index + 1}) .role4-visit`);
+            if (role4Select) {
+              const visitRole = role4Select.value;
+              if (visitRole !== 'none') {
+                const visitIndex = alivePlayers.findIndex(p => p.role === Number(visitRole));
+                if (visitIndex === role2State.index && !immuneCandidates.has(Number(role4Index))) {
+                  potentialDeaths.add(Number(role4Index));
+                }
+              }
+            }
+          }
+          
+          // Check Role 5 visits
+          const doctorIndex = alivePlayers.findIndex(p => p.role === 5);
+          if (doctorIndex !== -1) {
+            const doctorSelect = nightTable.querySelector(`tr:nth-child(${doctorIndex + 1}) .doctor-visit`);
+            if (doctorSelect) {
+              const visitRole = doctorSelect.value;
+              if (visitRole !== 'none') {
+                const visitIndex = alivePlayers.findIndex(p => p.role === Number(visitRole));
+                if (visitIndex === role2State.index && !immuneCandidates.has(Number(doctorIndex))) {
+                  potentialDeaths.add(Number(doctorIndex));
+                }
+              }
+            }
+          }
         }
       }
     });
 
-    // Third pass: Check for regular attacks
+    // Process Role 5's special action
+    const doctorIndex = alivePlayers.findIndex(p => p.role === 5);
+    if (doctorIndex !== -1) {
+      const doctorSelect = nightTable.querySelector(`tr:nth-child(${doctorIndex + 1}) .doctor-visit`);
+      if (doctorSelect) {
+        const visitRole = doctorSelect.value;
+        if (visitRole !== 'none') {
+          const visitIndex = alivePlayers.findIndex(p => p.role === Number(visitRole));
+          if (visitIndex !== -1) {
+            immuneCandidates.add(Number(visitIndex));
+          }
+        }
+      }
+    }
+
+    // Process regular attacks
     attackSelects.forEach((select, attackerIndex) => {
       const targetIndex = select.value;
       if (targetIndex !== 'none' && !immuneCandidates.has(Number(attackerIndex))) {
@@ -141,27 +211,26 @@ function renderNightPhase() {
     });
   };
 
-  // Add event listeners for highlighting potential deaths and immunity
   nightTable.addEventListener('change', highlightPotentialDeaths);
 
   confirmNightButton.addEventListener('click', () => {
     confirmNightButton.disabled = true;
     const attackSelects = nightTable.querySelectorAll('.attack-select');
     const roleGuesses = nightTable.querySelectorAll('.role-guess');
-    const doctorVisits = nightTable.querySelectorAll('.doctor-visit');
-    const optionalInputs = nightTable.querySelectorAll('input[type="text"]');
+    const role2Actions = nightTable.querySelectorAll('.role2-action');
+    const role4Visits = nightTable.querySelectorAll('.role4-visit');
 
-    // Lock selects and inputs
+    // Lock selects
     attackSelects.forEach(select => (select.disabled = true));
     roleGuesses.forEach(select => (select.disabled = true));
-    doctorVisits.forEach(select => (select.disabled = true));
-    optionalInputs.forEach(input => (input.disabled = true));
+    role2Actions.forEach(select => (select.disabled = true));
+    role4Visits.forEach(select => (select.disabled = true));
 
     const attacks = Array.from(attackSelects).map(select => select.value);
     const deaths = new Set();
     const newImmunePlayers = new Set();
 
-    // First pass: Process Role 1's special action
+    // Process Role 1's special action
     alivePlayers.forEach((player, index) => {
       if (player.role === 1) {
         const attackIndex = attacks[index];
@@ -169,28 +238,88 @@ function renderNightPhase() {
         if (attackIndex !== 'none' && guessedRole !== 'none') {
           const target = alivePlayers[attackIndex];
           if (target.role === parseInt(guessedRole)) {
-            if (!immunePlayers.has(Number(attackIndex))) { // Ensure target is not immune
-              deaths.add(Number(attackIndex)); // Target dies
+            if (!immunePlayers.has(Number(attackIndex))) {
+              deaths.add(Number(attackIndex));
             }
-            newImmunePlayers.add(Number(index)); // Role 1 becomes immune for this round
+            newImmunePlayers.add(Number(index));
           }
         }
       }
     });
 
-    // Second pass: Process Role 5's special action
-    doctorVisits.forEach((select, index) => {
-      const visitRole = select.value;
-      if (visitRole !== 'none') {
-        const visitIndex = alivePlayers.findIndex(p => p.role === Number(visitRole));
-        if (visitIndex !== -1) {
-          newImmunePlayers.add(Number(visitIndex)); // Visited player becomes immune
-          doctorLastVisit = Number(visitRole); // Update Doctor's last visit (using role, not index)
+    // Process Role 2's special action
+    role2Actions.forEach((select, index) => {
+      const action = select.value;
+      if (action === 'on-guard' || action === 'on-armed-guard') {
+        newImmunePlayers.add(Number(role2State.index));
+        
+        if (action === 'on-armed-guard') {
+          // Check all attacks against Role 2
+          attacks.forEach((attackIndex, attackerIndex) => {
+            if (attackIndex === role2State.index.toString() && !newImmunePlayers.has(Number(attackerIndex))) {
+              deaths.add(Number(attackerIndex));
+            }
+          });
+
+          // Check Role 4 visits
+          const role4Index = alivePlayers.findIndex(p => p.role === 4);
+          if (role4Index !== -1) {
+            const role4Select = nightTable.querySelector(`tr:nth-child(${role4Index + 1}) .role4-visit`);
+            if (role4Select) {
+              const visitRole = role4Select.value;
+              if (visitRole !== 'none') {
+                const visitIndex = alivePlayers.findIndex(p => p.role === Number(visitRole));
+                if (visitIndex === role2State.index && !newImmunePlayers.has(Number(role4Index))) {
+                  deaths.add(Number(role4Index));
+                }
+              }
+            }
+          }
+          
+          // Check Role 5 visits
+          const doctorIndex = alivePlayers.findIndex(p => p.role === 5);
+          if (doctorIndex !== -1) {
+            const doctorSelect = nightTable.querySelector(`tr:nth-child(${doctorIndex + 1}) .doctor-visit`);
+            if (doctorSelect) {
+              const visitRole = doctorSelect.value;
+              if (visitRole !== 'none') {
+                const visitIndex = alivePlayers.findIndex(p => p.role === Number(visitRole));
+                if (visitIndex === role2State.index && !newImmunePlayers.has(Number(doctorIndex))) {
+                  deaths.add(Number(doctorIndex));
+                }
+              }
+            }
+          }
+        }
+        
+        role2State.lastAction = action;
+        role2State.options = ['nothing'];
+      } else if (action === 'nothing') {
+        if (role2State.options.length === 1) {
+          role2State.options.push('on-guard');
+        } else if (role2State.options.length === 2) {
+          role2State.options.push('on-armed-guard');
         }
       }
     });
 
-    // Third pass: Process regular attacks
+    // Process Role 5's special action
+    const doctorIndex = alivePlayers.findIndex(p => p.role === 5);
+    if (doctorIndex !== -1) {
+      const doctorSelect = nightTable.querySelector(`tr:nth-child(${doctorIndex + 1}) .doctor-visit`);
+      if (doctorSelect) {
+        const visitRole = doctorSelect.value;
+        if (visitRole !== 'none') {
+          const visitIndex = alivePlayers.findIndex(p => p.role === Number(visitRole));
+          if (visitIndex !== -1) {
+            newImmunePlayers.add(Number(visitIndex));
+            doctorLastVisit = Number(visitRole);
+          }
+        }
+      }
+    }
+
+    // Process regular attacks
     attacks.forEach((attackIndex, attackerIndex) => {
       if (attackIndex !== 'none' && !newImmunePlayers.has(Number(attackerIndex))) {
         const attacker = alivePlayers[attackerIndex];
@@ -201,30 +330,35 @@ function renderNightPhase() {
       }
     });
 
-    // Update immune players for this round
-    immunePlayers = new Set([...newImmunePlayers]); // Reset immunity to only new immune players
+    // Update immune players
+    immunePlayers = new Set([...newImmunePlayers]);
 
     // Process deaths (including Role 7's extra life)
     const deadPlayers = Array.from(deaths)
-      .filter(index => !immunePlayers.has(Number(index))) // Exclude immune players
+      .filter(index => !immunePlayers.has(Number(index)))
       .map(index => {
         const player = alivePlayers[index];
         if (player.role === 7 && player.extraLife) {
-          player.extraLife = false; // Lose extra life
-          return null; // Do not remove from game
+          player.extraLife = false;
+          return null;
         }
-        return index; // Mark for removal
+        return index;
       })
-      .filter(index => index !== null); // Filter out null values
+      .filter(index => index !== null);
 
-    // Generate the log
+    // Generate log
     const nightLog = document.getElementById(`night-log-${currentNight}`);
     nightLog.textContent = `Players who died: ${deadPlayers.map(index => alivePlayers[index].name).join(', ') || 'None'}`;
 
-    // Remove dead players (excluding Role 7 with extra life)
+    // Remove dead players
     alivePlayers = alivePlayers.filter((_, index) => !deadPlayers.includes(index));
 
-    // Check if the game is over
+    // Update role-to-index map
+    roleToIndexMap.clear();
+    alivePlayers.forEach((player, index) => roleToIndexMap.set(player.role, index));
+    role2State.index = roleToIndexMap.get(2);
+
+    // Check game over
     const roleSum = alivePlayers.reduce((sum, player) => sum + player.role, 0);
     if (roleSum <= 10) {
       const gameOverSection = document.createElement('section');
@@ -240,7 +374,7 @@ function renderNightPhase() {
       return;
     }
 
-    // Scroll to the next phase
+    // Scroll to next phase
     setTimeout(() => {
       renderDayPhase();
       document.getElementById(`day-${currentDay}`).scrollIntoView({ behavior: 'smooth' });
@@ -248,7 +382,7 @@ function renderNightPhase() {
   });
 }
 
-// Render the day phase
+// Render the day phase (unchanged)
 function renderDayPhase() {
   const daySection = document.createElement('section');
   daySection.id = `day-${currentDay}`;
@@ -277,7 +411,7 @@ function renderDayPhase() {
     if (votedOutIndex !== 'none') {
       const votedOutPlayer = alivePlayers[votedOutIndex];
       if (votedOutPlayer.role === 7 && votedOutPlayer.extraLife) {
-        votedOutPlayer.extraLife = false; // Lose extra life
+        votedOutPlayer.extraLife = false;
         dayLog.textContent = `Player voted out: ${votedOutPlayer.name} (lost extra life)`;
       } else {
         alivePlayers.splice(votedOutIndex, 1);
@@ -287,7 +421,12 @@ function renderDayPhase() {
       dayLog.textContent = `Player voted out: No one`;
     }
 
-    // Check if the game is over
+    // Update role-to-index map
+    roleToIndexMap.clear();
+    alivePlayers.forEach((player, index) => roleToIndexMap.set(player.role, index));
+    role2State.index = roleToIndexMap.get(2);
+
+    // Check game over
     const roleSum = alivePlayers.reduce((sum, player) => sum + player.role, 0);
     if (roleSum <= 10) {
       const gameOverSection = document.createElement('section');
@@ -303,7 +442,7 @@ function renderDayPhase() {
       return;
     }
 
-    // Scroll to the next phase
+    // Scroll to next phase
     setTimeout(() => {
       currentNight++;
       currentDay++;

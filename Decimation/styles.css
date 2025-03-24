@@ -157,6 +157,17 @@
     font-weight: bold;
     text-decoration: underline silver;
   }
+
+  /* Add to your CSS file */
+.on-guard {
+  color: orange;
+  font-weight: bold;
+}
+
+.on-armed-guard {
+  color: darkorange;
+  font-weight: bold;
+}
   
   /* Footer */
   footer {
