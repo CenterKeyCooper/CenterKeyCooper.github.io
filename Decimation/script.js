@@ -8,7 +8,7 @@ let currentDay = 1;
 let alivePlayers = [];
 let immunePlayers = new Set();
 let doctorLastVisit = null;
-let role2State = { index: null, options: ['nothing', 'on-guard'], lastAction: null }; // Starts with on-guard option
+let role2State = { index: null, options: ['nothing', 'on-guard'], lastAction: null };
 let roleToIndexMap = new Map();
 
 // Initialize the game
@@ -26,7 +26,7 @@ startGameButton.addEventListener('click', () => {
   alivePlayers.forEach((player, index) => roleToIndexMap.set(player.role, index));
   role2State = { 
     index: roleToIndexMap.get(2), 
-    options: ['nothing', 'on-guard'], // Starts with on-guard option
+    options: ['nothing', 'on-guard'],
     lastAction: null 
   };
   setupPhase.classList.add('hidden');
@@ -89,6 +89,12 @@ function renderNightPhase() {
                     .join('')}
                 </select>
               ` : ''}
+              ${player.role === 8 ? `
+                <select class="role8-action">
+                  <option value="attack">Attack</option>
+                  <option value="wait">Wait</option>
+                </select>
+              ` : ''}
             </td>
           </tr>
         `).join('')}
@@ -109,6 +115,7 @@ function renderNightPhase() {
     const doctorVisits = nightTable.querySelectorAll('.doctor-visit');
     const role4Visits = nightTable.querySelectorAll('.role4-visit');
     const role2Actions = nightTable.querySelectorAll('.role2-action');
+    const role8Actions = nightTable.querySelectorAll('.role8-action');
     const potentialDeaths = new Set();
     const immuneCandidates = new Set();
 
@@ -134,7 +141,13 @@ function renderNightPhase() {
         immuneCandidates.add(Number(role2State.index));
         if (action === 'on-armed-guard') {
           attackSelects.forEach((select, attackerIndex) => {
-            if (select.value === role2State.index.toString() && !immuneCandidates.has(Number(attackerIndex))) {
+            const role8Action = alivePlayers[attackerIndex].role === 8 
+              ? nightTable.querySelector(`tr:nth-child(${attackerIndex + 1}) .role8-action`).value
+              : 'attack';
+            
+            if (select.value === role2State.index.toString() && 
+                !immuneCandidates.has(Number(attackerIndex)) &&
+                role8Action === 'attack') {
               potentialDeaths.add(Number(attackerIndex));
             }
           });
@@ -187,13 +200,39 @@ function renderNightPhase() {
       }
     }
 
-    // Process regular attacks
+    // Process regular attacks (excluding Role 8 if they chose to wait)
+    const attackMap = new Map(); // Track all attacks for Role 6 stacking
     attackSelects.forEach((select, attackerIndex) => {
       const targetIndex = select.value;
-      if (targetIndex !== 'none' && !immuneCandidates.has(Number(attackerIndex))) {
+      const role8Action = alivePlayers[attackerIndex].role === 8 
+        ? nightTable.querySelector(`tr:nth-child(${attackerIndex + 1}) .role8-action`).value
+        : 'attack';
+      
+      if (targetIndex !== 'none' && 
+          !immuneCandidates.has(Number(attackerIndex)) &&
+          role8Action === 'attack') {
         const attacker = alivePlayers[attackerIndex];
         const target = alivePlayers[targetIndex];
-        if (attacker.role > target.role && !immunePlayers.has(Number(targetIndex))) {
+        
+        // For Role 6 stacking, we need to track all attacks
+        if (!attackMap.has(Number(targetIndex))) {
+          attackMap.set(Number(targetIndex), []);
+        }
+        attackMap.get(Number(targetIndex)).push(attacker.role);
+        
+        // Regular attack logic (for non-Role 6 cases)
+        if (attacker.role !== 6 && attacker.role > target.role && !immunePlayers.has(Number(targetIndex))) {
+          potentialDeaths.add(Number(targetIndex));
+        }
+      }
+    });
+
+    // Process Role 6 stacking attacks
+    attackMap.forEach((attackerRoles, targetIndex) => {
+      const target = alivePlayers[targetIndex];
+      if (target.role >= 7) { // Only applies to roles 7+
+        const totalPower = attackerRoles.reduce((sum, role) => sum + role, 0);
+        if (totalPower > target.role && !immunePlayers.has(Number(targetIndex))) {
           potentialDeaths.add(Number(targetIndex));
         }
       }
@@ -219,12 +258,14 @@ function renderNightPhase() {
     const roleGuesses = nightTable.querySelectorAll('.role-guess');
     const role2Actions = nightTable.querySelectorAll('.role2-action');
     const role4Visits = nightTable.querySelectorAll('.role4-visit');
+    const role8Actions = nightTable.querySelectorAll('.role8-action');
 
     // Lock selects
     attackSelects.forEach(select => (select.disabled = true));
     roleGuesses.forEach(select => (select.disabled = true));
     role2Actions.forEach(select => (select.disabled = true));
     role4Visits.forEach(select => (select.disabled = true));
+    role8Actions.forEach(select => (select.disabled = true));
 
     const attacks = Array.from(attackSelects).map(select => select.value);
     const deaths = new Set();
@@ -254,9 +295,15 @@ function renderNightPhase() {
         newImmunePlayers.add(Number(role2State.index));
         
         if (action === 'on-armed-guard') {
-          // Check all attacks against Role 2
+          // Check all attacks against Role 2 (excluding Role 8 if they chose to wait)
           attacks.forEach((attackIndex, attackerIndex) => {
-            if (attackIndex === role2State.index.toString() && !newImmunePlayers.has(Number(attackerIndex))) {
+            const role8Action = alivePlayers[attackerIndex].role === 8 
+              ? nightTable.querySelector(`tr:nth-child(${attackerIndex + 1}) .role8-action`).value
+              : 'attack';
+            
+            if (attackIndex === role2State.index.toString() && 
+                !newImmunePlayers.has(Number(attackerIndex)) &&
+                role8Action === 'attack') {
               deaths.add(Number(attackerIndex));
             }
           });
@@ -319,13 +366,39 @@ function renderNightPhase() {
       }
     }
 
-    // Process regular attacks
+    // Process all attacks (for Role 6 stacking)
+    const attackMap = new Map();
     attacks.forEach((attackIndex, attackerIndex) => {
-      if (attackIndex !== 'none' && !newImmunePlayers.has(Number(attackerIndex))) {
+      const role8Action = alivePlayers[attackerIndex].role === 8 
+        ? nightTable.querySelector(`tr:nth-child(${attackerIndex + 1}) .role8-action`).value
+        : 'attack';
+      
+      if (attackIndex !== 'none' && 
+          !newImmunePlayers.has(Number(attackerIndex)) &&
+          role8Action === 'attack') {
         const attacker = alivePlayers[attackerIndex];
         const target = alivePlayers[attackIndex];
-        if (attacker.role > target.role && !immunePlayers.has(Number(attackIndex))) {
+        
+        // Track all attacks for Role 6 stacking
+        if (!attackMap.has(Number(attackIndex))) {
+          attackMap.set(Number(attackIndex), []);
+        }
+        attackMap.get(Number(attackIndex)).push(attacker.role);
+        
+        // Regular attack logic (for non-Role 6 cases)
+        if (attacker.role !== 6 && attacker.role > target.role && !immunePlayers.has(Number(attackIndex))) {
           deaths.add(Number(attackIndex));
+        }
+      }
+    });
+
+    // Process Role 6 stacking attacks
+    attackMap.forEach((attackerRoles, targetIndex) => {
+      const target = alivePlayers[targetIndex];
+      if (target.role >= 7) { // Only applies to roles 7+
+        const totalPower = attackerRoles.reduce((sum, role) => sum + role, 0);
+        if (totalPower > target.role && !immunePlayers.has(Number(targetIndex))) {
+          deaths.add(Number(targetIndex));
         }
       }
     });
