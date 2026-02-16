@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="icon" href="icon.png" type="image/x-icon" />
+    <title>joyce 22 &lt;3</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap');
+
+
+    /* Make header nav links white on this page */
+    header.pink-background nav a {
+        color: #ffffff;
+    }
+
+    header.pink-background nav a:hover {
+        color: #ffffff;
+        text-decoration: underline;
+    }
+
+    .main-area {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 3em 1em;
+        min-height: 80vh;
+    }
+
+    /* ---- DECK ---- */
+    .deck-zone {
+        position: relative;
+        width: 200px;
+        height: 290px;
+        margin-bottom: 2em;
+        perspective: 800px;
+        cursor: pointer;
+    }
+
+    .deck-card {
+        position: absolute;
+        width: 200px;
+        height: 280px;
+        border-radius: 14px;
+        background: linear-gradient(145deg, #e91e8c, #8e1260);
+        border: 2.5px solid rgba(255,255,255,0.15);
+        box-shadow: 0 4px 20px rgba(233, 30, 140, 0.25);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        transition: transform 0.25s ease, box-shadow 0.25s ease;
+    }
+
+    .deck-card::after {
+        content: '';
+        position: absolute;
+        inset: 8px;
+        border-radius: 10px;
+        border: 1.5px solid rgba(255,255,255,0.12);
+        pointer-events: none;
+        z-index: 2;
+    }
+
+    .deck-card .card-back-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        border-radius: 12px;
+        opacity: 0.55;
+        filter: saturate(0.6) brightness(0.8);
+        transition: opacity 0.3s;
+    }
+
+    /* Gradient overlay on top of image */
+    .deck-card .card-back-overlay {
+        position: absolute;
+        inset: 0;
+        border-radius: 12px;
+        background: linear-gradient(145deg, rgba(233,30,140,0.2), rgba(142,18,96,0.3));
+        z-index: 1;
+    }
+
+    .deck-zone:hover .deck-card:last-child {
+        transform: translateY(-6px) rotateZ(-1deg);
+        box-shadow: 0 8px 30px rgba(233, 30, 140, 0.45);
+    }
+
+    .deck-zone:hover .deck-card:last-child .card-back-img {
+        opacity: 0.7;
+    }
+
+    .deck-count {
+        text-align: center;
+        font-size: 0.85rem;
+        color: rgba(255,255,255,0.5);
+        margin-top: 0.5em;
+        letter-spacing: 1px;
+    }
+
+    /* ---- BUTTON ---- */
+    .btn {
+        padding: 0.75em 2.4em;
+        border: none;
+        border-radius: 50px;
+        font-family: 'Inter', sans-serif;
+        font-size: 0.95rem;
+        font-weight: 600;
+        letter-spacing: 1px;
+        cursor: pointer;
+        transition: all 0.35s ease;
+        text-transform: lowercase;
+        margin-top: 1.5em;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .btn-draw {
+        background: #B55385; /* match .pink-background in styles.css */
+        color: #fff;
+        box-shadow: 0 4px 20px rgba(233, 30, 140, 0.4);
+    }
+
+    .btn-draw:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 30px rgba(233, 30, 140, 0.6);
+    }
+
+    .btn-draw:active { transform: translateY(0); }
+
+    .btn-mulligan {
+        background: transparent;
+        color: #ff6fb7;
+        border: 1.5px solid rgba(233, 30, 140, 0.5);
+        box-shadow: 0 4px 20px rgba(233, 30, 140, 0.15);
+    }
+
+    .btn-mulligan:hover {
+        background: rgba(233, 30, 140, 0.1);
+        border-color: #e91e8c;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 25px rgba(233, 30, 140, 0.3);
+    }
+
+    .btn:disabled {
+        opacity: 0.35;
+        cursor: not-allowed;
+        transform: none !important;
+    }
+
+    /* Button morph transition */
+    .btn.morphing {
+        animation: btnMorph 0.4s ease;
+    }
+
+    @keyframes btnMorph {
+        0% { transform: scale(1); }
+        40% { transform: scale(0.9); opacity: 0.6; }
+        100% { transform: scale(1); opacity: 1; }
+    }
+
+    /* ---- HAND ---- */
+    .hand-zone {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 1.8em;
+        max-width: 1100px;
+        width: 100%;
+        padding: 2em 1em;
+    }
+
+    .hand-card {
+        background: #242442;
+        border-radius: 16px;
+        overflow: hidden;
+        border: 1.5px solid rgba(233, 30, 140, 0.15);
+        box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        opacity: 0;
+        transform: translateY(40px) rotateZ(2deg);
+        cursor: pointer;
+        transition: transform 0.4s ease, box-shadow 0.4s ease, border-color 0.4s ease;
+    }
+
+    .hand-card.dealt {
+        opacity: 1;
+        transform: translateY(0) rotateZ(0);
+    }
+
+    .hand-card:hover {
+        transform: translateY(-8px) scale(1.03);
+        box-shadow: 0 16px 48px rgba(233, 30, 140, 0.25);
+        border-color: rgba(233, 30, 140, 0.4);
+    }
+
+    .hand-card img {
+        width: 100%;
+        aspect-ratio: 4/5;
+        object-fit: cover;
+        display: block;
+        transition: transform 0.5s ease;
+    }
+
+    .hand-card:hover img { transform: scale(1.05); }
+
+    .hand-card .card-label {
+        padding: 0.8em 1em;
+        font-size: 0.85rem;
+        color: rgba(255,255,255,0.6);
+        letter-spacing: 2px;
+        text-align: center;
+    }
+
+    /* ---- ANIMATIONS ---- */
+    @keyframes flyFromDeck {
+        0% { opacity: 0; transform: translateY(-60px) rotateZ(8deg) scale(0.7); }
+        60% { opacity: 1; transform: translateY(10px) rotateZ(-1deg) scale(1.02); }
+        100% { opacity: 1; transform: translateY(0) rotateZ(0) scale(1); }
+    }
+
+    .hand-card.fly-in {
+        animation: flyFromDeck 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    }
+
+    @keyframes shufflePulse {
+        0%, 100% { transform: translateX(0) rotateZ(0); }
+        20% { transform: translateX(-8px) rotateZ(-3deg); }
+        40% { transform: translateX(8px) rotateZ(3deg); }
+        60% { transform: translateX(-5px) rotateZ(-2deg); }
+        80% { transform: translateX(5px) rotateZ(1deg); }
+    }
+
+    .deck-zone.shuffling .deck-card {
+        animation: shufflePulse 0.6s ease;
+    }
+
+    /* ---- EMPTY HINT ---- */
+    .empty-hint {
+        color: rgba(255,255,255,0.3);
+        font-size: 0.9rem;
+        letter-spacing: 2px;
+        margin-top: 2em;
+    }
+
+    /* ---- LIGHTBOX ---- */
+    .lightbox {
+        position: fixed;
+        inset: 0;
+        background: rgba(10, 10, 20, 0.92);
+        backdrop-filter: blur(16px);
+        z-index: 1000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.35s ease;
+    }
+
+    .lightbox.open { opacity: 1; pointer-events: all; }
+
+    .lightbox img {
+        max-width: 90vw;
+        max-height: 80vh;
+        border-radius: 12px;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+        transform: scale(0.9);
+        transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .lightbox.open img { transform: scale(1); }
+
+    .lightbox .lb-label {
+        margin-top: 1em;
+        color: rgba(255,255,255,0.5);
+        letter-spacing: 2px;
+        font-size: 0.9rem;
+    }
+
+    .lightbox .lb-close {
+        position: absolute;
+        top: 1.5em;
+        right: 1.5em;
+        background: none;
+        border: none;
+        color: rgba(255,255,255,0.5);
+        font-size: 1.8rem;
+        cursor: pointer;
+        transition: color 0.2s;
+    }
+
+    .lightbox .lb-close:hover { color: #fff; }
+
+    /* ---- SPARKLES ---- */
+    .sparkle {
+        position: fixed;
+        width: 4px;
+        height: 4px;
+        border-radius: 50%;
+        pointer-events: none;
+        z-index: 999;
+        opacity: 0;
+    }
+
+    @keyframes sparkleFloat {
+        0% { opacity: 1; transform: translate(0,0) scale(1); }
+        100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(0); }
+    }
+
+    @media (max-width: 600px) {
+        .hand-zone {
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 1em;
+        }
+        .deck-zone { transform: scale(0.85); }
+    }
+</style>
+
+
+</head>
+<body>
+
+<header class="pink-background">
+    <h1>joyce 22 &lt;3</h1>
+    <nav>
+        <ul>
+            <li><a href="index.html">main page</a></li>
+            <li><a href="joyce.html">joyce</a></li>
+        </ul>
+    </nav>
+</header>
+
+<section>
+    <!-- <h2>explanation</h2> -->
+    <p>
+        My dearest Joycengton, I know I talk about Magic a lot when I am around you, but you should see how often I talk about you when I’m around other people. I can’t talk to my favorite thing about my favorite thing so I guess I just have to pick my second favorite thing to talk about. Hopefully I can share some of the magic that you make me feel when I am with you.    
+    </p>
+    <p>
+        You mean so much to me and we have shared so many special moments together in your 22nd year on earth, here is a deck’s worth. 
+    </p>
+</section>
+
+<div class="main-area">
+    <div class="deck-zone" id="deckZone">
+        <div class="deck-card" style="top:6px;left:4px;transform:rotateZ(-2deg)">
+            <img class="card-back-img" src="Photos/Joyce/22/U3.JPEG" alt="back">
+            <div class="card-back-overlay"></div>
+        </div>
+        <div class="deck-card" style="top:3px;left:2px;transform:rotateZ(1deg)">
+            <img class="card-back-img" src="Photos/Joyce/22/U3.JPEG" alt="back">
+            <div class="card-back-overlay"></div>
+        </div>
+        <div class="deck-card" style="top:0;left:0">
+            <img class="card-back-img" src="Photos/Joyce/22/U3.JPEG" alt="back">
+            <div class="card-back-overlay"></div>
+        </div>
+    </div>
+    <div class="deck-count" id="deckCount">60 cards in deck</div>
+
+<button class="btn btn-draw" id="actionBtn" onclick="handleAction()">draw 7</button>
+
+<p class="empty-hint" id="emptyHint">tap draw to reveal your hand</p>
+
+<div class="hand-zone" id="handZone"></div>
+
+
+</div>
+
+<!-- LIGHTBOX -->
+
+<div class="lightbox" id="lightbox">
+    <button class="lb-close" onclick="closeLightbox()">&times;</button>
+    <img id="lbImg" src="" alt="">
+    <div class="lb-label" id="lbLabel"></div>
+</div>
+
+<footer class="pink-background">
+    <p>&copy; 2026 Cooper Wilk</p>
+</footer>
+
+<script>
+const allCards = [];
+
+// Optional custom descriptions for each card.
+// Fill in any entry (e.g. descriptions[3] = "north cascades sunrise")
+// and that text will be used instead of the default "U#".
+const descriptions = {
+    1: 'The Joy in Joyce',
+    2: 'Technically 21',
+    3: '1 Year Ago <3',
+    4: 'Prettier than fall colors',
+    5: '*Noah Kahan Music*',
+    6: 'Apple of my eye',
+    7: 'BAF (Big add fish)',
+    8: 'And you can climb',
+    9: 'Chihuly hell you\'re hot',
+    10: 'Aw Man!',
+    11: 'My fish in the sea',
+    12: 'Best Couple\'s Costume award',
+    13: 'PotY?',
+    14: 'NYC Christmas',
+    15: 'Ramen Eyes',
+    16: 'White Chirstmas',
+    17: 'Intense Joy(ce)',
+    18: 'Contagious Excitement',
+    19: 'Our roots',
+    20: 'Big chapter',
+    21: 'Windy city (wait)',
+    22: 'You support me',
+    23: 'Talented Chef Joyce',
+    24: 'CPotY?',
+    26: 'Such in incredible gift',
+    27: '2 YEARS!!',
+    28: 'No matter what. 我爱你',
+    29: 'Right at the end',
+    30: 'Wrong cultural dress',
+    31: 'Forever',
+    32: 'Grace\'s best photo',
+    33: 'Us night',
+    34: 'Gumi adventure',
+    35: 'Gumi adventure No.2',
+    36: 'You are unbelievably pretty',
+    38: 'Old together',
+    39: 'Don\t be shy',
+    40: 'Open Waterfall',
+    41: 'Which is prettier (you)',
+    42: 'Adventure fit',
+    43: 'Corest Memory',
+    44: '',
+    45: '',
+    46: '',
+    47: '',
+    48: '',
+    49: '',
+    50: '',
+    51: '',
+    52: '',
+    53: '',
+    54: '',
+    55: '',
+    56: '',
+    57: '',
+    58: '',
+    59: '',
+    60: '',
+    61: '',
+    62: ''
+};
+
+const nums = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,26,27,28,29,30,31,32,33,34,35,36,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62];
+
+nums.forEach(n => {
+    const ext = n === 59 ? 'PNG' : (n === 62 ? 'JPG' : 'JPEG');
+    const fallback = `U${n}`;
+    const label = descriptions[n] && descriptions[n].trim() ? descriptions[n] : fallback;
+    allCards.push({ src: `Photos/Joyce/22/U${n}.${ext}`, label });
+});
+
+let deck = [];
+let hand = [];
+let hasDrawn = false;
+
+const actionBtn = document.getElementById('actionBtn');
+
+function shuffle(arr) {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+}
+
+function resetDeck() {
+    deck = shuffle(allCards);
+    hand = [];
+    updateDeckCount();
+}
+
+function updateDeckCount() {
+    document.getElementById('deckCount').textContent = `${deck.length} cards in deck`;
+}
+
+function spawnSparkles(x, y, count) {
+    for (let i = 0; i < count; i++) {
+        const s = document.createElement('div');
+        s.className = 'sparkle';
+        s.style.left = x + 'px';
+        s.style.top = y + 'px';
+        const dx = (Math.random() - 0.5) * 120;
+        const dy = (Math.random() - 0.5) * 120;
+        s.style.setProperty('--dx', dx + 'px');
+        s.style.setProperty('--dy', dy + 'px');
+        s.style.background = Math.random() > 0.5 ? '#ff6fb7' : '#e91e8c';
+        s.style.animation = `sparkleFloat ${0.5 + Math.random() * 0.5}s ease-out forwards`;
+        document.body.appendChild(s);
+        setTimeout(() => s.remove(), 1000);
+    }
+}
+
+function handleAction() {
+    if (!hasDrawn) {
+        drawCards();
+        // Morph button into mulligan
+        hasDrawn = true;
+        actionBtn.classList.add('morphing');
+        setTimeout(() => {
+            actionBtn.textContent = 'mulligan';
+            actionBtn.className = 'btn btn-mulligan morphing';
+            setTimeout(() => actionBtn.classList.remove('morphing'), 400);
+        }, 150);
+    } else {
+        mulligan();
+    }
+}
+
+function drawCards() {
+    const zone = document.getElementById('handZone');
+    zone.innerHTML = '';
+    document.getElementById('emptyHint').style.display = 'none';
+
+    const drawCount = Math.min(7, deck.length);
+    hand = deck.splice(0, drawCount);
+    updateDeckCount();
+
+    const deckRect = document.getElementById('deckZone').getBoundingClientRect();
+    spawnSparkles(deckRect.left + deckRect.width / 2, deckRect.top + deckRect.height / 2, 18);
+
+    hand.forEach((card, i) => {
+        const el = document.createElement('div');
+        el.className = 'hand-card';
+        el.innerHTML = `<img src="${card.src}" alt="${card.label}" loading="lazy"><div class="card-label">${card.label}</div>`;
+        el.onclick = () => openLightbox(card);
+        zone.appendChild(el);
+        setTimeout(() => el.classList.add('fly-in'), i * 120);
+    });
+}
+
+function mulligan() {
+    const zone = document.getElementById('deckZone');
+    zone.classList.add('shuffling');
+    setTimeout(() => zone.classList.remove('shuffling'), 650);
+
+    // Reshuffle everything
+    resetDeck();
+    document.getElementById('handZone').innerHTML = '';
+
+    // Draw fresh 7 after shuffle animation
+    setTimeout(() => drawCards(), 700);
+}
+
+function openLightbox(card) {
+    document.getElementById('lbImg').src = card.src;
+    document.getElementById('lbLabel').textContent = card.label;
+    document.getElementById('lightbox').classList.add('open');
+}
+
+function closeLightbox() {
+    document.getElementById('lightbox').classList.remove('open');
+}
+
+document.getElementById('lightbox').addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) closeLightbox();
+});
+
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeLightbox();
+});
+
+resetDeck();
+</script>
+
+</body>
+</html>
