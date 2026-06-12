@@ -169,6 +169,16 @@ window.addEventListener('resize', fitCanvas);
 
 let grid, player, enemies, eggs, projectiles, particles;
 let tilesLeft, totalSafe, gameState, lastMove, shake, lastTime = 0;
+let advancedMode = false;
+const MEGA_RATE = 0.10;
+const FAST_ENEMY_RATE = 0.25;
+let enemyBullets = [];
+const ENEMY_COLORS = {
+  normal: { body: '#ff2d55', glow: '#ff2d5518', eye: '#1a0008', d1: '#ff2d55', d2: '#ff8888' },
+  fast:   { body: '#22dd55', glow: '#22dd5518', eye: '#001a08', d1: '#22dd55', d2: '#88ffaa' },
+  shooter:{ body: '#66aaff', glow: '#66aaff18', eye: '#001030', d1: '#66aaff', d2: '#aaddff' },
+  charger:{ body: '#aa44ff', glow: '#aa44ff18', eye: '#0a0020', d1: '#aa44ff', d2: '#dd88ff' },
+};
 let gameStartTime = 0, gameTime = 0, finalTime = 0;
 let playerIP = '';
 let leaderboard = [];
@@ -275,7 +285,7 @@ function init() {
 }
 
 function startGame() {
-  grid = []; enemies = []; eggs = []; projectiles = []; particles = [];
+  grid = []; enemies = []; eggs = []; projectiles = []; particles = []; explosionQueue = []; enemyBullets = [];
   shake = { x: 0, y: 0, i: 0 };
   lastMove = 0;
   const cx = COLS >> 1, cy = ROWS >> 1;
@@ -290,13 +300,27 @@ function genBoard(cx, cy) {
   for (let y = 0; y < ROWS; y++) {
     grid[y] = [];
     for (let x = 0; x < COLS; x++)
-      grid[y][x] = { mine: false, rev: false, crater: false, num: 0, loot: null, rt: 0 };
+      grid[y][x] = { mine: false, mega: false, rev: false, crater: false, num: 0, nearMega: false, loot: null, rt: 0 };
   }
   for (let y = 0; y < ROWS; y++)
     for (let x = 0; x < COLS; x++) {
       if (Math.abs(x - cx) <= CLEAR_R && Math.abs(y - cy) <= CLEAR_R) continue;
-      if (Math.random() < MINE_RATE) grid[y][x].mine = true;
+      if (Math.random() < MINE_RATE) {
+        grid[y][x].mine = true;
+        if (advancedMode && Math.random() < MEGA_RATE) grid[y][x].mega = true;
+      }
     }
+  if (advancedMode)
+    for (let y = 0; y < ROWS; y++)
+      for (let x = 0; x < COLS; x++) {
+        if (grid[y][x].mine) continue;
+        for (let dy = -1; dy <= 1; dy++)
+          for (let dx = -1; dx <= 1; dx++) {
+            if (!dx && !dy) continue;
+            const nx = x + dx, ny = y + dy;
+            if (ib(nx, ny) && grid[ny][nx].mega) { grid[y][x].nearMega = true; }
+          }
+      }
   for (let y = 0; y < ROWS; y++)
     for (let x = 0; x < COLS; x++) {
       if (grid[y][x].mine) continue;
@@ -344,56 +368,91 @@ function reveal(x, y) {
   if (tilesLeft <= 0 && gameState === 'playing') winGame();
 }
 
-function explode(sx, sy) {
-  const visited = new Set();
-  const blasts = [];
-  let dead = false;
+let explosionQueue = [];
+const CHAIN_DELAY = 150;
 
-  function chain(mx, my) {
-    const mk = mx + ',' + my;
-    if (visited.has(mk)) return;
-    visited.add(mk);
-    const mt = grid[my][mx];
-    mt.crater = true; mt.rev = true; mt.mine = false; mt.loot = null;
-    blasts.push({ x: mx, y: my });
+function explode(sx, sy) { doExplosion(sx, sy); }
 
-    for (let dy = -1; dy <= 1; dy++)
-      for (let dx = -1; dx <= 1; dx++) {
-        const nx = mx + dx, ny = my + dy;
-        if (!ib(nx, ny)) continue;
-        if (player.x === nx && player.y === ny) dead = true;
-        enemies = enemies.filter(e => e.x !== nx || e.y !== ny);
-        eggs = eggs.filter(e => e.x !== nx || e.y !== ny);
-        const nt = grid[ny][nx];
-        if (nt.mine && !visited.has(nx + ',' + ny)) {
-          chain(nx, ny);
-        } else if (!nt.rev && !nt.crater) {
-          nt.rev = true; nt.rt = performance.now(); nt.loot = null; tilesLeft--;
-          if (Math.random() < EXPLODE_EGG) spawnEgg(nx, ny);
-        }
+function doExplosion(mx, my) {
+  const mt = grid[my][mx];
+  if (!mt.mine) return;
+  const isMega = mt.mega;
+  const rad = isMega ? 2 : 1;
+  mt.crater = true; mt.rev = true; mt.mine = false; mt.mega = false; mt.loot = null;
+
+  for (let dy = -rad; dy <= rad; dy++)
+    for (let dx = -rad; dx <= rad; dx++) {
+      const nx = mx + dx, ny = my + dy;
+      if (!ib(nx, ny)) continue;
+      if (player.x === nx && player.y === ny && gameState === 'playing') loseGame();
+      enemies.forEach(e => {
+        if (e.x === nx && e.y === ny) emitEnemyDeath(e.fx, e.fy, e.type || 'normal');
+      });
+      enemies = enemies.filter(e => e.x !== nx || e.y !== ny);
+      eggs.forEach(e => {
+        if (e.x === nx && e.y === ny) emitEggDeath(e.x, e.y);
+      });
+      eggs = eggs.filter(e => e.x !== nx || e.y !== ny);
+      const nt = grid[ny][nx];
+      if (nt.mine && !nt.crater) {
+        explosionQueue.push({ x: nx, y: ny, time: performance.now() + CHAIN_DELAY });
+      } else if (!nt.rev && !nt.crater) {
+        nt.rev = true; nt.rt = performance.now(); nt.loot = null; tilesLeft--;
+        if (Math.random() < EXPLODE_EGG) spawnEgg(nx, ny);
       }
-    emitExplosion(mx, my);
-  }
+    }
 
-  chain(sx, sy);
-  shake.i = Math.min(visited.size * 5, 25);
-  if (dead && gameState === 'playing') loseGame();
-  else if (tilesLeft <= 0 && gameState === 'playing') winGame();
+  emitExplosion(mx, my, isMega);
+  shake.i = Math.max(shake.i, isMega ? 20 : 12);
+
+  if (explosionQueue.length === 0 && tilesLeft <= 0 && gameState === 'playing') winGame();
 }
 
 function spawnEgg(x, y) { eggs.push({ x, y, t: performance.now() }); }
 
-function emitExplosion(gx, gy) {
+function emitExplosion(gx, gy, mega) {
   const cx = gx * TILE + TILE / 2, cy = gy * TILE + TILE / 2 + HUD_H;
-  for (let i = 0; i < 14; i++) {
-    const a = (Math.PI * 2 / 14) * i + Math.random() * 0.4;
-    const sp = 70 + Math.random() * 120;
+  const count = mega ? 28 : 14;
+  const spMul = mega ? 1.8 : 1;
+  const lifeMul = mega ? 1.6 : 1;
+  const szMul = mega ? 1.5 : 1;
+  for (let i = 0; i < count; i++) {
+    const a = (Math.PI * 2 / count) * i + Math.random() * 0.4;
+    const sp = (70 + Math.random() * 120) * spMul;
     particles.push({ x: cx, y: cy, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
-      life: 0.3 + Math.random() * 0.4, ml: 0.3 + Math.random() * 0.4,
-      clr: Math.random() > 0.3 ? '#ff6b00' : '#ffcc00', sz: 2 + Math.random() * 3 });
+      life: (0.3 + Math.random() * 0.4) * lifeMul, ml: (0.3 + Math.random() * 0.4) * lifeMul,
+      clr: mega ? (Math.random() > 0.4 ? '#ffd700' : '#ff4400') : (Math.random() > 0.3 ? '#ff6b00' : '#ffcc00'),
+      sz: (2 + Math.random() * 3) * szMul });
   }
-  particles.push({ x: cx, y: cy, vx: 0, vy: 0, life: 0.12, ml: 0.12,
-    clr: '#ffffff', sz: TILE * 1.6, flash: true });
+  particles.push({ x: cx, y: cy, vx: 0, vy: 0,
+    life: mega ? 0.25 : 0.12, ml: mega ? 0.25 : 0.12,
+    clr: mega ? '#ffd700' : '#ffffff', sz: TILE * (mega ? 3.5 : 1.6), flash: true });
+}
+
+function emitEnemyDeath(fx, fy, etype) {
+  const cx = fx * TILE + TILE / 2, cy = fy * TILE + TILE / 2 + HUD_H;
+  const ec = ENEMY_COLORS[etype] || ENEMY_COLORS.normal;
+  const clr1 = ec.d1, clr2 = ec.d2;
+  for (let i = 0; i < 16; i++) {
+    const a = (Math.PI * 2 / 16) * i + Math.random() * 0.3;
+    const sp = 50 + Math.random() * 100;
+    particles.push({ x: cx, y: cy, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+      life: 0.4 + Math.random() * 0.4, ml: 0.4 + Math.random() * 0.4,
+      clr: Math.random() > 0.4 ? clr1 : clr2, sz: 2 + Math.random() * 3 });
+  }
+  particles.push({ x: cx, y: cy, vx: 0, vy: 0, life: 0.15, ml: 0.15,
+    clr: clr1, sz: TILE * 1.2, flash: true });
+}
+
+function emitEggDeath(ex, ey) {
+  const cx = ex * TILE + TILE / 2, cy = ey * TILE + TILE / 2 + HUD_H;
+  for (let i = 0; i < 8; i++) {
+    const a = (Math.PI * 2 / 8) * i + Math.random() * 0.4;
+    const sp = 30 + Math.random() * 60;
+    particles.push({ x: cx, y: cy, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+      life: 0.3 + Math.random() * 0.3, ml: 0.3 + Math.random() * 0.3,
+      clr: Math.random() > 0.5 ? '#ff6b35' : '#ffaa55', sz: 1.5 + Math.random() * 2 });
+  }
 }
 
 function movePlayer(dx, dy) {
@@ -493,11 +552,30 @@ document.addEventListener('keydown', (e) => {
 });
 document.addEventListener('keyup', (e) => keys.delete(e.key.toLowerCase()));
 document.addEventListener('blur', () => keys.clear());
+canvas.addEventListener('click', (e) => {
+  if (gameState !== 'title') return;
+  const rect = canvas.getBoundingClientRect();
+  const sx = (e.clientX - rect.left) / rect.width * W;
+  const sy = (e.clientY - rect.top) / rect.height * H;
+  const lx = W * 0.15;
+  const cbY = H * 0.18 + 230;
+  if (sx >= lx - 4 && sx <= lx + 200 && sy >= cbY - 12 && sy <= cbY + 12) {
+    advancedMode = !advancedMode;
+    e.stopPropagation();
+  }
+});
 
 // ---- UPDATE ----
 function update(dt, now) {
   if (gameState === 'playing') {
     gameTime = (now - gameStartTime) / 1000;
+    for (let i = explosionQueue.length - 1; i >= 0; i--) {
+      if (now >= explosionQueue[i].time) {
+        const eq = explosionQueue.splice(i, 1)[0];
+        if (grid[eq.y][eq.x].mine) doExplosion(eq.x, eq.y);
+      }
+    }
+    if (explosionQueue.length === 0 && tilesLeft <= 0 && gameState === 'playing') winGame();
     if (now - lastMove >= MOVE_CD) {
       if (keys.has('w') || keys.has('arrowup')) { movePlayer(0, -1); lastMove = now; }
       else if (keys.has('s') || keys.has('arrowdown')) { movePlayer(0, 1); lastMove = now; }
@@ -522,26 +600,117 @@ function update(dt, now) {
       projectiles = projectiles.filter(p => p.active);
     }
     if (gameState === 'playing') {
-      const hatched = [];
       eggs = eggs.filter(egg => {
         if (now - egg.t >= HATCH_TIME) {
+          let etype = 'normal';
+          if (advancedMode) {
+            const r = Math.random();
+            if (r < 0.25) etype = 'fast';
+            else if (r < 0.42) etype = 'shooter';
+            else if (r < 0.55) etype = 'charger';
+          }
+          const espeed = etype === 'fast' ? ENEMY_SPEED / 2 : ENEMY_SPEED;
+          const ec = ENEMY_COLORS[etype] || ENEMY_COLORS.normal;
           enemies.push({ x: egg.x, y: egg.y, fx: egg.x, fy: egg.y,
-            lm: now, cd: ENEMY_SPEED + (Math.random() - 0.5) * 400 });
+            lm: now, cd: espeed + (Math.random() - 0.5) * 200,
+            type: etype, fast: etype === 'fast',
+            lastShot: now, shootState: null, shootDir: null, shootStart: 0,
+            chargeState: null, chargeDir: null, chargeStart: 0, lastChargeTick: 0 });
           const px = (egg.x + 0.5) * TILE, py = (egg.y + 0.5) * TILE + HUD_H;
           for (let i = 0; i < 8; i++) {
             const a = (Math.PI * 2 / 8) * i;
             particles.push({ x: px, y: py, vx: Math.cos(a) * 40, vy: Math.sin(a) * 40,
-              life: 0.3, ml: 0.3, clr: '#ff2d55', sz: 2 });
+              life: 0.3, ml: 0.3, clr: ec.body, sz: 2 });
           }
           return false;
         }
         return true;
       });
+
+      // Charger charge updates (fast tick, separate from normal movement)
+      enemies.forEach(en => {
+        if (en.type !== 'charger' || !en.chargeState) return;
+        if (en.chargeState === 'winding') {
+          const aligned = en.chargeDir && (
+            (en.chargeDir.x !== 0 && en.y === player.y) ||
+            (en.chargeDir.y !== 0 && en.x === player.x));
+          if (!aligned) { en.chargeState = null; return; }
+          if (now - en.chargeStart > 600) {
+            en.chargeState = 'charging'; en.lastChargeTick = now;
+          }
+        } else if (en.chargeState === 'charging') {
+          if (now - en.lastChargeTick < 55) return;
+          en.lastChargeTick = now;
+          const nx = en.x + en.chargeDir.x, ny = en.y + en.chargeDir.y;
+          if (!ib(nx, ny)) { en.chargeState = null; return; }
+          en.x = nx; en.y = ny;
+          const cpx = (nx + 0.5) * TILE, cpy = (ny + 0.5) * TILE + HUD_H;
+          particles.push({ x: cpx, y: cpy, vx: -en.chargeDir.x * 30, vy: -en.chargeDir.y * 30,
+            life: 0.2, ml: 0.2, clr: '#aa44ff60', sz: 8, flash: true });
+          if (en.x === player.x && en.y === player.y) { loseGame(); return; }
+          const t = grid[ny][nx];
+          if (!t.rev && !t.crater) {
+            if (t.mine) {
+              emitEnemyDeath(en.fx, en.fy, 'charger');
+              en.dead = true;
+              reveal(nx, ny);
+              return;
+            }
+            reveal(nx, ny);
+          }
+        }
+      });
+      enemies = enemies.filter(e => !e.dead);
+
+      // Shooter fire check
+      enemies.forEach(en => {
+        if (en.type !== 'shooter') return;
+        if (en.shootState === 'charging') {
+          if (now - en.shootStart > 500) {
+            en.shootState = null; en.lastShot = now;
+            const dir = en.shootDir;
+            enemyBullets.push({ x: en.x + 0.5, y: en.y + 0.5, dx: dir.x, dy: dir.y, active: true });
+            const spx = (en.x + 0.5) * TILE, spy = (en.y + 0.5) * TILE + HUD_H;
+            particles.push({ x: spx, y: spy, vx: 0, vy: 0,
+              life: 0.12, ml: 0.12, clr: '#66aaff', sz: TILE * 0.9, flash: true });
+          }
+          return;
+        }
+        if (now - en.lastShot < 2500) return;
+        const dx = player.x - en.x, dy = player.y - en.y;
+        if (dx !== 0 && dy !== 0) return;
+        if (dx === 0 && dy === 0) return;
+        en.shootState = 'charging';
+        en.shootStart = now;
+        en.shootDir = { x: Math.sign(dx), y: Math.sign(dy) };
+      });
+
+      // Enemy bullet movement
+      enemyBullets.forEach(b => {
+        if (!b.active) return;
+        b.x += b.dx * 12 * dt;
+        b.y += b.dy * 12 * dt;
+        const gx = Math.floor(b.x), gy = Math.floor(b.y);
+        if (!ib(gx, gy)) { b.active = false; return; }
+        if (gx === player.x && gy === player.y) { loseGame(); b.active = false; return; }
+        if (!grid[gy][gx].rev && !grid[gy][gx].crater) {
+          reveal(gx, gy); b.active = false;
+          for (let i = 0; i < 4; i++)
+            particles.push({ x: b.x * TILE, y: b.y * TILE + HUD_H,
+              vx: (Math.random() - 0.5) * 60, vy: (Math.random() - 0.5) * 60,
+              life: 0.2, ml: 0.2, clr: '#66aaff', sz: 2 });
+        }
+      });
+      enemyBullets = enemyBullets.filter(b => b.active);
+
+      // Normal movement for all enemy types (chargers in charge state skip)
       const occupied = new Set(enemies.map(e => e.x + ',' + e.y));
       enemies.forEach(en => {
+        if (en.type === 'charger' && en.chargeState) return;
+        if (en.type === 'shooter' && en.shootState) return;
         if (now - en.lm < en.cd) return;
         en.lm = now;
-        en.cd = ENEMY_SPEED + (Math.random() - 0.5) * 400;
+        en.cd = (en.type === 'fast' ? ENEMY_SPEED / 2 : ENEMY_SPEED) + (Math.random() - 0.5) * 200;
         occupied.delete(en.x + ',' + en.y);
 
         let moved = false;
@@ -564,6 +733,16 @@ function update(dt, now) {
 
         occupied.add(en.x + ',' + en.y);
         if (en.x === player.x && en.y === player.y) loseGame();
+
+        // Charger: check alignment to start winding
+        if (en.type === 'charger' && !en.chargeState) {
+          const dx = player.x - en.x, dy = player.y - en.y;
+          if ((dx === 0) !== (dy === 0)) {
+            en.chargeState = 'winding';
+            en.chargeDir = { x: Math.sign(dx), y: Math.sign(dy) };
+            en.chargeStart = now;
+          }
+        }
       });
     }
   }
@@ -626,6 +805,7 @@ function render(now) {
   enemies.forEach(e => drawEnemy(e, now));
   if (player.alive) drawPlayer(now);
   projectiles.forEach(p => drawProj(p));
+  enemyBullets.forEach(b => drawEnemyBullet(b));
   particles.forEach(p => drawParticle(p));
   drawHUD();
 
@@ -660,10 +840,11 @@ function drawTile(x, y, now) {
       ctx.fillRect(px, py, TILE, TILE);
     }
     if (t.num > 0) {
+      const nc = t.nearMega ? '#ffd700' : NUM_CLR[t.num];
       ctx.save();
-      ctx.shadowBlur = 6;
-      ctx.shadowColor = NUM_CLR[t.num];
-      ctx.fillStyle = NUM_CLR[t.num];
+      ctx.shadowBlur = t.nearMega ? 10 : 6;
+      ctx.shadowColor = nc;
+      ctx.fillStyle = nc;
       ctx.font = 'bold 15px Courier New';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
@@ -723,22 +904,62 @@ function drawEgg(egg, now) {
 }
 
 function drawEnemy(e, now) {
-  const cx = e.fx * TILE + TILE / 2, cy = e.fy * TILE + TILE / 2 + HUD_H;
-  const pulse = 1 + Math.sin(now / 180) * 0.12;
-  ctx.fillStyle = '#ff2d5518';
+  const ec = ENEMY_COLORS[e.type] || ENEMY_COLORS.normal;
+  let cx = e.fx * TILE + TILE / 2, cy = e.fy * TILE + TILE / 2 + HUD_H;
+  const isWinding = e.type === 'charger' && e.chargeState === 'winding';
+  const isCharging = e.type === 'charger' && e.chargeState === 'charging';
+  const isAiming = e.type === 'shooter' && e.shootState === 'charging';
+  const pSpeed = e.type === 'fast' ? 100 : isWinding ? 40 : isAiming ? 50 : 180;
+  const sSpeed = isCharging ? 80 : e.type === 'fast' ? 300 : 600;
+  const pulse = 1 + Math.sin(now / pSpeed) * (isWinding || isAiming ? 0.25 : 0.12);
+
+  if (isWinding) {
+    cx += (Math.random() - 0.5) * 3;
+    cy += (Math.random() - 0.5) * 3;
+  }
+
+  ctx.fillStyle = ec.glow;
   ctx.beginPath();
-  ctx.arc(cx, cy, 16 * pulse, 0, Math.PI * 2);
+  ctx.arc(cx, cy, (isCharging ? 20 : 16) * pulse, 0, Math.PI * 2);
   ctx.fill();
-  ctx.fillStyle = '#ff2d55';
+  ctx.fillStyle = ec.body;
   ctx.beginPath();
-  for (let i = 0; i < 8; i++) {
-    const a = (Math.PI * 2 / 8) * i + now / 600;
+  const spikes = e.type === 'shooter' ? 6 : 8;
+  for (let i = 0; i < spikes; i++) {
+    const a = (Math.PI * 2 / spikes) * i + now / sSpeed;
     const r = (i % 2 === 0 ? 11 : 7) * pulse;
     const sx = cx + Math.cos(a) * r, sy = cy + Math.sin(a) * r;
     i === 0 ? ctx.moveTo(sx, sy) : ctx.lineTo(sx, sy);
   }
   ctx.closePath(); ctx.fill();
-  ctx.fillStyle = '#1a0008';
+
+  if (e.type === 'charger' && e.chargeState && e.chargeDir) {
+    const da = Math.atan2(e.chargeDir.y, e.chargeDir.x);
+    ctx.fillStyle = isCharging ? '#dd88ff' : '#aa44ff88';
+    ctx.beginPath();
+    ctx.moveTo(cx + Math.cos(da) * 14 * pulse, cy + Math.sin(da) * 14 * pulse);
+    ctx.lineTo(cx + Math.cos(da + 2.5) * 5, cy + Math.sin(da + 2.5) * 5);
+    ctx.lineTo(cx + Math.cos(da - 2.5) * 5, cy + Math.sin(da - 2.5) * 5);
+    ctx.closePath(); ctx.fill();
+  }
+
+  if (isAiming && e.shootDir) {
+    const prog = Math.min((now - e.shootStart) / 500, 1);
+    const da = Math.atan2(e.shootDir.y, e.shootDir.x);
+    ctx.save();
+    ctx.globalAlpha = 0.3 + prog * 0.5;
+    ctx.strokeStyle = '#66aaff';
+    ctx.lineWidth = 2 + prog * 2;
+    ctx.shadowBlur = 10 * prog;
+    ctx.shadowColor = '#66aaff';
+    ctx.beginPath();
+    ctx.moveTo(cx + Math.cos(da) * 10, cy + Math.sin(da) * 10);
+    ctx.lineTo(cx + Math.cos(da) * (14 + prog * 10), cy + Math.sin(da) * (14 + prog * 10));
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  ctx.fillStyle = ec.eye;
   ctx.beginPath();
   ctx.arc(cx, cy, 3, 0, Math.PI * 2);
   ctx.fill();
@@ -780,6 +1001,24 @@ function drawProj(p) {
   ctx.beginPath();
   ctx.arc(px, py, 3.5, 0, Math.PI * 2);
   ctx.fill();
+}
+
+function drawEnemyBullet(b) {
+  const px = b.x * TILE, py = b.y * TILE + HUD_H;
+  ctx.strokeStyle = '#66aaff40';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(px, py);
+  ctx.lineTo(px - b.dx * TILE * 0.8, py - b.dy * TILE * 0.8);
+  ctx.stroke();
+  ctx.save();
+  ctx.shadowBlur = 8;
+  ctx.shadowColor = '#66aaff';
+  ctx.fillStyle = '#66aaff';
+  ctx.beginPath();
+  ctx.arc(px, py, 4, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
 }
 
 function drawParticle(p) {
@@ -871,7 +1110,20 @@ function drawTitle(now) {
   ];
   tips.forEach((t, i) => ctx.fillText(t, lx, cy + 168 + i * 18));
 
-  let bottom = cy + 230;
+  const cbY = cy + 230;
+  ctx.strokeStyle = advancedMode ? '#ffd700' : '#30363d';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(lx, cbY - 7, 14, 14);
+  if (advancedMode) {
+    ctx.fillStyle = '#ffd700';
+    ctx.font = 'bold 12px Courier New';
+    ctx.fillText('✓', lx + 2, cbY + 1);
+  }
+  ctx.fillStyle = advancedMode ? '#ffd700' : '#586069';
+  ctx.font = '12px Courier New';
+  ctx.fillText('Advanced Mechanics', lx + 22, cbY);
+
+  let bottom = cbY + 24;
 
   if (lbCount) {
     ctx.fillStyle = '#484f58';
