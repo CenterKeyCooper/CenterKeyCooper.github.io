@@ -109,7 +109,7 @@
   .timer-fill.advance { background: var(--muted); box-shadow: none; }
 
   .canvas-wrap { display: flex; justify-content: center; }
-  canvas { touch-action: none; border: 2px solid var(--line2);
+  canvas { touch-action: none; display: block; max-width: 100%; height: auto; border: 2px solid var(--line2);
     box-shadow: 0 0 0 2px #000, 0 0 30px rgba(42,212,255,.10), inset 0 0 50px rgba(0,0,0,.6); }
 
   .status { text-align: center; min-height: 20px; margin: 14px 0 2px; font-size: 12.5px; font-weight: bold;
@@ -413,7 +413,7 @@
     DIM = n * CELL + MARGIN * 2;
     const dpr = window.devicePixelRatio || 1;
     canvas.width = DIM * dpr; canvas.height = DIM * dpr;
-    canvas.style.width = DIM + "px"; canvas.style.height = DIM + "px";
+    canvas.style.width = DIM + "px"; canvas.style.height = "auto";
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
   const cellCenter = (c, r) => ({ x: MARGIN + (c + 0.5) * CELL, y: MARGIN + (r + 0.5) * CELL });
@@ -793,7 +793,12 @@
   }
 
   // ---------- Events ----------
-  function canvasPos(evt) { const rect = canvas.getBoundingClientRect(); const src = evt.touches ? evt.touches[0] : evt; return { x: src.clientX - rect.left, y: src.clientY - rect.top }; }
+  function canvasPos(evt) {
+    const rect = canvas.getBoundingClientRect();
+    const src = evt.touches ? evt.touches[0] : evt;
+    const sx = DIM / rect.width, sy = DIM / rect.height; // map CSS px -> internal grid coords (handles scaling)
+    return { x: (src.clientX - rect.left) * sx, y: (src.clientY - rect.top) * sy };
+  }
   canvas.addEventListener("mousemove", (e) => {
     if (phase !== "guess") return;
     const p = canvasPos(e), seg = hitSegment(p.x, p.y);
