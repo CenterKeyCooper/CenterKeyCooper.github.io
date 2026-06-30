@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Afterimage</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --panel: #0a0e16;
+    --panel2: #11161f;
+    --line: #1f2a3a;
+    --line2: #2c3b50;
+    --ink: #d7e2ee;
+    --muted: #5f6e80;
+    --cyan: #2ad4ff;
+    --cyan-dim: rgba(42, 212, 255, 0.16);
+    --gold: #ffd23f;
+    --good: #3bf07a;
+    --bad: #ff3b6b;
+    --font: 'Courier New', ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; min-height: 100%;
+    color: var(--ink); font-family: var(--font); letter-spacing: 1px;
+    background: radial-gradient(circle at 50% 30%, #141d2b 0%, var(--bg) 70%);
+    background-attachment: fixed;
+  }
+  body::after { content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 60;
+    background: repeating-linear-gradient(0deg, rgba(0,0,0,.22) 0 1px, transparent 1px 3px); }
+  body::before { content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 59;
+    background: radial-gradient(circle at 50% 50%, transparent 55%, rgba(0,0,0,.55) 100%); }
+  body { display: flex; align-items: center; justify-content: center; padding: 26px 18px; }
+  .app { width: 100%; max-width: 540px; position: relative; z-index: 1; }
+
+  header { text-align: center; margin-bottom: 18px; }
+  header h1 { margin: 0; font-size: 30px; font-weight: bold; text-transform: uppercase; letter-spacing: 5px;
+    color: var(--cyan); text-shadow: 0 0 4px #000, 0 0 14px rgba(42,212,255,.7), 3px 3px 0 #000; }
+  header p { margin: 9px 0 0; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; }
+
+  .card { background: var(--panel); border: 2px solid var(--line);
+    box-shadow: 0 0 0 2px #000 inset, 0 0 40px rgba(42,212,255,.06), 6px 6px 0 #000; padding: 22px; }
+
+  h2 { margin: 2px 0 6px; font-size: 17px; text-transform: uppercase; letter-spacing: 2px; text-align: center;
+    color: var(--cyan); text-shadow: 0 0 10px rgba(42,212,255,.4); }
+  .sub { color: var(--muted); font-size: 11.5px; margin: 0 0 18px; text-transform: uppercase; letter-spacing: 1px; text-align:center; }
+
+  /* ---- Buttons ---- */
+  button { font-family: var(--font); font-weight: bold; text-transform: uppercase; letter-spacing: 1.5px;
+    border: 2px solid var(--line2); background: var(--panel2); color: var(--ink);
+    padding: 11px 18px; cursor: pointer; box-shadow: 4px 4px 0 #000;
+    transition: background .12s ease, border-color .12s ease, color .12s ease; }
+  button:hover { border-color: var(--cyan); color: var(--cyan); }
+  button:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0 #000; }
+  button.primary { background: var(--cyan); border-color: var(--cyan); color: #04212b;
+    box-shadow: 4px 4px 0 #000, 0 0 18px rgba(42,212,255,.35); }
+  button.primary:hover { background: #62e2ff; color: #04212b; }
+  button.ghost { background: transparent; }
+  button.link { background: none; border: none; box-shadow: none; color: var(--muted);
+    font-size: 10px; letter-spacing: 2px; padding: 8px; }
+  button.link:hover { color: var(--cyan); }
+  button.link:active { transform: none; box-shadow: none; }
+
+  /* ---- Home ---- */
+  .daily-box { border: 2px dashed var(--line2); padding: 18px; text-align: center; margin-bottom: 16px; }
+  .daily-date { font-size: 13px; color: var(--cyan); letter-spacing: 2px; }
+  .daily-status { font-size: 11px; color: var(--muted); text-transform: uppercase; margin: 8px 0 16px; }
+  .daily-box button { width: 100%; padding: 14px; font-size: 14px; }
+  .mini-stats { display: flex; gap: 7px; margin-bottom: 8px; }
+  .mini { flex: 1; background: var(--panel2); border: 1px solid var(--line); box-shadow: 0 0 0 1px #000 inset;
+    padding: 9px 6px; text-align: center; }
+  .mini .k { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+  .mini .v { font-size: 19px; font-weight: bold; margin-top: 3px; }
+  .home-foot { text-align: center; margin-top: 6px; }
+  .lede { color: var(--muted); margin: 0 0 18px; font-size: 11.5px; line-height: 1.7; text-align: center; text-transform: none; }
+  .lede b { color: var(--ink); }
+
+  /* ---- Archive ---- */
+  .arch-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .arch-list { display: flex; flex-direction: column; gap: 7px; max-height: 360px; overflow-y: auto; }
+  .arch-row { display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    background: var(--panel2); border: 1px solid var(--line); box-shadow: 0 0 0 1px #000 inset; padding: 10px 12px; }
+  .arch-row .d { font-size: 12px; letter-spacing: 1px; }
+  .arch-row .right { display: flex; align-items: center; gap: 10px; }
+  .chip { font-size: 11px; padding: 3px 8px; border: 1px solid var(--line2); color: var(--muted); }
+  .chip.done { color: var(--good); border-color: var(--good); }
+  .arch-row button { padding: 7px 12px; font-size: 11px; box-shadow: 2px 2px 0 #000; }
+
+  /* ---- Game ---- */
+  .topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .round-label { font-size: 11px; color: var(--muted); text-transform: uppercase; }
+  .round-label b { color: var(--cyan); }
+  .dots { display: flex; gap: 4px; }
+  .dot { width: 8px; height: 8px; background: var(--panel2); border: 1px solid var(--line2); transition: all .15s ease; }
+  .dot.gap { margin-left: 8px; }
+  .dot.good { background: var(--good); border-color: var(--good); box-shadow: 0 0 8px rgba(59,240,122,.6); }
+  .dot.bad { background: var(--bad); border-color: var(--bad); box-shadow: 0 0 8px rgba(255,59,107,.5); }
+  .dot.current { background: var(--cyan); border-color: var(--cyan); box-shadow: 0 0 9px rgba(42,212,255,.7); }
+
+  .stats { display: flex; gap: 7px; margin-bottom: 12px; }
+  .stat { flex: 1; background: var(--panel2); border: 1px solid var(--line); box-shadow: 0 0 0 1px #000 inset;
+    padding: 8px 6px; text-align: center; }
+  .stat .k { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 1.2px; }
+  .stat .v { font-size: 18px; font-weight: bold; margin-top: 3px; }
+
+  .timer-bar { height: 6px; background: #060a11; border: 1px solid var(--line); overflow: hidden; margin-bottom: 12px; }
+  .timer-fill { height: 100%; width: 100%; background: var(--cyan); box-shadow: 0 0 10px rgba(42,212,255,.6); }
+  .timer-fill.advance { background: var(--muted); box-shadow: none; }
+
+  .canvas-wrap { display: flex; justify-content: center; }
+  canvas { touch-action: none; border: 2px solid var(--line2);
+    box-shadow: 0 0 0 2px #000, 0 0 30px rgba(42,212,255,.10), inset 0 0 50px rgba(0,0,0,.6); }
+
+  .status { text-align: center; min-height: 20px; margin: 14px 0 2px; font-size: 12.5px; font-weight: bold;
+    text-transform: uppercase; letter-spacing: 1.2px; color: var(--ink); }
+  .status.good { color: var(--good); text-shadow: 0 0 10px rgba(59,240,122,.5); }
+  .status.bad { color: var(--bad); text-shadow: 0 0 10px rgba(255,59,107,.5); }
+
+  .controls { display: flex; justify-content: center; gap: 10px; margin-top: 14px; }
+  .hint { text-align: center; color: var(--muted); font-size: 10.5px; margin-top: 12px; line-height: 1.7;
+    text-transform: uppercase; letter-spacing: .8px; }
+  .hint b { color: var(--cyan); }
+
+  /* ---- Summary ---- */
+  .big-score { font-size: 50px; font-weight: bold; letter-spacing: -1px; margin: 4px 0 0;
+    color: var(--cyan); text-shadow: 0 0 4px #000, 0 0 22px rgba(42,212,255,.6); text-align: center; }
+  .cap { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 2px; text-align: center; }
+  .summary-grid { display: flex; gap: 7px; margin: 16px 0 4px; }
+  .res-rows { display: flex; flex-direction: column; gap: 6px; align-items: center; margin: 18px 0; }
+  .res-row { display: flex; gap: 6px; align-items: center; }
+  .res-row .rlbl { width: 58px; text-align: right; font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+  .cell { width: 19px; height: 19px; border: 1px solid var(--line2); }
+  .cell.good { background: var(--good); border-color: var(--good); box-shadow: 0 0 7px rgba(59,240,122,.45); }
+  .cell.bad { background: var(--bad); border-color: var(--bad); }
+
+  /* ---- Leaderboard ---- */
+  .lb-title { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 1.5px; text-align: center; margin: 8px 0 8px; }
+  .lb-row { display: flex; align-items: center; gap: 10px; padding: 6px 10px; margin-bottom: 4px;
+    background: var(--panel2); border: 1px solid var(--line); box-shadow: 0 0 0 1px #000 inset; }
+  .lb-row.me { border-color: var(--cyan); box-shadow: 0 0 0 1px #000 inset, 0 0 10px rgba(42,212,255,.25); }
+  .lb-row .rank { width: 18px; text-align: right; color: var(--muted); font-size: 12px; }
+  .lb-row .lname { flex: 1; font-size: 12px; letter-spacing: .5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .lb-row .lval { font-size: 12px; color: var(--cyan); }
+  .lb-row .newtag { color: var(--good); font-size: 9px; letter-spacing: 1px; }
+  .lb-empty { text-align: center; color: var(--muted); font-size: 11px; padding: 10px; }
+  .namechip { font-size: 10px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; }
+  .home-leader { font-size: 11px; letter-spacing: .5px; color: var(--muted); }
+  .home-leader b { color: var(--gold); }
+
+  .hidden { display: none !important; }
+  @keyframes pop { from { transform: scale(.97); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .pop { animation: pop .2s ease; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>Afterimage</h1>
+    <p>Daily beam-tracking memory challenge</p>
+  </header>
+
+  <div class="card">
+    <!-- ===== Home ===== -->
+    <div id="home" class="pop">
+      <p class="lede">
+        Memorize the deflectors (<b>/</b> &amp; <b>\</b>), then predict where the laser escapes.
+        Everyone gets the <b>same 15 puzzles</b> each day — 5 easy, 5 medium, 5 hard.
+      </p>
+      <div class="daily-box">
+        <div class="daily-date" id="homeDate">—</div>
+        <div class="daily-status" id="homeStatus">Not played yet</div>
+        <button id="homePlay" class="primary">Play Today</button>
+      </div>
+      <div class="mini-stats">
+        <div class="mini"><div class="k">Streak</div><div class="v" id="homeStreak">0</div></div>
+        <div class="mini"><div class="k">Best</div><div class="v" id="homeBest">0</div></div>
+        <div class="mini"><div class="k">Played</div><div class="v" id="homePlayed">0</div></div>
+      </div>
+      <div class="home-foot home-leader" id="homeLeaderRow" style="min-height:16px">&nbsp;</div>
+      <div class="home-foot">
+        <span id="homeName" class="namechip">No name set</span>
+        <button id="nameEdit" class="link">change</button>
+      </div>
+      <div class="home-foot"><button id="archiveLink" class="link">Archive ▸</button></div>
+    </div>
+
+    <!-- ===== Archive ===== -->
+    <div id="archive" class="hidden">
+      <div class="arch-head">
+        <button id="archBack" class="link">◂ Back</button>
+        <h2 style="margin:0">Archive</h2>
+        <span style="width:48px"></span>
+      </div>
+      <div class="arch-list" id="archList"></div>
+    </div>
+
+    <!-- ===== Game ===== -->
+    <div id="game" class="hidden">
+      <div class="topbar">
+        <div class="round-label">Round <b id="roundNow">1</b> / <span id="roundTot">15</span></div>
+        <div class="dots" id="dots"></div>
+      </div>
+      <div class="stats">
+        <div class="stat"><div class="k">Tier</div><div class="v" id="tierv" style="font-size:13px">Easy</div></div>
+        <div class="stat"><div class="k">Streak</div><div class="v" id="streak">0</div></div>
+        <div class="stat"><div class="k">Solved</div><div class="v" id="solved">0/15</div></div>
+      </div>
+      <div class="timer-bar"><div class="timer-fill" id="timerFill"></div></div>
+      <div class="canvas-wrap"><canvas id="board" width="520" height="520"></canvas></div>
+      <div class="status" id="status">Memorize the deflectors…</div>
+      <div class="controls"><button id="quitBtn" class="ghost">Quit</button></div>
+      <div class="hint"><b>\</b> bends right↔down &amp; left↔up &nbsp;·&nbsp; <b>/</b> bends right↔up &amp; left↔down</div>
+    </div>
+
+    <!-- ===== Summary ===== -->
+    <div id="summary" class="hidden">
+      <h2 id="sumTitle">Daily Complete</h2>
+      <p class="sub" id="sumSub">Nicely done.</p>
+      <div class="big-score" id="sumScore">0</div>
+      <div class="cap" id="sumCap">total points</div>
+      <div class="res-rows" id="resRows"></div>
+      <div class="summary-grid">
+        <div class="stat"><div class="k">Accuracy</div><div class="v" id="sumAcc">0%</div></div>
+        <div class="stat"><div class="k">Hits</div><div class="v" id="sumHits">0/15</div></div>
+        <div class="stat"><div class="k">Best Run</div><div class="v" id="sumStreak">0</div></div>
+      </div>
+      <div id="lbWrap"></div>
+      <div class="controls hidden" id="lbSubmitRow"><button id="lbSubmit" class="primary">Submit to Leaderboard</button></div>
+      <div class="controls">
+        <button id="shareBtn" class="primary">Share</button>
+        <button id="sumBack" class="ghost">Home</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  // ---------- DOM ----------
+  const $ = (id) => document.getElementById(id);
+  const homeEl = $("home"), archiveEl = $("archive"), gameEl = $("game"), summaryEl = $("summary");
+  const canvas = $("board"), ctx = canvas.getContext("2d");
+  const statusEl = $("status"), timerFill = $("timerFill"), dotsEl = $("dots");
+
+  // ---------- Config ----------
+  const ROUNDS_PER_TIER = 5;
+  const TIERS = [
+    { key: "easy",   label: "Easy",   size: 4, deflectors: 3,  memorizeMs: 4400, points: 10 },
+    { key: "medium", label: "Medium", size: 6, deflectors: 7,  memorizeMs: 3200, points: 20 },
+    { key: "hard",   label: "Hard",   size: 8, deflectors: 11, memorizeMs: 2400, points: 30 },
+  ];
+  const TOTAL_ROUNDS = ROUNDS_PER_TIER * TIERS.length; // 15
+  const tierForIndex = (i) => TIERS[Math.floor(i / ROUNDS_PER_TIER)];
+  const BEAM_SPEED = 1250; // px/sec, constant
+  const LS_KEY = "laserRecall.history.v1";
+  const ARCHIVE_DAYS = 14;
+
+  // ---------- Airtable leaderboard ----------
+  const AT_BASE = "appsvu3ApgrBKyAx6";
+  const AT_TOKEN = "patxeMh9t8lsRlU9l.973e131b2895f6b1e921cb91959264ec16e1a9c5e1d481e7ae18bd2c2e73881b";
+  const AT_TABLE = "Afterimage";
+  const AT_URL = `https://api.airtable.com/v0/${AT_BASE}/${encodeURIComponent(AT_TABLE)}`;
+  const NAME_KEY = "afterimage.name.v1";
+
+  function atHeaders() { return { Authorization: "Bearer " + AT_TOKEN, "Content-Type": "application/json" }; }
+  function getName() { try { return localStorage.getItem(NAME_KEY) || ""; } catch (e) { return ""; } }
+  function setName(n) { try { localStorage.setItem(NAME_KEY, n); } catch (e) {} }
+  function esc(s) { const d = document.createElement("div"); d.textContent = s; return d.innerHTML; }
+
+  function fetchDayBoard(date) {
+    const url = AT_URL + "?filterByFormula=" + encodeURIComponent("{Date}='" + date + "'") +
+      "&sort%5B0%5D%5Bfield%5D=Score&sort%5B0%5D%5Bdirection%5D=desc&maxRecords=100";
+    return fetch(url, { headers: atHeaders() }).then((r) => r.json()).then((d) => {
+      const recs = (d.records || []).map((r) => r.fields);
+      const seen = new Set(), out = []; // records arrive sorted by Score desc → first per name is their best
+      for (const r of recs) { const k = (r.Name || "").trim().toLowerCase(); if (!k || seen.has(k)) continue; seen.add(k); out.push(r); }
+      return out;
+    }).catch(() => null);
+  }
+  function submitScore(date, name, score) {
+    const fields = { Name: name, Score: score, Date: date };
+    return fetch(AT_URL, { method: "POST", headers: atHeaders(), body: JSON.stringify({ fields }) })
+      .then((r) => r.json()).then((d) => { if (d.error) throw d.error; });
+  }
+  function renderBoard(target, board, hiName, hiScore) {
+    if (board === null) { target.innerHTML = '<div class="lb-empty">Leaderboard unavailable.</div>'; return; }
+    if (!board.length) { target.innerHTML = '<div class="lb-empty">No scores yet — be the first!</div>'; return; }
+    let html = '<div class="lb-title">Today’s Leaderboard</div>';
+    board.slice(0, 8).forEach((r, i) => {
+      const isMe = hiName && (r.Name || "").trim().toLowerCase() === hiName.trim().toLowerCase() && Number(r.Score) === Number(hiScore);
+      html += '<div class="lb-row' + (isMe ? " me" : "") + '">' +
+        '<span class="rank">' + (i + 1) + '</span>' +
+        '<span class="lname">' + esc(r.Name || "???") + (isMe ? ' <span class="newtag">YOU</span>' : "") + "</span>" +
+        '<span class="lval">' + (r.Score != null ? r.Score : 0) + "/" + TOTAL_ROUNDS + "</span></div>";
+    });
+    target.innerHTML = html;
+  }
+
+  // ---------- Canvas palette ----------
+  const C = {
+    gridBg: "#070b12", gridBorder: "rgba(42,212,255,0.20)", gridLine: "rgba(42,212,255,0.07)",
+    padFill: "rgba(42,212,255,0.10)", padStroke: "rgba(42,212,255,0.55)",
+    padHover: "rgba(42,212,255,0.85)", deflector: "#bfefff",
+    entry: "#ffd23f", beam: "#2ad4ff", good: "#3bf07a", bad: "#ff3b6b",
+  };
+
+  // ---------- Seeded RNG ----------
+  function xmur3(str) {
+    let h = 1779033703 ^ str.length;
+    for (let i = 0; i < str.length; i++) { h = Math.imul(h ^ str.charCodeAt(i), 3432918353); h = (h << 13) | (h >>> 19); }
+    return () => { h = Math.imul(h ^ (h >>> 16), 2246822507); h = Math.imul(h ^ (h >>> 13), 3266489909); h ^= h >>> 16; return h >>> 0; };
+  }
+  function mulberry32(a) {
+    return () => { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  }
+  let rng = Math.random;
+
+  // ---------- Date helpers ----------
+  const pad2 = (n) => String(n).padStart(2, "0");
+  const dateToStr = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+  const todayStr = () => dateToStr(new Date());
+  function shiftDate(str, delta) { const [y, m, d] = str.split("-").map(Number); const dt = new Date(y, m - 1, d); dt.setDate(dt.getDate() + delta); return dateToStr(dt); }
+  function prettyDate(str) { const [y, m, d] = str.split("-").map(Number); return new Date(y, m - 1, d).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }); }
+
+  // ---------- Storage ----------
+  function loadHistory() { try { return JSON.parse(localStorage.getItem(LS_KEY)) || {}; } catch (e) { return {}; } }
+  function saveHistory(h) { try { localStorage.setItem(LS_KEY, JSON.stringify(h)); } catch (e) {} }
+  function saveResult(date, record) {
+    const h = loadHistory();
+    const prev = h[date];
+    if (!prev || record.hits > prev.hits) { h[date] = record; saveHistory(h); }
+  }
+  function computeStreak(h) {
+    let cur = todayStr();
+    if (!(h[cur] && h[cur].completed)) cur = shiftDate(cur, -1);
+    let n = 0;
+    while (h[cur] && h[cur].completed) { n++; cur = shiftDate(cur, -1); }
+    return n;
+  }
+
+  // ---------- Laser physics ----------
+  function startFrom(entry, n) {
+    switch (entry.side) {
+      case "top":    return { col: entry.index, row: 0,     dx: 0, dy: 1 };
+      case "bottom": return { col: entry.index, row: n - 1, dx: 0, dy: -1 };
+      case "left":   return { col: 0,     row: entry.index, dx: 1, dy: 0 };
+      case "right":  return { col: n - 1, row: entry.index, dx: -1, dy: 0 };
+    }
+  }
+  function trace(entry, grid, n) {
+    let { col, row, dx, dy } = startFrom(entry, n);
+    const path = []; let deflections = 0;
+    const maxSteps = n * n * 4 + 16; let steps = 0;
+    while (col >= 0 && col < n && row >= 0 && row < n) {
+      if (steps++ > maxSteps) return { ok: false };
+      path.push({ col, row });
+      const d = grid[row][col];
+      if (d === "\\") { const t = dx; dx = dy; dy = t; deflections++; }
+      else if (d === "/") { const t = dx; dx = -dy; dy = -t; deflections++; }
+      col += dx; row += dy;
+    }
+    const lastCol = col - dx, lastRow = row - dy;
+    let exit;
+    if (col < 0) exit = { side: "left", index: lastRow };
+    else if (col >= n) exit = { side: "right", index: lastRow };
+    else if (row < 0) exit = { side: "top", index: lastCol };
+    else exit = { side: "bottom", index: lastCol };
+    return { ok: true, path, exit, deflections };
+  }
+  function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+  function allEntries(n) {
+    const e = [];
+    for (let i = 0; i < n; i++) { e.push({ side: "top", index: i }); e.push({ side: "bottom", index: i }); e.push({ side: "left", index: i }); e.push({ side: "right", index: i }); }
+    return e;
+  }
+  function generatePuzzle(tier) {
+    const n = tier.size;
+    for (let attempt = 0; attempt < 80; attempt++) {
+      const grid = Array.from({ length: n }, () => new Array(n).fill(null));
+      const cells = [];
+      for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) cells.push([c, r]);
+      shuffle(cells);
+      for (let i = 0; i < tier.deflectors; i++) { const [c, r] = cells[i]; grid[r][c] = rng() < 0.5 ? "/" : "\\"; }
+      for (const entry of shuffle(allEntries(n))) {
+        const res = trace(entry, grid, n);
+        if (res.ok && res.deflections >= 1) return { grid, size: n, entry, exit: res.exit, path: res.path, tier: tier.key, deflections: res.deflections, memorizeMs: tier.memorizeMs };
+      }
+    }
+    const grid = Array.from({ length: n }, () => new Array(n).fill(null));
+    grid[0][0] = "\\";
+    const entry = { side: "left", index: 0 };
+    const res = trace(entry, grid, n);
+    return { grid, size: n, entry, exit: res.exit, path: res.path, tier: tier.key, deflections: res.deflections, memorizeMs: tier.memorizeMs };
+  }
+  function buildDailySet(dateStr) {
+    rng = mulberry32(xmur3("laser-recall::" + dateStr)());
+    const set = [];
+    for (let i = 0; i < TOTAL_ROUNDS; i++) set.push(generatePuzzle(tierForIndex(i)));
+    rng = Math.random;
+    return set;
+  }
+
+  // ---------- Geometry ----------
+  let SIZE = 5, CELL = 80, MARGIN = 40, DIM = 0;
+  function layout(n) {
+    SIZE = n;
+    CELL = Math.min(84, Math.floor(440 / n));
+    MARGIN = Math.round(CELL * 0.7);
+    DIM = n * CELL + MARGIN * 2;
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = DIM * dpr; canvas.height = DIM * dpr;
+    canvas.style.width = DIM + "px"; canvas.style.height = DIM + "px";
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  const cellCenter = (c, r) => ({ x: MARGIN + (c + 0.5) * CELL, y: MARGIN + (r + 0.5) * CELL });
+  function segMid(side, index) {
+    switch (side) {
+      case "top":    return { x: MARGIN + (index + 0.5) * CELL, y: MARGIN };
+      case "bottom": return { x: MARGIN + (index + 0.5) * CELL, y: MARGIN + SIZE * CELL };
+      case "left":   return { x: MARGIN, y: MARGIN + (index + 0.5) * CELL };
+      case "right":  return { x: MARGIN + SIZE * CELL, y: MARGIN + (index + 0.5) * CELL };
+    }
+  }
+  function segPad(side, index) {
+    const t = MARGIN * 0.3, gap = MARGIN * 0.18, along = CELL * 0.6;
+    const m = segMid(side, index);
+    if (side === "top")    return { x: m.x - along / 2, y: MARGIN - gap - t, w: along, h: t };
+    if (side === "bottom") return { x: m.x - along / 2, y: MARGIN + SIZE * CELL + gap, w: along, h: t };
+    if (side === "left")   return { x: MARGIN - gap - t, y: m.y - along / 2, w: t, h: along };
+    if (side === "right")  return { x: MARGIN + SIZE * CELL + gap, y: m.y - along / 2, w: t, h: along };
+  }
+  const outwardDir = (side) => ({ top: { x: 0, y: -1 }, bottom: { x: 0, y: 1 }, left: { x: -1, y: 0 }, right: { x: 1, y: 0 } }[side]);
+  const sameSeg = (a, b) => a && b && a.side === b.side && a.index === b.index;
+  function hitSegment(mx, my) {
+    const g0 = MARGIN, g1 = MARGIN + SIZE * CELL, n = SIZE;
+    const ok = (v) => v >= 0 && v < n;
+    if (mx >= g0 && mx <= g1 && my >= 0 && my < g0)   { const i = Math.floor((mx - g0) / CELL); if (ok(i)) return { side: "top", index: i }; }
+    if (mx >= g0 && mx <= g1 && my > g1 && my <= g1 + MARGIN) { const i = Math.floor((mx - g0) / CELL); if (ok(i)) return { side: "bottom", index: i }; }
+    if (my >= g0 && my <= g1 && mx >= 0 && mx < g0)   { const i = Math.floor((my - g0) / CELL); if (ok(i)) return { side: "left", index: i }; }
+    if (my >= g0 && my <= g1 && mx > g1 && mx <= g1 + MARGIN) { const i = Math.floor((my - g0) / CELL); if (ok(i)) return { side: "right", index: i }; }
+    return null;
+  }
+
+  // ---------- Rendering ----------
+  let beamProgress = 1, beamTotalLen = 0, beamPts = null;
+  function buildBeamPts() {
+    const pts = [segMid(puzzle.entry.side, puzzle.entry.index)];
+    for (const c of puzzle.path) pts.push(cellCenter(c.col, c.row));
+    pts.push(segMid(puzzle.exit.side, puzzle.exit.index));
+    let total = 0; const segLen = [];
+    for (let i = 1; i < pts.length; i++) { const l = Math.hypot(pts[i].x - pts[i-1].x, pts[i].y - pts[i-1].y); segLen.push(l); total += l; }
+    beamPts = { pts, segLen }; beamTotalLen = total;
+  }
+  function roundRect(x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+  function draw() {
+    if (!puzzle) return;
+    const n = SIZE;
+    ctx.clearRect(0, 0, DIM, DIM);
+    ctx.lineJoin = "round"; ctx.lineCap = "round"; ctx.shadowBlur = 0;
+
+    ctx.fillStyle = C.gridBg;
+    ctx.fillRect(MARGIN, MARGIN, n * CELL, n * CELL);
+    ctx.strokeStyle = C.gridBorder; ctx.lineWidth = 1;
+    ctx.strokeRect(MARGIN + 0.5, MARGIN + 0.5, n * CELL - 1, n * CELL - 1);
+
+    ctx.strokeStyle = C.gridLine; ctx.lineWidth = 1; ctx.beginPath();
+    for (let i = 1; i < n; i++) {
+      const x = MARGIN + i * CELL, y = MARGIN + i * CELL;
+      ctx.moveTo(x, MARGIN); ctx.lineTo(x, MARGIN + n * CELL);
+      ctx.moveTo(MARGIN, y); ctx.lineTo(MARGIN + n * CELL, y);
+    }
+    ctx.stroke();
+
+    // clickable edge pads (guess phase)
+    if (phase === "guess") {
+      for (const side of ["top", "bottom", "left", "right"])
+        for (let i = 0; i < n; i++) {
+          if (sameSeg({ side, index: i }, puzzle.entry)) continue;
+          drawPad({ side, index: i }, C.padFill, C.padStroke, false);
+        }
+    }
+
+    if (phase === "memorize" || phase === "reveal") {
+      ctx.strokeStyle = C.deflector; ctx.lineWidth = Math.max(3, CELL * 0.07);
+      ctx.shadowBlur = 8; ctx.shadowColor = "rgba(42,212,255,0.55)";
+      const pad = CELL * 0.24;
+      for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
+        const d = puzzle.grid[r][c]; if (!d) continue;
+        const x0 = MARGIN + c * CELL, y0 = MARGIN + r * CELL;
+        ctx.beginPath();
+        if (d === "\\") { ctx.moveTo(x0 + pad, y0 + pad); ctx.lineTo(x0 + CELL - pad, y0 + CELL - pad); }
+        else { ctx.moveTo(x0 + pad, y0 + CELL - pad); ctx.lineTo(x0 + CELL - pad, y0 + pad); }
+        ctx.stroke();
+      }
+      ctx.shadowBlur = 0;
+    }
+
+    if (phase === "guess" || phase === "reveal") drawEntry(puzzle.entry);
+
+    if (phase === "guess" && hover) drawPad(hover, C.padHover, "#bfefff", true);
+
+    if (phase === "reveal") {
+      drawBeam(beamProgress);
+      if (beamProgress >= 1) {
+        drawPad(puzzle.exit, "rgba(59,240,122,0.85)", C.good, true);
+        if (guess && !sameSeg(guess, puzzle.exit)) drawPad(guess, "rgba(255,59,107,0.85)", C.bad, true);
+      }
+    }
+    ctx.shadowBlur = 0;
+  }
+  function drawPad(seg, fill, stroke, glow) {
+    const r = segPad(seg.side, seg.index);
+    if (glow) { ctx.shadowBlur = 10; ctx.shadowColor = stroke; }
+    ctx.fillStyle = fill; ctx.strokeStyle = stroke; ctx.lineWidth = 1.5;
+    roundRect(r.x, r.y, r.w, r.h, Math.min(r.w, r.h) * 0.32);
+    ctx.fill(); ctx.stroke();
+    ctx.shadowBlur = 0;
+  }
+  function drawEntry(entry) {
+    const mid = segMid(entry.side, entry.index), out = outwardDir(entry.side);
+    drawPad(entry, "rgba(255,210,63,0.85)", C.entry, true);
+    const len = MARGIN * 0.5;
+    const tipx = mid.x - out.x * len * 0.25, tipy = mid.y - out.y * len * 0.25;
+    const basex = mid.x + out.x * len, basey = mid.y + out.y * len;
+    ctx.strokeStyle = C.entry; ctx.fillStyle = C.entry; ctx.lineWidth = 4;
+    ctx.shadowBlur = 10; ctx.shadowColor = "rgba(255,210,63,0.6)";
+    ctx.beginPath(); ctx.moveTo(basex, basey); ctx.lineTo(tipx, tipy); ctx.stroke();
+    const ax = -out.x, ay = -out.y, perp = { x: -ay, y: ax }, hs = 7;
+    ctx.beginPath();
+    ctx.moveTo(tipx, tipy);
+    ctx.lineTo(tipx - ax * hs * 1.4 + perp.x * hs, tipy - ay * hs * 1.4 + perp.y * hs);
+    ctx.lineTo(tipx - ax * hs * 1.4 - perp.x * hs, tipy - ay * hs * 1.4 - perp.y * hs);
+    ctx.closePath(); ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+  function drawBeam(progress) {
+    if (!beamPts) return;
+    const { pts, segLen } = beamPts;
+    let budget = beamTotalLen * progress;
+    ctx.strokeStyle = C.beam; ctx.lineWidth = 3.6;
+    ctx.shadowBlur = 14; ctx.shadowColor = "rgba(42,212,255,0.9)";
+    ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
+    let head = pts[0];
+    for (let i = 1; i < pts.length; i++) {
+      const l = segLen[i - 1];
+      if (budget >= l) { ctx.lineTo(pts[i].x, pts[i].y); head = pts[i]; budget -= l; }
+      else { const t = l > 0 ? budget / l : 0; head = { x: pts[i-1].x + (pts[i].x - pts[i-1].x) * t, y: pts[i-1].y + (pts[i].y - pts[i-1].y) * t }; ctx.lineTo(head.x, head.y); break; }
+    }
+    ctx.stroke();
+    if (progress < 1) { ctx.fillStyle = "#ffffff"; ctx.beginPath(); ctx.arc(head.x, head.y, 3.5, 0, Math.PI * 2); ctx.fill(); }
+    ctx.shadowBlur = 0;
+  }
+
+  // ---------- Game state ----------
+  let activeDate = todayStr(), fromArchive = false;
+  let dailySet = null;
+  let roundIndex = 0, score = 0, streak = 0, bestStreak = 0, hits = 0;
+  let results = [];
+  let phase = "home"; // home | archive | memorize | guess | reveal | summary
+  let puzzle = null, hover = null, guess = null;
+  let memTimer = null, advTimer = null, rafId = null, beamRaf = null;
+
+  function renderDots() {
+    dotsEl.innerHTML = "";
+    for (let i = 0; i < TOTAL_ROUNDS; i++) {
+      const d = document.createElement("div");
+      d.className = "dot" + (i % ROUNDS_PER_TIER === 0 && i > 0 ? " gap" : "");
+      dotsEl.appendChild(d);
+    }
+  }
+  function paintDot(i, cls) {
+    const d = dotsEl.children[i]; if (!d) return;
+    const gap = (i % ROUNDS_PER_TIER === 0 && i > 0) ? " gap" : "";
+    d.className = "dot" + gap + (cls ? " " + cls : "");
+  }
+  function updateStats() {
+    const t = tierForIndex(roundIndex);
+    $("tierv").textContent = t.label;
+    $("streak").textContent = streak;
+    $("solved").textContent = hits + "/" + TOTAL_ROUNDS;
+    $("roundNow").textContent = Math.min(roundIndex + 1, TOTAL_ROUNDS);
+    $("roundTot").textContent = TOTAL_ROUNDS;
+  }
+  function animateBar(durationMs, klass, onDone) {
+    timerFill.className = "timer-fill" + (klass ? " " + klass : "");
+    const t0 = performance.now();
+    timerFill.style.width = "100%";
+    const tick = (now) => { const frac = Math.max(0, 1 - (now - t0) / durationMs); timerFill.style.width = (frac * 100) + "%"; if (frac > 0) rafId = requestAnimationFrame(tick); };
+    rafId = requestAnimationFrame(tick);
+    return setTimeout(onDone, durationMs);
+  }
+  function clearTimers() {
+    if (memTimer) { clearTimeout(memTimer); memTimer = null; }
+    if (advTimer) { clearTimeout(advTimer); advTimer = null; }
+    if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+    if (beamRaf) { cancelAnimationFrame(beamRaf); beamRaf = null; }
+  }
+
+  function startSession(date, archive) {
+    activeDate = date; fromArchive = !!archive;
+    dailySet = buildDailySet(date);
+    roundIndex = 0; score = 0; streak = 0; bestStreak = 0; hits = 0; results = [];
+    showScreen("game");
+    renderDots();
+    startRound();
+  }
+  function startRound() {
+    clearTimers();
+    if (roundIndex >= TOTAL_ROUNDS) { endSession(); return; }
+    puzzle = dailySet[roundIndex];
+    layout(puzzle.size);
+    guess = null; hover = null; beamProgress = 1; beamPts = null;
+    phase = "memorize";
+    const t = tierForIndex(roundIndex);
+    statusEl.className = "status";
+    statusEl.textContent = t.label + " — Memorize the deflectors…";
+    for (let i = 0; i < TOTAL_ROUNDS; i++) { const d = dotsEl.children[i]; if (d && !d.classList.contains("good") && !d.classList.contains("bad")) paintDot(i, ""); }
+    paintDot(roundIndex, "current");
+    updateStats();
+    draw();
+    memTimer = animateBar(puzzle.memorizeMs, "", beginGuess);
+  }
+  function beginGuess() {
+    clearTimers();
+    timerFill.style.width = "0%";
+    phase = "guess";
+    statusEl.className = "status";
+    statusEl.textContent = tierForIndex(roundIndex).label + " — Where does the laser exit?";
+    draw();
+  }
+  function lockGuess(seg) {
+    if (phase !== "guess") return;
+    clearTimers();
+    guess = seg; phase = "reveal";
+    const correct = sameSeg(guess, puzzle.exit);
+    results[roundIndex] = correct ? 1 : 0;
+    if (correct) {
+      score += 1; streak += 1; hits += 1; bestStreak = Math.max(bestStreak, streak);
+      paintDot(roundIndex, "good");
+      statusEl.className = "status good"; statusEl.textContent = "Correct! 🎯";
+    } else {
+      streak = 0;
+      paintDot(roundIndex, "bad");
+      statusEl.className = "status bad"; statusEl.textContent = "Off target — green is the real exit.";
+    }
+    updateStats();
+    buildBeamPts();
+    const dur = Math.max(140, (beamTotalLen / BEAM_SPEED) * 1000);
+    beamProgress = 0;
+    const t0 = performance.now();
+    const tick = (now) => { beamProgress = Math.min(1, (now - t0) / dur); draw(); if (beamProgress < 1) beamRaf = requestAnimationFrame(tick); };
+    beamRaf = requestAnimationFrame(tick);
+    advTimer = animateBar(1900, "advance", () => { roundIndex += 1; startRound(); });
+  }
+  function advanceNow() { clearTimers(); roundIndex += 1; startRound(); }
+
+  function endSession() {
+    clearTimers();
+    const record = { date: activeDate, completed: true, hits, total: TOTAL_ROUNDS, score, bestStreak, results: results.slice() };
+    saveResult(activeDate, record);
+    showSummary(record, true);
+  }
+
+  function showSummary(record, justCompleted) {
+    phase = "summary";
+    showScreen("summary");
+    const acc = Math.round((record.hits / record.total) * 100);
+    $("sumScore").textContent = record.hits;
+    $("sumCap").textContent = "puzzles solved";
+    $("sumAcc").textContent = acc + "%";
+    $("sumHits").textContent = record.hits + "/" + record.total;
+    $("sumStreak").textContent = record.bestStreak;
+    let title = "Daily Complete", sub = "Solid recall.";
+    if (acc === 100) { title = "Flawless! 🏆"; sub = "Every beam tracked perfectly."; }
+    else if (acc >= 70) { title = "Sharp Eyes 👁️"; sub = "Strong spatial memory."; }
+    else if (acc >= 40) { sub = "Getting there — keep training."; }
+    else { sub = "Tricky beams today."; }
+    $("sumTitle").textContent = (fromArchive ? prettyDate(record.date) : title);
+    $("sumSub").textContent = sub;
+    // results grid
+    const rows = $("resRows"); rows.innerHTML = "";
+    for (let t = 0; t < TIERS.length; t++) {
+      const row = document.createElement("div"); row.className = "res-row";
+      const lbl = document.createElement("div"); lbl.className = "rlbl"; lbl.textContent = TIERS[t].label;
+      row.appendChild(lbl);
+      for (let i = 0; i < ROUNDS_PER_TIER; i++) {
+        const idx = t * ROUNDS_PER_TIER + i;
+        const c = document.createElement("div");
+        c.className = "cell " + (record.results[idx] ? "good" : "bad");
+        row.appendChild(c);
+      }
+      rows.appendChild(row);
+    }
+    summaryEl._record = record;
+
+    // ---- leaderboard ----
+    const lbWrap = $("lbWrap"), submitRow = $("lbSubmitRow");
+    submitRow.classList.add("hidden");
+    lbWrap.innerHTML = '<div class="lb-empty">Loading leaderboard…</div>';
+    const name = getName();
+    const loadBoard = () => fetchDayBoard(record.date).then((b) => renderBoard(lbWrap, b, getName(), record.hits));
+    if (justCompleted && name) {
+      submitScore(record.date, name, record.hits).then(loadBoard, loadBoard);
+    } else {
+      loadBoard();
+      if (justCompleted && !name) submitRow.classList.remove("hidden");
+    }
+  }
+
+  function buildShareText(record) {
+    const lines = ["Afterimage · " + record.date + "  " + record.hits + "/" + record.total];
+    for (let t = 0; t < TIERS.length; t++) {
+      let s = "";
+      for (let i = 0; i < ROUNDS_PER_TIER; i++) s += record.results[t * ROUNDS_PER_TIER + i] ? "🟩" : "🟥";
+      lines.push(s);
+    }
+    return lines.join("\n");
+  }
+
+  // ---------- Screens ----------
+  function showScreen(name) {
+    homeEl.classList.toggle("hidden", name !== "home");
+    archiveEl.classList.toggle("hidden", name !== "archive");
+    gameEl.classList.toggle("hidden", name !== "game");
+    summaryEl.classList.toggle("hidden", name !== "summary");
+    const el = { home: homeEl, archive: archiveEl, summary: summaryEl }[name];
+    if (el) { el.classList.remove("pop"); void el.offsetWidth; el.classList.add("pop"); }
+  }
+  function refreshHome() {
+    phase = "home";
+    const h = loadHistory(), today = todayStr();
+    $("homeDate").textContent = prettyDate(today);
+    const rec = h[today];
+    if (rec && rec.completed) {
+      $("homeStatus").textContent = "Completed — " + rec.hits + "/" + rec.total;
+      $("homePlay").textContent = "View Result";
+    } else {
+      $("homeStatus").textContent = "Not played yet";
+      $("homePlay").textContent = "Play Today";
+    }
+    $("homeStreak").textContent = computeStreak(h);
+    let best = 0, played = 0;
+    for (const k in h) { played++; if (h[k].hits > best) best = h[k].hits; }
+    $("homeBest").textContent = best;
+    $("homePlayed").textContent = played;
+    const nm = getName();
+    $("homeName").textContent = nm ? "Playing as: " + nm : "No name set";
+    const leaderRow = $("homeLeaderRow");
+    leaderRow.textContent = "Loading today’s leader…";
+    fetchDayBoard(today).then((b) => {
+      if (b && b.length) { const t = b[0]; leaderRow.innerHTML = "👑 Today: <b>" + esc(t.Name || "???") + "</b> · " + (t.Score != null ? t.Score : 0) + "/" + TOTAL_ROUNDS; }
+      else if (b && !b.length) { leaderRow.textContent = "No scores yet today — be the first!"; }
+      else { leaderRow.innerHTML = "&nbsp;"; }
+    });
+    showScreen("home");
+  }
+  function openHome() {
+    const h = loadHistory(), today = todayStr(), rec = h[today];
+    if (rec && rec.completed) { fromArchive = false; showSummary(rec); }
+    else startSession(today, false);
+  }
+  function refreshArchive() {
+    phase = "archive";
+    const h = loadHistory(), list = $("archList"); list.innerHTML = "";
+    const today = todayStr();
+    for (let i = 1; i <= ARCHIVE_DAYS; i++) {
+      const date = shiftDate(today, -i);
+      const rec = h[date];
+      const row = document.createElement("div"); row.className = "arch-row";
+      const d = document.createElement("div"); d.className = "d"; d.textContent = prettyDate(date);
+      const right = document.createElement("div"); right.className = "right";
+      const chip = document.createElement("span"); chip.className = "chip" + (rec && rec.completed ? " done" : "");
+      chip.textContent = rec && rec.completed ? rec.hits + "/" + rec.total : "—";
+      const btn = document.createElement("button"); btn.textContent = rec && rec.completed ? "Replay" : "Play";
+      btn.addEventListener("click", () => startSession(date, true));
+      right.appendChild(chip); right.appendChild(btn);
+      row.appendChild(d); row.appendChild(right);
+      list.appendChild(row);
+    }
+    showScreen("archive");
+  }
+
+  // ---------- Events ----------
+  function canvasPos(evt) { const rect = canvas.getBoundingClientRect(); const src = evt.touches ? evt.touches[0] : evt; return { x: src.clientX - rect.left, y: src.clientY - rect.top }; }
+  canvas.addEventListener("mousemove", (e) => {
+    if (phase !== "guess") return;
+    const p = canvasPos(e), seg = hitSegment(p.x, p.y);
+    if (!sameSeg(seg, hover)) { hover = seg; draw(); }
+    canvas.style.cursor = seg ? "pointer" : "default";
+  });
+  canvas.addEventListener("mouseleave", () => { if (phase === "guess" && hover) { hover = null; draw(); } });
+  function handlePick(e) {
+    if (phase === "reveal") { e.preventDefault(); advanceNow(); return; }
+    if (phase !== "guess") return;
+    e.preventDefault();
+    const p = canvasPos(e), seg = hitSegment(p.x, p.y);
+    if (seg) lockGuess(seg);
+  }
+  canvas.addEventListener("click", handlePick);
+  canvas.addEventListener("touchstart", handlePick, { passive: false });
+
+  $("homePlay").addEventListener("click", openHome);
+  $("nameEdit").addEventListener("click", () => {
+    const n = (window.prompt("Your leaderboard name:", getName()) || "").trim().slice(0, 16);
+    if (n) { setName(n); refreshHome(); }
+  });
+  $("lbSubmit").addEventListener("click", () => {
+    let name = getName();
+    if (!name) { name = (window.prompt("Enter your name for the leaderboard:", "") || "").trim().slice(0, 16); if (!name) return; setName(name); }
+    const rec = summaryEl._record; if (!rec) return;
+    const btn = $("lbSubmit"); btn.disabled = true; btn.textContent = "Submitting…";
+    submitScore(rec.date, name, rec.hits).then(() => {
+      $("lbSubmitRow").classList.add("hidden");
+      fetchDayBoard(rec.date).then((b) => renderBoard($("lbWrap"), b, name, rec.hits));
+    }, () => { btn.disabled = false; btn.textContent = "Retry Submit"; });
+  });
+  $("archiveLink").addEventListener("click", refreshArchive);
+  $("archBack").addEventListener("click", refreshHome);
+  $("quitBtn").addEventListener("click", () => { clearTimers(); fromArchive ? refreshArchive() : refreshHome(); });
+  $("sumBack").addEventListener("click", () => { fromArchive ? refreshArchive() : refreshHome(); });
+  $("shareBtn").addEventListener("click", () => {
+    const rec = summaryEl._record; if (!rec) return;
+    const text = buildShareText(rec);
+    const btn = $("shareBtn");
+    const done = () => { btn.textContent = "Copied!"; setTimeout(() => { btn.textContent = "Share"; }, 1400); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, done);
+    else { try { const ta = document.createElement("textarea"); ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove(); done(); } catch (e) {} }
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if ((e.code === "Space" || e.code === "Enter") && phase === "reveal") { e.preventDefault(); advanceNow(); }
+  });
+
+  // ---------- Boot ----------
+  refreshHome();
+})();
+</script>
+</body>
+</html>
