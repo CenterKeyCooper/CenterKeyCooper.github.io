@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Endgrain — a chess roguelike</title>
 <style>
   :root{
@@ -17,13 +17,15 @@
     --pc-w:#f6ecd6;
     --pc-b:#241a11;
   }
-  *{box-sizing:border-box; margin:0; padding:0; user-select:none; -webkit-user-select:none;}
+  *{box-sizing:border-box; margin:0; padding:0; user-select:none; -webkit-user-select:none;
+    -webkit-tap-highlight-color:transparent; -webkit-touch-callout:none;}
   html,body{height:100%; overflow:hidden;}
   body{
     font-family:Georgia,'Times New Roman',serif;
     color:var(--ink);
     background:var(--bg);
     display:flex; flex-direction:column;
+    touch-action:manipulation;
   }
   #bg{position:fixed; inset:0; z-index:-1;}
 
@@ -60,7 +62,6 @@
   #stage{flex:1 1 auto; position:relative; display:flex; align-items:center; justify-content:center; min-height:0;}
   #board{
     position:relative;
-    filter:drop-shadow(0 22px 34px rgba(0,0,0,.55)) drop-shadow(0 4px 8px rgba(0,0,0,.4));
     transition:opacity .5s, transform .5s;
   }
   #board.enter{animation:boardIn .7s cubic-bezier(.2,.9,.3,1.05) both;}
@@ -69,7 +70,8 @@
 
   .tile{
     position:absolute; cursor:pointer;
-    box-shadow:inset 0 0 0 1px rgba(56,36,18,.4), inset 0 2px 4px rgba(255,240,210,.12), inset 0 -3px 5px rgba(40,22,8,.22);
+    box-shadow:inset 0 0 0 1px rgba(56,36,18,.4), inset 0 2px 4px rgba(255,240,210,.12),
+      inset 0 -3px 5px rgba(40,22,8,.22), 0 12px 20px rgba(0,0,0,.42);
     transition:filter .15s;
   }
   .tile::after{
@@ -105,34 +107,65 @@
   }
   .piece .g{
     display:flex; align-items:center; justify-content:center;
-    width:100%; height:100%;
-    line-height:1; transition:transform .2s, filter .3s;
-    font-family:'Arial Unicode MS','Segoe UI Symbol',sans-serif;
+    width:100%; height:100%; line-height:1; transition:transform .2s;
   }
-  .piece.w .g{color:var(--pc-w); text-shadow:0 1px 0 #8a7350, 0 3px 5px rgba(0,0,0,.55), 0 0 1px #6b573b;}
-  .piece.b .g{color:var(--pc-b); text-shadow:0 1px 1px rgba(255,236,200,.3), 0 3px 5px rgba(0,0,0,.5);}
-  .piece.selp .g{transform:translateY(-7%) scale(1.14); filter:drop-shadow(0 6px 6px rgba(0,0,0,.4));}
-  .piece.check .g{animation:checkPulse 1s ease-in-out infinite;}
+  /* glow halo: a gradient layer animated with transform/opacity only,
+     so effects survive mobile compositors that choke on animated filters */
+  .piece .halo{
+    position:absolute; left:5%; top:5%; width:90%; height:90%;
+    border-radius:50%; opacity:0; pointer-events:none;
+  }
+  /* svg piece colors — the .piece side class wins over the svg's own,
+     so recruited pieces recolor without touching their markup */
+  .pic .f{stroke-width:2.5; stroke-linejoin:round;}
+  .pic.w .f,.piece.w .pic .f{fill:#f6ecd6; stroke:#5c4830;}
+  .pic.b .f,.piece.b .pic .f{fill:#2b1e12; stroke:#c9a97e;}
+  .pic .d{fill:none; stroke-width:4; stroke-linecap:round;}
+  .pic.w .d,.piece.w .pic .d{stroke:#5c4830;}
+  .pic.b .d,.piece.b .pic .d{stroke:#c9a97e;}
+  .pic .e{stroke:none;}
+  .pic.w .e,.piece.w .pic .e{fill:#5c4830;}
+  .pic.b .e,.piece.b .pic .e{fill:#c9a97e;}
+  .pic .sh{fill:rgba(0,0,0,.22);}
+  /* desktop renders unicode chess glyphs; touch devices fall back to the svgs */
+  .tg{font-family:'Arial Unicode MS','Segoe UI Symbol',serif; line-height:1;}
+  .piece.w .tg,.tg.w{color:var(--pc-w); text-shadow:0 1px 0 #8a7350, 0 3px 5px rgba(0,0,0,.55), 0 0 1px #6b573b;}
+  .piece.b .tg,.tg.b{color:var(--pc-b); text-shadow:0 1px 1px rgba(255,236,200,.3), 0 3px 5px rgba(0,0,0,.5);}
+  .piece.selp .g{transform:translateY(-7%) scale(1.14);}
+  .piece.selp .halo{opacity:1; transform:scale(1.12);
+    background:radial-gradient(circle, rgba(143,191,111,.5), rgba(143,191,111,0) 65%);}
+  .piece.check .halo{
+    background:radial-gradient(circle, rgba(226,96,58,.6), rgba(226,96,58,0) 65%);
+    animation:checkPulse 1s ease-in-out infinite;}
   @keyframes checkPulse{
-    0%,100%{filter:drop-shadow(0 0 4px rgba(226,96,58,.9));}
-    50%{filter:drop-shadow(0 0 16px rgba(226,96,58,1)) brightness(1.25);}
+    0%,100%{opacity:.55; transform:scale(.85);}
+    50%{opacity:1; transform:scale(1.3);}
   }
   .piece.spawn .g{animation:spawnIn .5s cubic-bezier(.2,1.35,.4,1) both;}
   @keyframes spawnIn{from{transform:scale(0) translateY(-30%); opacity:0;}}
   .piece.dying .g{animation:die .5s cubic-bezier(.45,0,.75,.35) both;}
+  .piece.dying .halo{
+    background:radial-gradient(circle, rgba(255,246,224,.95), rgba(255,246,224,0) 70%);
+    animation:flashFade .45s ease-out both;}
   @keyframes die{
-    0%{filter:brightness(3.6) saturate(0);}
-    22%{transform:scale(1.32) rotate(-7deg); filter:brightness(2.2);}
-    100%{transform:scale(0) rotate(30deg); opacity:0; filter:blur(4px);}
+    20%{transform:scale(1.28) rotate(-7deg);}
+    100%{transform:scale(0) rotate(30deg); opacity:0;}
+  }
+  @keyframes flashFade{
+    0%{opacity:1; transform:scale(.7);}
+    100%{opacity:0; transform:scale(1.7);}
   }
   .piece.joined .g{animation:join .8s ease both;}
+  .piece.joined .halo{
+    background:radial-gradient(circle, rgba(143,191,111,.8), rgba(143,191,111,0) 70%);
+    animation:flashFade .8s ease-out both;}
   @keyframes join{
     0%{transform:rotateY(0);}
-    50%{transform:rotateY(90deg) scale(1.2); filter:drop-shadow(0 0 20px rgba(143,191,111,1));}
+    50%{transform:rotateY(90deg) scale(1.2);}
     100%{transform:rotateY(0);}
   }
   .piece.scatter .g{animation:scatter .8s ease-in both;}
-  @keyframes scatter{to{transform:translateY(-60%) scale(.4); opacity:0; filter:blur(3px);}}
+  @keyframes scatter{to{transform:translateY(-60%) scale(.4); opacity:0;}}
 
   .spark{position:absolute; pointer-events:none; z-index:8;}
 
@@ -153,9 +186,8 @@
   #tip .tc{width:17px; height:17px; border-radius:3px; background:#191209;
     display:flex; align-items:center; justify-content:center;}
   #tip .tc.alt{background:#1f1710;}
-  #tip .tc.ctr{background:#3f301b; color:var(--pc-w); font-size:12px;
-    box-shadow:inset 0 0 0 1px #5d4630;
-    font-family:'Arial Unicode MS','Segoe UI Symbol',sans-serif;}
+  #tip .tc.ctr{background:#3f301b; box-shadow:inset 0 0 0 1px #5d4630;}
+  #tip .tname svg{vertical-align:-3px; margin-right:2px;}
   #tip .dm{width:7px;height:7px;border-radius:50%;background:var(--leaf);box-shadow:0 0 5px rgba(143,191,111,.8);}
   #tip .dc{width:7px;height:7px;border-radius:50%;border:1.6px solid var(--danger);}
   #tip .db{width:7px;height:7px;border-radius:50%;background:var(--pc-w);box-shadow:0 0 5px rgba(246,236,214,.6);}
@@ -184,9 +216,8 @@
   #status.think::after{content:''; animation:dots 1.4s steps(4) infinite;}
   @keyframes dots{0%{content:'';}25%{content:'.';}50%{content:'..';}75%{content:'...';}}
   #roster{display:flex; align-items:center; gap:14px; font-size:13px; color:var(--ink-dim);}
-  #roster .glyphs{font-size:19px; letter-spacing:2px; font-family:'Arial Unicode MS','Segoe UI Symbol',sans-serif;}
-  #roster .mine{color:var(--pc-w); text-shadow:0 1px 2px rgba(0,0,0,.6);}
-  #roster .res{color:#6d5b41;}
+  .glyphs{display:inline-flex; align-items:center; gap:3px; flex-wrap:wrap; vertical-align:middle;}
+  #roster .res{opacity:.5;}
   #roster .lbl{font-size:10px; letter-spacing:.18em; text-transform:uppercase;}
 
   /* ---------- TOAST ---------- */
@@ -227,8 +258,7 @@
   }
   #panel .rules{font-style:normal; text-align:left; font-size:13.5px; line-height:2; color:var(--ink-dim); margin:18px auto; max-width:400px;}
   #panel .rules b{color:var(--ink);}
-  #panel .bigGlyphs{font-size:26px; letter-spacing:6px; margin:10px 0; font-family:'Arial Unicode MS','Segoe UI Symbol',sans-serif;
-    color:var(--pc-w); text-shadow:0 2px 4px rgba(0,0,0,.7);}
+  #panel .bigGlyphs{margin:12px 0; display:flex; justify-content:center; flex-wrap:wrap; gap:6px;}
   #panel .joinLine{color:var(--leaf); font-style:normal; font-size:14px;}
   #panel button{
     margin-top:18px; background:linear-gradient(180deg,#3a2c1a,#2a1f12);
@@ -287,27 +317,67 @@ const KNIGHT=[[1,2],[2,1],[-1,2],[-2,1],[1,-2],[2,-1],[-1,-2],[-2,-1]];
 const ALFIL=[[2,2],[2,-2],[-2,2],[-2,-2]];
 
 const TYPES={
-  P:{name:'Sapling',  g:'♟', v:1,   pawn:true,
+  P:{name:'Sapling',  v:1,    pawn:true,
      desc:'steps forward, strikes diagonally — blooms into a Dryad at the far end of its file'},
-  N:{name:'Squirrel', g:'♞', v:3,   leaps:KNIGHT,
+  N:{name:'Squirrel', v:3,    leaps:KNIGHT,
      desc:'leaps in an L, over anything'},
-  B:{name:'Owl',      g:'♝', v:3.25, slides:DIAG, range:99,
+  B:{name:'Owl',      v:3.25, slides:DIAG, range:99,
      desc:'glides any distance along diagonals'},
-  R:{name:'Root',     g:'♜', v:5,   slides:ORTHO, range:99,
+  R:{name:'Root',     v:5,    slides:ORTHO, range:99,
      desc:'runs any distance along the grain'},
-  Q:{name:'Dryad',    g:'♛', v:9,   slides:DIRS8, range:99,
+  Q:{name:'Dryad',    v:9,    slides:DIRS8, range:99,
      desc:'flows any distance in any direction'},
-  K:{name:'Monarch',  g:'♚', v:0,   leaps:DIRS8, royal:true,
+  K:{name:'Monarch',  v:0,    leaps:DIRS8, royal:true,
      desc:'steps one square in any direction — royal: if cornered, the ring falls'},
-  T:{name:'Thornling',g:'✦',  v:2,  leaps:DIRS8, gs:.84,
+  T:{name:'Thornling',v:2,    leaps:DIRS8, gs:.78,
      desc:'creeps one square in any direction'},
-  W:{name:'Wisp',     g:'❋',  v:2.5, leaps:ALFIL.concat(DIAG), gs:.8,
+  W:{name:'Wisp',     v:2.5,  leaps:ALFIL.concat(DIAG), gs:.84,
      desc:'flits one square diagonally, or leaps two diagonally over anything'},
-  V:{name:'Vinelash', g:'☘︎', v:3, slides:ORTHO, range:3, gs:.82,
+  V:{name:'Vinelash', v:3,    slides:ORTHO, range:3, gs:.88,
      desc:'slides up to three squares along the grain'},
-  E:{name:'The Elder',g:'❂',  v:0,  slides:DIRS8, range:2, leaps:KNIGHT, royal:true, gs:.9,
+  E:{name:'The Elder',v:0,    slides:DIRS8, range:2, leaps:KNIGHT, royal:true, gs:.9,
      desc:'royal — steps up to two squares any direction, or leaps like a Squirrel'},
 };
+
+/* inline SVG piece silhouettes (viewBox 0 0 100 100) — drawn in the classic
+   Staunton style of the unicode chess glyphs: curved bodies, collars, flared
+   plinths. No fonts involved, so mobile can't substitute emoji. */
+const PIECE_SHADOW='<ellipse class="sh" cx="50" cy="89" rx="25" ry="5"/>';
+const BASE='<path class="f" d="M29 84 Q29 79 34 78 L66 78 Q71 79 71 84 Q71 87 67 87 L33 87 Q29 87 29 84 Z"/>';
+const SHAPES={
+  P:'<circle class="f" cx="50" cy="27" r="12"/>'+
+    '<path class="f" d="M43 40 Q46 45 45 51 Q43 63 36 79 L64 79 Q57 63 55 51 Q54 45 57 40 Q54 42 50 42 Q46 42 43 40 Z"/>'+
+    '<ellipse class="f" cx="50" cy="40" rx="11" ry="4"/>'+BASE,
+  N:'<path class="f" d="M33 79 Q34 66 38 56 Q30 54 24 47 Q20 41 25 37 L30 40 Q26 33 33 24 Q40 15 48 12 L50 5 Q52 3 54 8 L55 13 Q60 13 64 18 Q71 27 72 42 Q73 60 69 79 Z"/>'+
+    '<circle class="e" cx="45" cy="27" r="2.6"/>'+BASE,
+  B:'<circle class="f" cx="50" cy="11" r="5"/>'+
+    '<path class="f" d="M50 17 Q63 30 64 45 Q65 57 55 62 L45 62 Q35 57 36 45 Q37 30 50 17 Z"/>'+
+    '<path class="d" d="M44 38 L57 50"/>'+
+    '<ellipse class="f" cx="50" cy="64" rx="13" ry="4"/>'+
+    '<path class="f" d="M44 67 Q42 73 39 79 L61 79 Q58 73 56 67 Z"/>'+BASE,
+  R:'<path class="f" d="M30 13 L40 13 L40 21 L46 21 L46 13 L54 13 L54 21 L60 21 L60 13 L70 13 L70 25 Q70 29 66 30 Q64 42 65 54 Q66 66 69 79 L31 79 Q34 66 35 54 Q36 42 34 30 Q30 29 30 25 Z"/>'+
+    '<path class="d" d="M36 33 L64 33"/>'+BASE,
+  Q:'<circle class="f" cx="32" cy="17" r="4"/><circle class="f" cx="50" cy="12" r="4"/><circle class="f" cx="68" cy="17" r="4"/>'+
+    '<path class="f" d="M31 41 L34 22 L42 33 L50 17 L58 33 L66 22 L69 41 Q60 46 50 46 Q40 46 31 41 Z"/>'+
+    '<path class="f" d="M36 45 Q42 49 40 56 Q38 66 34 79 L66 79 Q62 66 60 56 Q58 49 64 45 Q57 48 50 48 Q43 48 36 45 Z"/>'+BASE,
+  K:'<path class="f" d="M47 4 L53 4 L53 10 L59 10 L59 16 L53 16 L53 23 L47 23 L47 16 L41 16 L41 10 L47 10 Z"/>'+
+    '<path class="f" d="M39 27 Q50 22 61 27 Q67 31 66 41 Q64 53 59 61 Q56 67 57 79 L43 79 Q44 67 41 61 Q36 53 34 41 Q33 31 39 27 Z"/>'+
+    '<path class="d" d="M42 34 Q50 30 58 34"/>'+BASE,
+  T:'<path class="f" d="M50 8 Q54 42 58 46 Q62 50 92 50 Q62 50 58 54 Q54 58 50 92 Q46 58 42 54 Q38 50 8 50 Q38 50 42 46 Q46 42 50 8 Z"/>',
+  W:[0,60,120,180,240,300].map(a=>`<path class="f" transform="rotate(${a} 50 50)" d="M50 6 Q57 26 50 44 Q43 26 50 6 Z"/>`).join('')+
+    '<circle class="f" cx="50" cy="50" r="6"/>',
+  V:'<circle class="f" cx="50" cy="27" r="13"/><circle class="f" cx="35" cy="46" r="13"/><circle class="f" cx="65" cy="46" r="13"/>'+
+    '<path class="f" d="M48 52 Q45 70 38 84 Q42 87 46 87 Q52 70 53 56 Z"/>',
+  E:'<path class="f" fill-rule="evenodd" d="M20 50 a30 30 0 1 0 60 0 a30 30 0 1 0 -60 0 Z M28 50 a22 22 0 1 1 44 0 a22 22 0 1 1 -44 0 Z"/>'+
+    [0,45,90,135,180,225,270,315].map(a=>`<path class="f" transform="rotate(${a} 50 50)" d="M50 2 L54.5 14 L45.5 14 Z"/>`).join('')+
+    '<circle class="f" cx="50" cy="50" r="8"/>',
+};
+function iconSVG(t,px,side){
+  return `<svg class="pic ${side||'w'}" width="${px}" height="${px}" viewBox="0 0 100 100" aria-hidden="true">${SHAPES[t]}</svg>`;
+}
+function pieceSVG(pc,px){
+  return `<svg class="pic ${pc.side}" width="${px}" height="${px}" viewBox="0 0 100 100" aria-hidden="true">${PIECE_SHADOW}${SHAPES[pc.t]}</svg>`;
+}
 
 const START_ARMY=['K','N','W','P','P'];
 
@@ -759,17 +829,48 @@ function buildBoard(){
       if(e.metaKey||e.ctrlKey) tryShowTip();
     });
     t.addEventListener('mouseleave',()=>{ hoverTile=null; hideTip(); });
+    // touch: long-press a piece to inspect it, released on lift
+    let pressT=null;
+    const cancelPress=()=>{ if(pressT){ clearTimeout(pressT); pressT=null; } };
+    t.addEventListener('pointerdown',e=>{
+      if(e.pointerType!=='touch') return;
+      cancelPress();
+      pressT=setTimeout(()=>{ pressT=null; hoverTile={x,y}; tryShowTip(); },420);
+    });
+    t.addEventListener('pointerup',()=>{ cancelPress(); hideTip(); });
+    t.addEventListener('pointercancel',()=>{ cancelPress(); hideTip(); });
+    t.addEventListener('pointerleave',cancelPress);
     el.appendChild(t);
   }
   const hl=document.createElement('div'); hl.id='hl'; el.appendChild(hl);
   const pl=document.createElement('div'); pl.id='pieces'; el.appendChild(pl);
+}
+/* glyphs first, svg fallback: desktops have the symbol fonts and render
+   these as crisp text; mobile OSes substitute color emoji, so touch
+   devices get the hand-drawn svg set instead */
+const USE_TEXT=!(window.matchMedia&&matchMedia('(pointer:coarse)').matches)
+  && !/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+const GLYPHS={P:'♟',N:'♞',B:'♝',R:'♜',Q:'♛',K:'♚',
+              T:'\u2726\uFE0E',W:'\u274B\uFE0E',V:'\u2618\uFE0E',E:'\u2742\uFE0E'};
+const TXT_GS={T:.84,W:.8,V:.82,E:.9};
+function pieceMark(pc){
+  if(USE_TEXT){
+    const px=Math.round(TS*.7*(TXT_GS[pc.t]||1));
+    return `<span class="tg" style="font-size:${px}px">${GLYPHS[pc.t]}</span>`;
+  }
+  return pieceSVG(pc,Math.round(TS*.8*(TYPES[pc.t].gs||1)));
+}
+function iconMark(t,px,side){
+  side=side||'w';
+  if(USE_TEXT) return `<span class="tg ${side}" style="font-size:${px}px">${GLYPHS[t]}</span>`;
+  return iconSVG(t,px,side);
 }
 function makePieceEl(pc){
   const d=document.createElement('div');
   d.className='piece '+pc.side;
   d.style.width=TS+'px'; d.style.height=TS+'px';
   const T=TYPES[pc.t];
-  d.innerHTML=`<span class="g" style="font-size:${Math.round(TS*.7*(T.gs||1))}px">${T.g}</span>`;
+  d.innerHTML=`<span class="halo"></span><span class="g">${pieceMark(pc)}</span>`;
   d.title=`${T.name} — ${T.desc}`;
   pc.el=d;
   posEl(pc);
@@ -781,8 +882,7 @@ function posEl(pc){
 }
 function refreshGlyph(pc){
   const T=TYPES[pc.t];
-  pc.el.querySelector('.g').textContent=T.g;
-  pc.el.querySelector('.g').style.fontSize=Math.round(TS*.7*(T.gs||1))+'px';
+  pc.el.querySelector('.g').innerHTML=pieceMark(pc);
   pc.el.title=`${T.name} — ${T.desc}`;
 }
 function spawnAll(){
@@ -811,8 +911,8 @@ function refreshChecks(){
   }
 }
 function updateRoster(){
-  const mine=aliveOf('w').map(p=>TYPES[p.t].g).join('');
-  const res=game.reserve.map(t=>TYPES[t].g).join('');
+  const mine=aliveOf('w').map(p=>iconMark(p.t,18,'w')).join('');
+  const res=game.reserve.map(t=>iconMark(t,18,'w')).join('');
   const foes=aliveOf('b').length;
   $('#roster').innerHTML=
     `<span class="lbl">grove</span><span class="glyphs mine">${mine||'—'}</span>`+
@@ -868,7 +968,7 @@ function moveDiagramHTML(pc){
   }
   let h='<div class="tgrid">';
   for(let i=0;i<25;i++){
-    if(i===12){ h+=`<div class="tc ctr">${T.g}</div>`; continue; }
+    if(i===12){ h+=`<div class="tc ctr">${iconMark(pc.t,13,pc.side)}</div>`; continue; }
     const q=cells[i], x=i%5, y=(i-x)/5;
     let inner='';
     if(q.arrow) inner=`<span class="ar">${q.arrow}</span>`;
@@ -888,7 +988,7 @@ function moveDiagramHTML(pc){
 function showTip(pc){
   const T=TYPES[pc.t], tip=$('#tip');
   tip.innerHTML=
-    `<div class="tname">${T.g}&nbsp; ${T.name}</div>`+
+    `<div class="tname">${iconMark(pc.t,15,pc.side)} ${T.name}</div>`+
     `<div class="tside">${pc.side==='w'?'your grove':'foe'}${T.royal?' · royal':''}</div>`+
     `<div class="tdesc">${T.desc}</div>`+
     moveDiagramHTML(pc);
@@ -903,8 +1003,9 @@ function hideTip(){ $('#tip').classList.remove('show'); }
 
 /* ---------------- FX ---------------- */
 function pieceCenter(pc){
-  const br=$('#board').getBoundingClientRect();
-  return {x:br.left+pc.x*TS+TS/2, y:br.top+pc.y*TS+TS/2};
+  // board-relative: effects live inside #board, so mobile viewport
+  // offsets (URL bar, pinch zoom) can't drift them off-target
+  return {x:pc.x*TS+TS/2, y:pc.y*TS+TS/2};
 }
 function particles(cx,cy,colors,n){
   // wood chips: small spinning slivers thrown out and slightly upward
@@ -916,7 +1017,7 @@ function particles(cx,cy,colors,n){
     s.style.borderRadius='2px';
     s.style.left=cx+'px'; s.style.top=cy+'px';
     s.style.background=colors[Math.floor(Math.random()*colors.length)];
-    document.body.appendChild(s);
+    $('#board').appendChild(s);
     const a=Math.random()*Math.PI*2, d=TS*(.5+Math.random()*1.1);
     const rot=Math.random()*720-360;
     s.animate([
@@ -929,23 +1030,20 @@ function shockwave(cx,cy,color){
   const s=document.createElement('div');
   s.className='spark';
   s.style.cssText=`left:${cx}px;top:${cy}px;width:12px;height:12px;border-radius:50%;border:2.5px solid ${color};`;
-  document.body.appendChild(s);
+  $('#board').appendChild(s);
   s.animate([
     {transform:'translate(-50%,-50%) scale(.3)',opacity:.95},
     {transform:`translate(-50%,-50%) scale(${TS/7})`,opacity:0}
   ],{duration:460,easing:'cubic-bezier(.1,.6,.3,1)'}).onfinish=()=>s.remove();
 }
 function glyphShards(pc,c){
-  // ghost copies of the fallen piece's glyph tumble away
-  const g=TYPES[pc.t].g;
-  const col=pc.side==='w'?'rgba(246,236,214,.9)':'rgba(58,42,26,.95)';
+  // ghost copies of the fallen piece tumble away
   for(let i=0;i<4;i++){
     const s=document.createElement('div');
     s.className='spark';
-    s.style.cssText=`left:${c.x}px;top:${c.y}px;color:${col};font-size:${Math.round(TS*(.22+Math.random()*.14))}px;`+
-      `font-family:'Arial Unicode MS','Segoe UI Symbol',sans-serif;text-shadow:0 2px 3px rgba(0,0,0,.5);`;
-    s.textContent=g;
-    document.body.appendChild(s);
+    s.style.cssText=`left:${c.x}px;top:${c.y}px;`;
+    s.innerHTML=iconMark(pc.t,Math.round(TS*(.22+Math.random()*.14)),pc.side);
+    $('#board').appendChild(s);
     const a=-Math.PI*(0.12+0.76*Math.random());              // launch upward-ish
     const d=TS*(.6+Math.random()*.9);
     const dx=Math.cos(a)*d, dyUp=Math.sin(a)*d;
@@ -1198,8 +1296,8 @@ function ringsSVG(current,dead){
 function intro(){
   const L=LEVELS[game.ring];
   const obj=royalOf('b')
-    ? '⚑ &nbsp;Checkmate the enemy monarch — its surviving court will join your grove.'
-    : '⚔ &nbsp;No monarch rules this ring — destroy every hostile piece.';
+    ? 'Checkmate the enemy monarch — its surviving court will join your grove.'
+    : 'No monarch rules this ring — destroy every hostile piece.';
   showOverlay(`
     ${ringsSVG(game.ring,false)}
     <div class="sub">${L.sub} of ${LEVELS.length}</div>
@@ -1216,8 +1314,8 @@ function beginRing(){
 function clearScreen(kind,recruits){
   const L=LEVELS[game.ring];
   const joined=recruits.length
-    ? `<p class="joinLine">✚ ${recruits.length} survivor${recruits.length>1?'s':''} join${recruits.length>1?'':'s'} your grove:
-       <span class="glyphs">${recruits.map(t=>TYPES[t].g).join(' ')}</span></p>`
+    ? `<p class="joinLine">+ ${recruits.length} survivor${recruits.length>1?'s':''} join${recruits.length>1?'':'s'} your grove:
+       <span class="glyphs">${recruits.map(t=>iconMark(t,20,'w')).join('')}</span></p>`
     : (kind==='stale' ? `<p>The survivors scatter. None join you.</p>`
                       : `<p>Nothing remains.</p>`);
   const last=game.ring===LEVELS.length-1;
@@ -1227,7 +1325,7 @@ function clearScreen(kind,recruits){
     <h2>${L.name.toUpperCase()} FALLS</h2>
     ${joined}
     <div class="sub" style="margin-top:14px">your grove marches on</div>
-    <div class="bigGlyphs">${game.army.map(t=>TYPES[t].g).join(' ')}</div>
+    <div class="bigGlyphs">${game.army.map(t=>iconMark(t,24,'w')).join('')}</div>
     <button onclick="hideOverlay();nextRing()">${last?'reach the heartwood':'descend inward →'}</button>
   `);
 }
@@ -1238,7 +1336,7 @@ function victoryScreen(){
     <div class="sub">the tree is yours</div>
     <p>Eight rings deep. The Elder has fallen, and the tree is quiet.</p>
     <div class="obj">foes felled: ${game.stats.captures} &nbsp;·&nbsp; recruits sworn: ${game.stats.recruits} &nbsp;·&nbsp; final grove: ${game.army.length} pieces</div>
-    <div class="bigGlyphs">${game.army.map(t=>TYPES[t].g).join(' ')}</div>
+    <div class="bigGlyphs">${game.army.map(t=>iconMark(t,24,'w')).join('')}</div>
     <button onclick="hideOverlay();startRun()">grow again</button>
   `);
 }
@@ -1255,7 +1353,7 @@ function titleScreen(){
       <b>Your survivors carry on</b> — every piece you lose is lost for good.<br>
       <b>Guard your King.</b> If he is cornered, the run ends.<br>
       <b>Saplings bloom</b> into Dryad Queens at the far end of their file.<br>
-      <b>Hold ⌘ / Ctrl</b> and hover any piece to see how it moves.
+      <b>Hold ⌘ / Ctrl</b> and hover any piece — or long-press on touch — to see how it moves.
     </div>
     <button onclick="hideOverlay();startRun()">enter the bark</button>
   `);
@@ -1281,6 +1379,7 @@ document.addEventListener('keyup',e=>{
   if(e.key==='Meta'||e.key==='Control') hideTip();
 });
 window.addEventListener('blur',hideTip);
+document.addEventListener('contextmenu',e=>{ if(e.target.closest('#board')) e.preventDefault(); });
 
 titleScreen();
 </script>
