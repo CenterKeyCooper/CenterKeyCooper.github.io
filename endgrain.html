@@ -3,7 +3,17 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Endgrain — a chess roguelike</title>
+<title>Endgrain - chess puzzle roguelike</title>
+<meta name="description" content="Checkmate each ring's monarch to grow your army">
+<meta name="theme-color" content="#16110d">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Endgrain">
+<meta property="og:title" content="Endgrain - chess puzzle roguelike">
+<meta property="og:description" content="Checkmate each ring's monarch to grow your army">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='18' fill='%2316110d'/><circle cx='50' cy='50' r='44' fill='none' stroke='%2342311f' stroke-width='3'/><circle cx='50' cy='50' r='36.5' fill='none' stroke='%23e0b34c' stroke-width='2.8'/><circle cx='50' cy='50' r='29' fill='none' stroke='%235d4630' stroke-width='2.8'/><g fill='%23f6ecd6' stroke='%2316110d' stroke-width='3' style='paint-order:stroke' transform='translate(15.5 14.5) scale(.7)'><circle cx='50' cy='27' r='12'/><path d='M43 40 Q46 45 45 51 Q43 63 36 79 L64 79 Q57 63 55 51 Q54 45 57 40 Q54 42 50 42 Q46 42 43 40Z'/><ellipse cx='50' cy='40' rx='11' ry='4'/><path d='M29 84 Q29 79 34 78 L66 78 Q71 79 71 84 Q71 87 67 87 L33 87 Q29 87 29 84Z'/></g></svg>">
+<link rel="apple-touch-icon" href="data:image/png;base64,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">
 <style>
   :root{
     --bg:#16110d;
@@ -51,12 +61,14 @@
   #progress .pip.cur{border-color:var(--gold); background:rgba(224,179,76,.25);
     box-shadow:0 0 10px rgba(224,179,76,.6); animation:pipPulse 2s ease-in-out infinite;}
   @keyframes pipPulse{50%{box-shadow:0 0 16px rgba(224,179,76,.9);}}
-  #btnRestart{
+  #hbtns{display:flex; gap:8px;}
+  .hbtn{
     background:none; border:1px solid #4a3826; color:var(--ink-dim);
     font-family:inherit; font-size:12px; letter-spacing:.1em;
     padding:7px 14px; border-radius:20px; cursor:pointer; transition:all .25s;
   }
-  #btnRestart:hover{border-color:var(--gold); color:var(--gold);}
+  .hbtn:hover{border-color:var(--gold); color:var(--gold);}
+  #seedTag{font-size:10px; letter-spacing:.14em; color:#5d4a33; font-family:Menlo,monospace;}
 
   /* ---------- STAGE ---------- */
   #stage{flex:1 1 auto; position:relative; display:flex; align-items:center; justify-content:center; min-height:0;}
@@ -197,10 +209,10 @@
   /* ---------- SHAKE / KICK ---------- */
   #stage.shake{animation:shake .5s cubic-bezier(.36,.07,.19,.97);}
   @keyframes shake{
-    10%,90%{transform:translate(-2px,1px);}
-    20%,80%{transform:translate(4px,-1px);}
-    30%,50%,70%{transform:translate(-7px,2px);}
-    40%,60%{transform:translate(7px,-2px);}
+    10%,90%{transform:translate(-1px,1px);}
+    20%,80%{transform:translate(2px,-1px);}
+    30%,50%,70%{transform:translate(-3px,1px);}
+    40%,60%{transform:translate(3px,-1px);}
   }
   #board.kick{animation:kick .18s ease-out;}
   @keyframes kick{30%{transform:translate(2px,3px) rotate(.4deg);}65%{transform:translate(-2px,-1px);}}
@@ -268,6 +280,21 @@
   }
   #panel button:hover{border-color:var(--gold); box-shadow:0 0 24px rgba(224,179,76,.25); transform:translateY(-2px);}
   #panel svg{display:block; margin:0 auto 6px;}
+  #panel .bigGlyphs svg,#panel .glyphs svg{display:inline-block; margin:0;}
+  #panel textarea{
+    width:100%; min-height:110px; margin-top:14px; padding:12px 14px;
+    background:#1d150e; border:1px solid #5d4630; border-radius:10px;
+    color:var(--ink); font-family:inherit; font-size:14px; line-height:1.5;
+    resize:vertical; outline:none;
+    user-select:text; -webkit-user-select:text;
+  }
+  #panel textarea:focus{border-color:var(--gold);}
+  #panel .btnRow{display:flex; gap:12px; justify-content:center;}
+  .fbLink{
+    margin-top:14px; font-size:11.5px; letter-spacing:.12em;
+    color:#7a6749; cursor:pointer;
+  }
+  .fbLink:hover{color:var(--gold); text-decoration:underline;}
   .ringDone{stroke:#5d4630; opacity:.55;}
   .ringCur{stroke:var(--gold); filter:drop-shadow(0 0 6px rgba(224,179,76,.9)); animation:ringGlow 2.4s ease-in-out infinite;}
   @keyframes ringGlow{50%{opacity:.55;}}
@@ -285,7 +312,10 @@
     <div class="rs">&nbsp;</div>
     <div id="progress"></div>
   </div>
-  <button id="btnRestart">↺ new run</button>
+  <div id="hbtns">
+    <button id="btnFeedback" class="hbtn">✎ feedback</button>
+    <button id="btnRestart" class="hbtn">↺ new run</button>
+  </div>
 </header>
 
 <div id="stage">
@@ -295,6 +325,7 @@
 
 <footer>
   <div id="status"></div>
+  <div id="seedTag"></div>
   <div id="roster"></div>
 </footer>
 
@@ -468,7 +499,8 @@ const game={
   board:null, pieces:[], occ:new Map(),
   turn:'w', busy:true, over:false,
   sel:null, selMoves:[], playerMoves:[], lastMove:null,
-  stats:{captures:0, recruits:0, moves:0},
+  stats:{captures:0, recruits:0, moves:0, started:0},
+  seed:0, usedUrlSeed:false, levelFoes:'',
 };
 let TS=64, idSeq=0;
 const $=s=>document.querySelector(s);
@@ -492,6 +524,9 @@ function connected(mask){
   return seen.size===mask.size;
 }
 function generateLevel(idx){
+  // reseed per ring: (run seed, ring) always reproduces this board,
+  // regardless of how much randomness earlier rings consumed
+  rng=mulberry32((game.seed ^ Math.imul(idx+1,0x9E3779B9))>>>0);
   const tier=TIER_BY_RING[idx];
   let rows=pickOf(TEMPLATES[tier]);
   if(rng()<0.5) rows=rows.map(r=>[...r].reverse().join(''));   // mirror mutation
@@ -1196,6 +1231,86 @@ function preparePlayerTurn(){
   game.busy=false;
 }
 
+/* ---------------- logging (Airtable) ---------------- */
+const AT_BASE='appsvu3ApgrBKyAx6';
+const AT_TOKEN='patxeMh9t8lsRlU9l.973e131b2895f6b1e921cb91959264ec16e1a9c5e1d481e7ae18bd2c2e73881b';
+const AT_RUNS_TABLE='Endgrain';
+const AT_FB_TABLE='Endgrain feedback';
+function atPost(table,fields){
+  return fetch(`https://api.airtable.com/v0/${AT_BASE}/${encodeURIComponent(table)}`,{
+    method:'POST',
+    headers:{'Authorization':'Bearer '+AT_TOKEN,'Content-Type':'application/json'},
+    body:JSON.stringify({fields,typecast:true})
+  }).then(r=>r.json()).then(d=>{
+    if(d.error){ console.error('Airtable:',d.error); throw d.error; }
+    return d;
+  });
+}
+function seedHex(){ return game.seed.toString(16).padStart(8,'0'); }
+function armyStr(){
+  const alive=aliveOf('w').map(p=>p.t).join('');
+  return alive+(game.reserve.length?'+'+game.reserve.join(''):'');
+}
+let playerIP='';
+fetch('https://api.ipify.org?format=json').then(r=>r.json()).then(d=>{playerIP=d.ip;}).catch(()=>{});
+function logRun(outcome){
+  // all values as strings + typecast — robust against field types in the table
+  const fields={
+    Seed:seedHex(),
+    Ring:String(Math.min(game.ring+1,LEVELS.length)),
+    Outcome:outcome,
+    Win:outcome==='victory'?'yes':'no',
+    Captures:String(game.stats.captures),
+    Recruits:String(game.stats.recruits),
+    Moves:String(game.stats.moves),
+    Seconds:String(Math.round((Date.now()-game.stats.started)/1000)),
+    Army:armyStr(),
+    Date:new Date().toISOString().slice(0,10),
+  };
+  if(playerIP) fields.IP=playerIP;
+  atPost(AT_RUNS_TABLE,fields).catch(()=>{});
+}
+
+/* ---------------- feedback ---------------- */
+let savedPanel=null;
+function feedbackScreen(){
+  savedPanel=$('#overlay').classList.contains('show')? $('#panel').innerHTML : null;
+  const L=LEVELS[Math.min(game.ring,LEVELS.length-1)];
+  showOverlay(`
+    <h2>FEEDBACK</h2>
+    <div class="sub">seed ${seedHex()} · ${L.sub} · ${L.name}</div>
+    <p style="font-style:normal; font-size:12.5px;">this ring's foes: ${game.levelFoes||'—'} &nbsp;·&nbsp; your grove: ${armyStr()}</p>
+    <textarea id="fbText" placeholder="what felt wrong or right about this ring?"></textarea>
+    <div class="btnRow">
+      <button onclick="sendFeedback(this)">send</button>
+      <button onclick="closeFeedback()">back</button>
+    </div>
+  `);
+  $('#fbText').focus();
+}
+function closeFeedback(){
+  if(savedPanel!==null){ $('#panel').innerHTML=savedPanel; savedPanel=null; }
+  else hideOverlay();
+}
+function sendFeedback(btn){
+  const txt=$('#fbText').value.trim();
+  if(!txt){ $('#fbText').focus(); return; }
+  btn.disabled=true; btn.textContent='sending…';
+  const L=LEVELS[Math.min(game.ring,LEVELS.length-1)];
+  const fields={
+    Seed:seedHex(),
+    Ring:String(Math.min(game.ring+1,LEVELS.length)),
+    'Ring name':L.name,
+    Feedback:txt,
+    Foes:game.levelFoes||'',
+    Army:armyStr(),
+    Date:new Date().toISOString().slice(0,10),
+  };
+  if(playerIP) fields.IP=playerIP;
+  atPost(AT_FB_TABLE,fields).then(()=>{ closeFeedback(); toast('FEEDBACK SENT','good'); })
+    .catch(()=>{ btn.disabled=false; btn.textContent='send'; toast('COULD NOT SEND','danger'); });
+}
+
 /* ---------------- level transitions ---------------- */
 async function levelClear(kind){
   game.busy=true; game.turn='w';
@@ -1241,6 +1356,8 @@ function loadLevel(){
   generateLevel(game.ring);
   placeArmy();
   placeFoes(rollFoes(game.ring, foeZone().length));
+  game.levelFoes=aliveOf('b').map(p=>p.t).join('');
+  $('#seedTag').textContent='seed '+seedHex();
   buildBoard();
   drawBackdrop();
   spawnAll();
@@ -1252,15 +1369,18 @@ function loadLevel(){
   intro();
 }
 function startRun(){
-  rng=mulberry32(Math.floor(Math.random()*4294967296));
+  const m=location.hash.match(/seed=([0-9a-fA-F]{1,8})/);
+  if(m&&!game.usedUrlSeed){ game.seed=parseInt(m[1],16)>>>0; game.usedUrlSeed=true; }
+  else game.seed=(Math.random()*4294967296)>>>0;
   game.ring=0;
   game.army=START_ARMY.slice();
   game.reserve=[];
-  game.stats={captures:0,recruits:0,moves:0};
+  game.stats={captures:0,recruits:0,moves:0,started:Date.now()};
   loadLevel();
 }
 function gameOver(kind){
   game.over=true; game.busy=true;
+  logRun(kind==='mate'?'checkmated':'petrified');
   const msg= kind==='mate'
     ? 'Your Monarch is cornered.'
     : 'No legal moves. The run ends here.';
@@ -1272,6 +1392,7 @@ function gameOver(kind){
       <p>${msg}</p>
       <div class="obj">rings survived: ${game.ring} &nbsp;·&nbsp; foes felled: ${game.stats.captures} &nbsp;·&nbsp; recruits sworn: ${game.stats.recruits}</div>
       <button onclick="hideOverlay();startRun()">begin anew</button>
+      <div class="fbLink" onclick="feedbackScreen()">✎ leave feedback on this ring</div>
     `);
   },700);
   toast(kind==='mate'?'CHECKMATE':'PETRIFIED','danger');
@@ -1327,9 +1448,11 @@ function clearScreen(kind,recruits){
     <div class="sub" style="margin-top:14px">your grove marches on</div>
     <div class="bigGlyphs">${game.army.map(t=>iconMark(t,24,'w')).join('')}</div>
     <button onclick="hideOverlay();nextRing()">${last?'reach the heartwood':'descend inward →'}</button>
+    <div class="fbLink" onclick="feedbackScreen()">✎ leave feedback on this ring</div>
   `);
 }
 function victoryScreen(){
+  logRun('victory');
   showOverlay(`
     ${ringsSVG(LEVELS.length,false)}
     <h1>THE PITH</h1>
@@ -1361,8 +1484,12 @@ function titleScreen(){
 
 /* ---------------- boot ---------------- */
 $('#btnRestart').addEventListener('click',()=>{
-  if(confirm('Abandon this run and start over from the bark?')) { hideOverlay(); startRun(); }
+  if(confirm('Abandon this run and start over from the bark?')){
+    if(game.board&&!game.over) logRun('abandoned');   // ended runs were already logged
+    hideOverlay(); startRun();
+  }
 });
+$('#btnFeedback').addEventListener('click',()=>{ if(game.board) feedbackScreen(); });
 window.addEventListener('resize',()=>{
   if(!game.board) return;
   buildBoard();
