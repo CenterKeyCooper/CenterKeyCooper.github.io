@@ -39,7 +39,7 @@
     display:flex; flex-direction:column;
     touch-action:manipulation;
   }
-  #bg{position:fixed; inset:0; z-index:-1;}
+  #bg{position:fixed; inset:0; z-index:-1; pointer-events:none;}
 
   /* ---------- HUD ---------- */
   header{
@@ -898,6 +898,7 @@ function buildBoard(){
     const bl=(!inMask(x-1,y)&&!inMask(x,y+1)&&!inMask(x-1,y+1))?R:r;
     t.style.borderRadius=`${tl}px ${tr}px ${br}px ${bl}px`;
     t.dataset.x=x; t.dataset.y=y;
+    t.setAttribute('role','button');
     t.addEventListener('click',()=>onTile(x,y));
     t.addEventListener('mouseenter',e=>{
       hoverTile={x,y};
@@ -917,8 +918,33 @@ function buildBoard(){
     t.addEventListener('pointerleave',cancelPress);
     el.appendChild(t);
   }
-  const hl=document.createElement('div'); hl.id='hl'; el.appendChild(hl);
-  const pl=document.createElement('div'); pl.id='pieces'; el.appendChild(pl);
+  const hl=document.createElement('div'); hl.id='hl'; hl.setAttribute('aria-hidden','true'); el.appendChild(hl);
+  const pl=document.createElement('div'); pl.id='pieces'; pl.setAttribute('aria-hidden','true'); el.appendChild(pl);
+  updateTileA11y();
+}
+/* accessible names on tiles — screen readers and automation target these;
+   the dots and piece sprites are decorative overlays (pointer-events:none) */
+function coordName(x,y){ return String.fromCharCode(97+x)+(game.board.h-y); }
+function coordToXY(c){
+  const m=/^([a-z])(\d)$/.exec(String(c).toLowerCase());
+  if(!m) return null;
+  const x=m[1].charCodeAt(0)-97, y=game.board.h-parseInt(m[2]);
+  return inMask(x,y)? {x,y} : null;
+}
+function updateTileA11y(){
+  if(!game.board) return;
+  document.querySelectorAll('#board .tile').forEach(t=>{
+    const x=+t.dataset.x, y=+t.dataset.y;
+    const pc=at(x,y);
+    let label=coordName(x,y);
+    if(pc) label+=` — ${pc.side==='w'?'your':'foe'} ${TYPES[pc.t].name}`;
+    if(game.sel){
+      const m=game.selMoves.find(m=>m.x2===x&&m.y2===y);
+      if(m) label=(pc? 'capture: ':'move to ')+label;
+      else if(pc===game.sel) label='selected — '+label;
+    }
+    t.setAttribute('aria-label',label);
+  });
 }
 /* glyphs first, svg fallback: desktops have the symbol fonts and render
    these as crisp text; mobile OSes substitute color emoji, so touch
@@ -1186,12 +1212,14 @@ function select(pc){
     d.style.animationDelay=(i*16)+'ms';
     hl.appendChild(d);
   });
+  updateTileA11y();
 }
 function deselect(){
   if(game.sel&&game.sel.el) game.sel.el.classList.remove('selp');
   game.sel=null; game.selMoves=[];
   clearTileClasses('sel');
   $('#hl').innerHTML='';
+  updateTileA11y();
 }
 async function animateAndApply(m){
   hideTip();
@@ -1218,6 +1246,7 @@ async function animateAndApply(m){
   }
   refreshChecks();
   updateRoster();
+  updateTileA11y();
 }
 async function commitPlayerMove(m){
   game.busy=true;
@@ -1547,6 +1576,31 @@ document.addEventListener('keyup',e=>{
 });
 window.addEventListener('blur',hideTip);
 document.addEventListener('contextmenu',e=>{ if(e.target.closest('#board')) e.preventDefault(); });
+
+/* programmatic interface for automation/assistive tools:
+   endgrain.state() → full game state; endgrain.tap('c3') → click that tile;
+   endgrain.move('c2','c3') → select then move in one call */
+window.endgrain={
+  state(){
+    if(!game.board) return {over:true};
+    return {
+      seed:seedHex(), ring:game.ring+1, ringName:LEVELS[Math.min(game.ring,LEVELS.length-1)].name,
+      turn:game.turn, busy:game.busy, over:game.over,
+      board:{w:game.board.w, h:game.board.h, tiles:[...game.board.mask].map(k=>{
+        const[x,y]=k.split(',').map(Number); return coordName(x,y);
+      })},
+      pieces:game.pieces.filter(p=>p.alive).map(p=>({
+        at:coordName(p.x,p.y), side:p.side==='w'?'you':'foe',
+        type:TYPES[p.t].name, letter:p.t, royal:!!TYPES[p.t].royal,
+      })),
+      legalMoves:(game.turn==='w'&&!game.busy&&!game.over)
+        ? game.playerMoves.map(m=>coordName(m.x1,m.y1)+'-'+coordName(m.x2,m.y2)) : [],
+      reserve:game.reserve.slice(),
+    };
+  },
+  tap(c){ const p=coordToXY(c); if(!p) return false; onTile(p.x,p.y); return true; },
+  move(from,to){ return this.tap(from)&&this.tap(to); },
+};
 
 titleScreen();
 </script>
