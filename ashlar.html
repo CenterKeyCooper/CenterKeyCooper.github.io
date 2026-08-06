@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Ashlar</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='4.5' fill='%232c2620'/%3E%3Cpath d='M5.3 12 8.7 9.2V19.4H5.3Z' fill='%23ffb347'/%3E%3Cpath d='M10.3 4.8h3.4v14.6h-3.4Z' fill='%23ff9a3c'/%3E%3Cpath d='M18.7 12 15.3 9.2V19.4h3.4Z' fill='%23ffb347'/%3E%3Cpath d='M4.5 21.3h15' stroke='%237a5230' stroke-width='2.2'/%3E%3C/svg%3E">
 <style>
 :root{
   --parchment:#efe3c8; --parchment-dark:#e2d2ae;
@@ -2085,6 +2086,7 @@ async function startTurn(i){
     setPrompt(`Play a tile (${G.playsLeft} play left), demolish one of yours, or end your turn.`,
       [{label:"End Turn", cls:"", fn:()=>endTurn()},
        {label:"Demolish a tile", cls:"danger", fn:()=>beginDemolish()}]);
+    maybeAutoEnd();
   }else{
     setPrompt("The rival architect ponders...");
     if(NET.mode==="local") await aiTurn();
@@ -2211,7 +2213,21 @@ function afterHumanPlay(){
   renderAll();
   renderHandArea();
   if(G.playsLeft>0) startIdlePrompt();
-  else setPrompt("No plays remain.", [{label:"End Turn", cls:"", fn:()=>endTurn()}]);
+  else setPrompt("No plays remain — ending turn...", [{label:"End Turn", cls:"", fn:()=>endTurn()}]);
+  maybeAutoEnd();
+}
+/* nothing left to do? pass the turn after a beat */
+let autoEndTimer=null;
+function maybeAutoEnd(){
+  clearTimeout(autoEndTimer);
+  if(G.over || G.active!==MYSEAT || G.mode!=="idle" || G.stack.length) return;
+  const p=G.players[MYSEAT];
+  if(G.playsLeft>0 && p.hand.length>0) return;
+  autoEndTimer=setTimeout(()=>{
+    if(G.over || G.active!==MYSEAT || G.mode!=="idle" || G.stack.length) return;
+    const pp=G.players[MYSEAT];
+    if(G.playsLeft<=0 || pp.hand.length===0) endTurn();
+  }, 600);
 }
 
 /* ---------- human play flow ---------- */
