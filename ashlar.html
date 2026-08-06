@@ -1,0 +1,3721 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ashlar</title>
+<style>
+:root{
+  --parchment:#efe3c8; --parchment-dark:#e2d2ae;
+  --ink:#3a2c1a; --ink-soft:#6b5638;
+  --stone:#848782; --stone-dark:#585b57; --stone-light:#a9aca5;
+  --ember:#e8722a; --ember-glow:#ffb347; --flame:#ff9a3c;
+  --board:#4a4238; --board-line:#5a5144;
+  --danger:#a63b2a; --arcane:#6d5a8e; --wood:#7a5230;
+  --tile-size:40px;
+}
+*{box-sizing:border-box; margin:0; padding:0;}
+html,body{height:100%;}
+body{
+  font-family:Georgia,'Times New Roman',serif;
+  /* noise frequencies are exact integer multiples of 1/tile-size so
+     feTurbulence stitching is truly seamless (224/256 and 8/512) */
+  background:
+    /* fine mineral grain */
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='512' height='512'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.875' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='512' height='512' filter='url(%23g)' opacity='0.55'/%3E%3C/svg%3E"),
+    /* coarse weathering: one oversized tile, stretched — never repeats, so no seams */
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='2048' height='2048'%3E%3Cfilter id='m'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.015625' numOctaves='5'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='2048' height='2048' filter='url(%23m)' opacity='0.6'/%3E%3C/svg%3E") center / cover no-repeat,
+    /* masonry: running-bond mortar joints, carved like the board grid */
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cg stroke='rgba(0,0,0,0.33)' stroke-width='2'%3E%3Cline x1='0' y1='1' x2='220' y2='1'/%3E%3Cline x1='0' y1='111' x2='220' y2='111'/%3E%3Cline x1='1' y1='0' x2='1' y2='110'/%3E%3Cline x1='111' y1='110' x2='111' y2='220'/%3E%3C/g%3E%3Cg stroke='rgba(255,255,255,0.05)' stroke-width='1'%3E%3Cline x1='0' y1='2.5' x2='220' y2='2.5'/%3E%3Cline x1='0' y1='112.5' x2='220' y2='112.5'/%3E%3Cline x1='2.5' y1='0' x2='2.5' y2='110'/%3E%3Cline x1='112.5' y1='110' x2='112.5' y2='220'/%3E%3C/g%3E%3C/svg%3E"),
+    radial-gradient(ellipse at 50% -20%, rgba(255,196,120,.05), transparent 55%),
+    radial-gradient(ellipse at 50% 130%, rgba(0,0,0,.55), transparent 65%),
+    linear-gradient(180deg, #3e4247 0%, #35393e 55%, #2b2f34 100%);
+  background-blend-mode: overlay, soft-light, normal, normal, normal, normal;
+  color:var(--ink);
+  overflow:hidden;
+  user-select:none;
+}
+/* engraved text utility */
+.etched{
+  color:#8d9196;
+  text-shadow:0 -1px 1px rgba(0,0,0,.7), 0 1px 0 rgba(255,255,255,.07);
+}
+#app{display:flex; flex-direction:column; height:100vh;}
+
+/* ---------- Header ---------- */
+#topbar{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:8px 22px 4px;
+  color:var(--parchment);
+}
+#topbar h1{
+  font-size:22px; letter-spacing:4px; font-weight:normal; text-transform:uppercase;
+  /* carved into the wall, with embers drifting through the letters */
+  background:linear-gradient(100deg,
+    #a05c26 0%, #e8722a 18%, #ffd08a 36%, #ff9a3c 52%, #c96b28 68%, #ffb347 85%, #a05c26 100%);
+  background-size:230% 100%;
+  -webkit-background-clip:text; background-clip:text; color:transparent;
+  filter:
+    drop-shadow(0 1px 0 rgba(255,255,255,.08))
+    drop-shadow(0 -1px 1px rgba(0,0,0,.8))
+    drop-shadow(0 0 12px rgba(255,154,60,.4));
+  animation:embertitle 28s ease-in-out infinite;
+}
+@keyframes embertitle{
+  0%,100%{background-position:0% 50%;}
+  50%{background-position:100% 50%;}
+}
+#turn-banner{
+  font-size:14px; letter-spacing:2px; text-transform:uppercase; color:#b6bac0;
+  transition:color .4s;
+}
+#turn-banner.enemy{color:#d98a7a;}
+
+/* ---------- Battlefield ---------- */
+#battlefield{
+  flex:1; display:flex; justify-content:center; align-items:stretch;
+  gap:18px; padding:4px 18px; min-height:0;
+}
+.castle-panel{
+  display:flex; flex-direction:column; align-items:center; gap:8px;
+  padding:10px 14px;
+  min-width:0;
+}
+.castle-panel .castle-title{transition:color .5s, text-shadow .5s;}
+.castle-panel.active-turn .castle-title{
+  color:#d9a86b;
+  text-shadow:0 -1px 1px rgba(0,0,0,.7), 0 0 14px rgba(232,114,42,.35);
+}
+.castle-panel.active-turn .board{
+  box-shadow:
+    inset 0 3px 12px rgba(0,0,0,.5),
+    inset 0 -1px 0 rgba(255,255,255,.05),
+    0 1px 0 rgba(255,255,255,.05),
+    0 0 46px rgba(232,114,42,.10);
+}
+.castle-title{
+  font-size:12px; letter-spacing:4px; text-transform:uppercase;
+  color:#8d9196;
+  text-shadow:0 -1px 1px rgba(0,0,0,.7), 0 1px 0 rgba(255,255,255,.07);
+  display:flex; align-items:center; justify-content:space-between;
+  white-space:nowrap;
+  width:100%; padding:0 2px;
+}
+.castle-title .title-label{min-width:44px;}
+.fire-free{display:inline-block; width:58px;}
+.flames{display:flex; gap:6px;}
+/* flame-shaped cutouts in the wall, firelight glowing from behind */
+.flame-pip{
+  width:12px; height:15px; position:relative;
+  filter:drop-shadow(0 1px 0 rgba(255,255,255,.06)) drop-shadow(0 0 5px rgba(255,154,60,.3));
+}
+.flame-pip::before{ /* the fire seen through the cutout */
+  content:""; position:absolute; inset:0;
+  clip-path:polygon(50% 0%, 78% 30%, 100% 62%, 84% 100%, 16% 100%, 0% 62%, 22% 30%);
+  background:radial-gradient(circle at 50% 78%, #ffd9a8 0%, var(--ember-glow) 32%, var(--ember) 62%, #8c3312 92%);
+  animation:kindle 5.2s infinite ease-in-out;
+}
+.flame-pip::after{ /* recess shading: dark upper rim of the hole */
+  content:""; position:absolute; inset:0;
+  clip-path:polygon(50% 0%, 78% 30%, 100% 62%, 84% 100%, 16% 100%, 0% 62%, 22% 30%);
+  background:linear-gradient(180deg, rgba(0,0,0,.5), rgba(0,0,0,.16) 38%, transparent 62%);
+}
+.flame-pip:nth-child(2)::before{animation-delay:1.8s;}
+.flame-pip:nth-child(3)::before{animation-delay:3.4s;}
+/* kindling: slow, uneven glow — never rhythmic, never moving */
+@keyframes kindle{
+  0%,100%{filter:brightness(1);}
+  13%{filter:brightness(1.09);}
+  29%{filter:brightness(.94);}
+  41%{filter:brightness(1.14);}
+  54%{filter:brightness(1.02);}
+  67%{filter:brightness(.9);}
+  83%{filter:brightness(1.06);}
+}
+.flame-pip.out{filter:drop-shadow(0 1px 0 rgba(255,255,255,.06));}
+.flame-pip.out::before{background:#16181b; animation:none;}
+/* a flame blown out: bends in the gust, whips, tears away — then smoke */
+.flame-pip.snuff{filter:drop-shadow(0 1px 0 rgba(255,255,255,.06)) drop-shadow(0 0 5px rgba(255,154,60,.3));}
+.flame-pip.snuff::before{
+  /* the fire is painted as a movable image inside the fixed cutout, so when
+     the gust takes it, it slides away BEHIND the stone — never over it */
+  background-color:#16181b;
+  background-image:radial-gradient(circle at 50% 60%, #ffd9a8 0%, var(--ember-glow) 22%, var(--ember) 45%, #8c3312 68%, transparent 78%);
+  background-size:190% 190%; background-repeat:no-repeat;
+  animation:blowout .6s ease-in forwards;
+}
+@keyframes blowout{
+  0%{background-position:50% 55%; filter:brightness(1.35);}
+  25%{background-position:24% 42%; filter:brightness(2.1);}
+  55%{background-position:78% 80%; filter:brightness(1.15);}
+  100%{background-position:185% 210%; filter:brightness(.45);}
+}
+.flame-pip.snuff::after{ /* smoke curling out of the empty niche */
+  clip-path:none; inset:-3px;
+  background:radial-gradient(ellipse at 50% 75%, rgba(185,185,180,.55), rgba(150,150,145,.18) 55%, transparent 78%);
+  opacity:0;
+  animation:pipsmoke 3.2s .35s ease-out forwards;
+}
+@keyframes pipsmoke{
+  0%{transform:translate(0,2px) scale(.5); opacity:0;}
+  10%{opacity:.75;}
+  35%{opacity:.45;}
+  70%{opacity:.18;}
+  100%{transform:translate(5px,-26px) scale(2.4) skewX(10deg); opacity:0;}
+}
+@keyframes flicker{
+  0%,100%{transform:scaleY(1) scaleX(1); filter:brightness(1);}
+  40%{transform:scaleY(1.12) scaleX(.94); filter:brightness(1.25);}
+  70%{transform:scaleY(.93) scaleX(1.05); filter:brightness(.9);}
+}
+.fire-meter{
+  font-size:12px; color:#bfc3c8; letter-spacing:1px;
+  display:flex; align-items:center; gap:6px;
+}
+/* rival's hand, face down — its own row above the board, fixed footprint */
+.hand-row{
+  height:16px; display:flex; align-items:center; justify-content:center;
+}
+.hand-meter{
+  display:inline-flex; align-items:center;
+  width:112px; flex:none; justify-content:center;
+}
+.hand-pips{
+  display:flex; gap:2px; align-items:center;
+  max-width:86px; overflow:hidden;
+}
+.hand-pip{
+  width:8px; height:11px; border-radius:1.5px;
+  flex:0 1 auto; min-width:3px;
+  background:linear-gradient(160deg,#5e4a2e,#3a2d1c);
+  border:1px solid rgba(170,135,80,.45);
+  box-shadow:0 1px 1px rgba(0,0,0,.4);
+}
+.hand-pip.pip-in{animation:pipin .3s ease-out;}
+@keyframes pipin{from{width:0; min-width:0; opacity:0;} to{width:8px; opacity:1;}}
+.hand-meter .hand-count{font-size:10px; color:#a8acb1; margin-left:4px;}
+/* the tile the rival is aiming at, while you decide whether to respond */
+.tile.threatened{
+  z-index:3;
+  animation:threatpulse .9s infinite ease-in-out;
+}
+@keyframes threatpulse{
+  0%,100%{box-shadow:0 0 0 2px rgba(217,90,60,.85), 0 0 12px rgba(217,90,60,.45); filter:brightness(1);}
+  50%{box-shadow:0 0 0 3px rgba(255,130,90,.95), 0 0 22px rgba(255,120,80,.75); filter:brightness(1.25);}
+}
+/* round cutouts; a warm ember glows in the free ones */
+.fire-sockets{
+  display:inline-flex; gap:5px; align-items:center;
+  min-width:91px; /* room for six sockets before the text moves */
+}
+.fire-dot{
+  display:inline-block; width:11px; height:11px; border-radius:50%;
+  position:relative;
+  background:radial-gradient(circle at 50% 55%, #ffd9a8 0%, var(--ember-glow) 38%, var(--ember) 70%, #a04414 96%);
+  box-shadow:
+    inset 0 1px 2px rgba(0,0,0,.45),
+    0 1px 0 rgba(255,255,255,.06),
+    0 0 8px rgba(255,154,60,.5);
+  animation:kindle 6.4s infinite ease-in-out;
+}
+.fire-dot:nth-of-type(2){animation-delay:2.3s;}
+.fire-dot:nth-of-type(3){animation-delay:4.1s;}
+.fire-dot.claimed{
+  background:#16181b;
+  box-shadow:inset 0 2px 3px rgba(0,0,0,.85), 0 1px 0 rgba(255,255,255,.06);
+  animation:none;
+}
+/* an ember snuffed: flares once, dies, a wisp of smoke escapes */
+.fire-dot.snuff{
+  background:radial-gradient(circle at 50% 55%, #ffd9a8 0%, var(--ember-glow) 38%, var(--ember) 70%, #a04414 96%);
+  animation:snuffdot .55s ease-in forwards;
+}
+.fire-dot.snuff::after{
+  content:""; position:absolute; inset:-2px; border-radius:50%;
+  background:radial-gradient(circle, rgba(170,170,170,.4), transparent 65%);
+  animation:smokeup 2.8s ease-out forwards;
+  pointer-events:none;
+}
+@keyframes snuffdot{
+  0%{filter:brightness(1.8) saturate(1.4);}
+  35%{filter:brightness(2.2);}
+  100%{filter:brightness(.18) saturate(.25);}
+}
+@keyframes smokeup{
+  0%{transform:translateY(0) scale(.5); opacity:0;}
+  10%{opacity:.75;}
+  35%{opacity:.45;}
+  70%{opacity:.18;}
+  100%{transform:translateY(-19px) scale(2.5); opacity:0;}
+}
+/* an ember catching: surges up from dark, settles into its glow */
+.fire-dot.ignite{
+  animation:ignitedot .6s ease-out, kindle 6.4s .6s infinite ease-in-out;
+}
+.fire-dot.ignite::after{
+  content:""; position:absolute; inset:-3px; border-radius:50%;
+  border:1px solid rgba(255,214,150,.5);
+  animation:punchring .55s ease-out forwards;
+  pointer-events:none;
+}
+@keyframes ignitedot{
+  0%{filter:brightness(.22) saturate(.35);}
+  18%{filter:brightness(.6) saturate(.7);}
+  45%{filter:brightness(2.3) saturate(1.3);}
+  100%{filter:brightness(1) saturate(1);}
+}
+/* a fresh hole punched through the stone */
+.fire-dot.punch{
+  animation:punchin .55s cubic-bezier(.34,1.56,.64,1), kindle 6.4s .55s infinite ease-in-out;
+}
+.fire-dot.punch::after{
+  content:""; position:absolute; inset:-3px; border-radius:50%;
+  border:1px solid rgba(255,235,200,.55);
+  animation:punchring .7s ease-out forwards;
+  pointer-events:none;
+}
+@keyframes punchin{
+  0%{transform:scale(.15); filter:brightness(2.4);}
+  55%{transform:scale(1.3); filter:brightness(1.5);}
+  75%{transform:scale(.92);}
+  100%{transform:scale(1); filter:brightness(1);}
+}
+@keyframes punchring{
+  0%{transform:scale(.4); opacity:.95;}
+  100%{transform:scale(2); opacity:0;}
+}
+
+/* ---------- Boards ---------- */
+.board{
+  display:grid; position:relative;
+  /* carved grid over a smooth recessed floor: nearly opaque so the wall's
+     masonry and heavy grain don't bleed into the play surface */
+  background:
+    repeating-linear-gradient(0deg,
+      rgba(255,255,255,.035) 0 1px, transparent 1px calc(var(--tile-size) - 1px),
+      rgba(0,0,0,.42) calc(var(--tile-size) - 1px) var(--tile-size)),
+    repeating-linear-gradient(90deg,
+      rgba(255,255,255,.035) 0 1px, transparent 1px calc(var(--tile-size) - 1px),
+      rgba(0,0,0,.42) calc(var(--tile-size) - 1px) var(--tile-size)),
+    rgba(52,56,61,.9);
+  border:none; border-radius:2px;
+  box-shadow:
+    inset 0 3px 12px rgba(0,0,0,.5),
+    inset 0 -1px 0 rgba(255,255,255,.05),
+    0 1px 0 rgba(255,255,255,.05);
+  transition:box-shadow .6s;
+}
+.cell{
+  width:var(--tile-size); height:var(--tile-size);
+  position:relative;
+}
+.cell.placeable::after{
+  content:""; position:absolute; inset:5px; border-radius:4px;
+  border:2px dashed rgba(255,179,71,.75);
+  background:rgba(255,179,71,.10);
+  animation:pulse-slot 1.4s infinite;
+  pointer-events:none;
+}
+@keyframes pulse-slot{
+  0%,100%{opacity:.45;} 50%{opacity:1;}
+}
+.cell.targetable::after{
+  content:""; position:absolute; inset:2px; border-radius:5px;
+  border:2px solid rgba(217,90,60,.9);
+  background:rgba(166,59,42,.22);
+  animation:pulse-slot 1s infinite;
+  pointer-events:none;
+}
+
+/* ---------- Tiles ---------- */
+.tile{
+  position:absolute; inset:2px; border-radius:3px;
+  background:linear-gradient(180deg, #90938c, #7d8079 80%, #74776f);
+  box-shadow:0 1px 3px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.16), inset 0 -1px 0 rgba(0,0,0,.28);
+  display:flex; align-items:center; justify-content:center;
+  cursor:default;
+  transition:transform .18s, filter .25s, box-shadow .3s;
+  z-index:2;
+}
+.tile .glyph{color:#383c36; display:flex;}
+.tile .glyph svg{width:23px; height:23px; display:block; filter:drop-shadow(0 1px 0 rgba(255,255,255,.14));}
+.tile.hearth-tile .glyph, .tile.brazier-tile .glyph{color:var(--ember-glow); }
+.tile.hearth-tile .glyph svg, .tile.brazier-tile .glyph svg{filter:drop-shadow(0 0 5px rgba(255,154,60,.8));}
+.tile.facedown .glyph{color:#c4b6dd;}
+.tile.boulder-tile .glyph{color:#2e2a23;}
+.tile.pop{animation:pop-in .38s cubic-bezier(.34,1.56,.64,1);}
+@keyframes pop-in{
+  0%{transform:scale(.35) rotate(-8deg); opacity:0;}
+  100%{transform:scale(1) rotate(0deg); opacity:1;}
+}
+.tile.dying{animation:crumble .5s ease-in forwards;}
+@keyframes crumble{
+  0%{transform:scale(1); filter:brightness(1); opacity:1;}
+  30%{transform:scale(1.06) rotate(2deg); filter:brightness(1.6) sepia(.4);}
+  100%{transform:scale(.2) rotate(14deg); filter:brightness(.3); opacity:0;}
+}
+.tile.hit-flash{animation:hitflash .45s;}
+@keyframes hitflash{
+  0%,100%{filter:none;}
+  20%{filter:brightness(2.1) saturate(2) hue-rotate(-20deg);}
+  60%{filter:brightness(1.3) saturate(1.4) hue-rotate(-10deg);}
+}
+/* edges: open edges get a notch/gap, sealed edges get a heavy rampart line */
+.tile .edge{position:absolute; background:transparent;}
+.tile .edge.sealed{background:linear-gradient(90deg,#3d362c,#57503f,#3d362c); box-shadow:0 0 3px rgba(0,0,0,.6);}
+.tile .edge.n{top:0; left:0; right:0; height:4px; border-radius:5px 5px 0 0;}
+.tile .edge.e{top:0; bottom:0; right:0; width:4px; border-radius:0 5px 5px 0;}
+.tile .edge.s{bottom:0; left:0; right:0; height:4px; border-radius:0 0 5px 5px;}
+.tile .edge.w{top:0; bottom:0; left:0; width:4px; border-radius:5px 0 0 5px;}
+.tile .edge.open::after{
+  content:""; position:absolute; background:rgba(30,24,16,.55); border-radius:2px;
+}
+.tile .edge.n.open::after, .tile .edge.s.open::after{ left:35%; right:35%; top:0; bottom:0;}
+.tile .edge.e.open::after, .tile .edge.w.open::after{ top:35%; bottom:35%; left:0; right:0;}
+
+.tile.hearth-tile{
+  /* warm and glowing from within, like the brazier — only grander */
+  background:radial-gradient(circle at 50% 58%, #7d4a1a, #4e3823 58%, #392c1e);
+  box-shadow:0 0 15px rgba(232,114,42,.5), inset 0 0 9px rgba(255,154,60,.25);
+}
+.tile.hearth-tile .glyph svg{width:26px; height:26px;}
+/* the grate light smolders through ember hues, like the title —
+   each castle's hearth burning to its own rhythm */
+.tile.hearth-tile .glyph{animation:emberglyph 12s ease-in-out infinite;}
+#board-1 .tile.hearth-tile .glyph{animation-duration:15s; animation-delay:-7s;}
+@keyframes emberglyph{
+  0%,100%{color:#f5913e;}
+  22%{color:#ffb347;}
+  42%{color:#ffd08a;}
+  62%{color:#ff9a3c;}
+  82%{color:#f0863a;}
+}
+.tile.brazier-tile{
+  background:radial-gradient(circle at 50% 55%, #6e4218, #4c3722 60%, #3a2d1e);
+  box-shadow:0 0 10px rgba(232,114,42,.4);
+}
+.tile.facedown{
+  background:linear-gradient(150deg,#5b4a6b,#463a54 60%,#332a3e);
+  box-shadow:0 2px 5px rgba(0,0,0,.5), inset 0 0 8px rgba(140,120,180,.3);
+}
+.tile.dormant{filter:grayscale(.85) brightness(.6);}
+.tile.bricked{filter:grayscale(1) brightness(.5) contrast(.8);}
+.tile.bricked::before{
+  content:"✕"; position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+  color:rgba(220,200,180,.5); font-size:26px; z-index:3;
+}
+.tile.boulder-tile{
+  background:radial-gradient(circle at 40% 35%, #6f6a62, #4c473f 65%, #37332c);
+  border-radius:40% 45% 42% 48%;
+}
+.tile .hp-badge{
+  position:absolute; bottom:1px; right:2px; font-size:9px; font-weight:bold;
+  color:#ffd9a8; text-shadow:0 1px 2px #000; z-index:4;
+}
+.tile .fire-badge{
+  position:absolute; top:1px; right:2px; z-index:4;
+  display:flex; gap:1px;
+}
+.tile.selectable-own{cursor:pointer;}
+.tile.selectable-own:hover{transform:scale(1.08); filter:brightness(1.2);}
+.tile.enemy-targetable{cursor:crosshair;}
+.tile.enemy-targetable:hover{transform:scale(1.08); filter:brightness(1.3) saturate(1.4);}
+
+/* a card in flight from a hand to the board */
+.flycard{
+  position:fixed; z-index:220; pointer-events:none;
+  border-radius:4px; overflow:hidden;
+  box-shadow:0 8px 18px rgba(0,0,0,.5);
+}
+.flycard .card{position:absolute; inset:0; box-shadow:none;}
+.flycard.flyback{
+  background:linear-gradient(160deg,#5e4a2e,#3a2d1c);
+  border:1px solid rgba(170,135,80,.5);
+}
+
+/* destruction debris — fragments of the tile itself (colors set inline) */
+.shard{
+  position:fixed; z-index:210; pointer-events:none;
+  box-shadow:0 1px 2px rgba(0,0,0,.45);
+}
+/* projectile */
+.projectile{
+  position:fixed; width:14px; height:14px; border-radius:50%;
+  background:radial-gradient(circle at 35% 30%, #ffd9a8, var(--ember) 60%, #7a2c0d);
+  box-shadow:0 0 14px 4px rgba(255,154,60,.75);
+  z-index:200; pointer-events:none;
+}
+
+/* ---------- Center column: stack & log ---------- */
+#center-col{
+  display:flex; flex-direction:column; gap:10px; width:230px; flex-shrink:0;
+  padding-top:4px;
+}
+#stack-panel{
+  background:rgba(52,56,61,.9);
+  border:none; border-radius:2px;
+  padding:8px 10px; min-height:52px;
+  box-shadow:inset 0 2px 8px rgba(0,0,0,.45), inset 0 -1px 0 rgba(255,255,255,.04), 0 1px 0 rgba(255,255,255,.05);
+  transition:box-shadow .4s;
+}
+#stack-panel.hot{
+  box-shadow:inset 0 2px 8px rgba(0,0,0,.45), inset 0 0 18px rgba(140,110,200,.28), 0 1px 0 rgba(255,255,255,.05);
+}
+#stack-panel h3{
+  font-size:11px; letter-spacing:2.5px; text-transform:uppercase; color:#93839f;
+  text-shadow:0 -1px 1px rgba(0,0,0,.7), 0 1px 0 rgba(255,255,255,.06);
+  margin-bottom:5px;
+}
+.stack-item{
+  background:rgba(240,230,255,.09); border:1px solid rgba(170,150,210,.35);
+  border-radius:5px; padding:5px 7px; margin-bottom:4px;
+  font-size:11.5px; color:#e4dcf2; line-height:1.35;
+  animation:pop-in .3s;
+}
+.stack-item.top{border-color:rgba(220,190,255,.8); background:rgba(240,230,255,.16);}
+#log-panel{
+  flex:1; min-height:0; display:flex; flex-direction:column;
+  background:rgba(52,56,61,.9);
+  border:none; border-radius:2px;
+  padding:8px 10px;
+  box-shadow:inset 0 2px 8px rgba(0,0,0,.45), inset 0 -1px 0 rgba(255,255,255,.04), 0 1px 0 rgba(255,255,255,.05);
+}
+#log-panel h3{
+  font-size:11px; letter-spacing:2.5px; text-transform:uppercase; color:#8d9196;
+  text-shadow:0 -1px 1px rgba(0,0,0,.7), 0 1px 0 rgba(255,255,255,.06);
+  margin-bottom:5px;
+}
+#log{flex:1; overflow-y:auto; font-size:11.5px; line-height:1.5; color:#c3c6c9; scrollbar-width:thin;}
+#log .entry{margin-bottom:3px; animation:fadein .4s;}
+#log .entry.you{color:#dfe0d8;}
+#log .entry.foe{color:#dba28f;}
+#log .entry.system{color:#979ba0; font-style:italic;}
+@keyframes fadein{from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:none;}}
+
+/* ---------- Prompt bar ---------- */
+#prompt-bar{
+  text-align:center; padding:6px 14px; min-height:38px;
+  color:#dde0e3; font-size:14px; letter-spacing:.5px;
+  display:flex; align-items:center; justify-content:center; gap:12px;
+}
+#prompt-bar .btn{margin:0;}
+
+/* ---------- Hand ---------- */
+#hand-area{
+  display:flex; align-items:flex-end; justify-content:center; gap:10px;
+  padding:6px 16px 8px; min-height:188px;
+}
+#deck-info{
+  display:flex; flex-direction:column; align-items:center; gap:4px;
+  color:#a8acb1; font-size:11px; letter-spacing:1px; margin-right:8px;
+}
+.deck-stack{
+  width:58px; height:80px; border-radius:4px; position:relative;
+  background:linear-gradient(160deg,#5e4a2e,#453521 65%,#35291a);
+  border:1px solid rgba(170,135,80,.5);
+  box-shadow:2px 2px 0 #2c2114, 4px 4px 0 #241b10, 0 6px 14px rgba(0,0,0,.5);
+}
+.deck-stack::before{
+  content:""; position:absolute; inset:6px; border-radius:2px;
+  border:1px solid rgba(220,185,120,.28);
+}
+.deck-stack::after{
+  content:""; position:absolute; left:50%; top:50%; width:26px; height:26px;
+  transform:translate(-50%,-50%) rotate(45deg);
+  border:1px solid rgba(220,185,120,.35);
+  box-shadow:inset 0 0 0 3px rgba(0,0,0,.18);
+}
+#hand{
+  position:relative; height:178px;
+  flex:0 1 860px; min-width:240px;
+  overflow-x:auto; overflow-y:hidden;
+  scrollbar-width:thin; scrollbar-color:rgba(160,140,100,.4) transparent;
+}
+.hand-spacer{position:absolute; top:0; left:0; height:1px;}
+.card{
+  width:108px; height:138px; border-radius:4px;
+  background:linear-gradient(172deg, var(--parchment) 0%, var(--parchment-dark) 75%, #d4c096 100%);
+  border:1px solid #9a8055;
+  box-shadow:0 4px 10px rgba(0,0,0,.5), inset 0 0 0 1px rgba(122,90,48,.18);
+  padding:7px 8px 6px;
+  display:flex; flex-direction:column; gap:3px;
+  cursor:pointer;
+  /* fanned hand: position and tilt come from per-card CSS variables */
+  position:absolute; bottom:10px; left:0;
+  transform-origin:50% 100%;
+  transform:translateY(var(--fy,0px)) rotate(var(--fr,0deg));
+  transition:left .28s ease, transform .25s ease, box-shadow .2s, filter .2s;
+}
+.card:hover{
+  transform:translateY(calc(var(--fy,0px) - 20px)) rotate(0deg) scale(1.05);
+  box-shadow:0 12px 22px rgba(0,0,0,.55);
+  z-index:200 !important;
+}
+.card.drawn{animation:drawin .45s cubic-bezier(.25,.9,.4,1.08) backwards;}
+@keyframes drawin{
+  from{transform:translate(-80px,16px) rotate(-8deg) scale(.55); opacity:0;}
+  to{transform:translateY(var(--fy,0px)) rotate(var(--fr,0deg)); opacity:1;}
+}
+.card.selected{
+  transform:translateY(calc(var(--fy,0px) - 24px)) rotate(0deg) scale(1.07);
+  box-shadow:0 0 0 2px var(--ember-glow), 0 12px 24px rgba(232,114,42,.4);
+  z-index:201 !important;
+}
+/* ember motes shed by a dissolving card */
+.mote{
+  position:fixed; z-index:230; pointer-events:none;
+  border-radius:50%;
+  background:radial-gradient(circle at 40% 35%, #ffd9a8, var(--ember) 70%);
+  box-shadow:0 0 6px 1px rgba(255,154,60,.7);
+}
+.card.unplayable{filter:saturate(.5) brightness(.82);}
+.card.reaction-glow{
+  box-shadow:0 0 0 2px var(--arcane), 0 0 18px rgba(140,110,200,.6);
+}
+.card .c-name{font-size:11.5px; font-weight:bold; letter-spacing:.4px; color:var(--ink); display:flex; justify-content:space-between; align-items:center;}
+.card .c-fire{font-size:10px;}
+.card .c-shape{
+  align-self:center; margin:2px 0;
+  width:40px; height:40px; position:relative;
+  background:linear-gradient(150deg, var(--stone-light), var(--stone-dark));
+  border-radius:4px;
+}
+.card .c-shape .edge{position:absolute;}
+.card .c-shape .edge.n{top:0; left:0; right:0; height:4px;}
+.card .c-shape .edge.e{top:0; bottom:0; right:0; width:4px;}
+.card .c-shape .edge.s{bottom:0; left:0; right:0; height:4px;}
+.card .c-shape .edge.w{top:0; bottom:0; left:0; width:4px;}
+.card .c-shape .edge.sealed{background:#332c22;}
+.card .c-shape .edge.open{background:transparent;}
+.card .c-shape .edge.n.open::after,.card .c-shape .edge.s.open::after{
+  content:""; position:absolute; left:32%; right:32%; top:0; bottom:0; background:rgba(35,28,18,.5);
+}
+.card .c-shape .edge.e.open::after,.card .c-shape .edge.w.open::after{
+  content:""; position:absolute; top:32%; bottom:32%; left:0; right:0; background:rgba(35,28,18,.5);
+}
+.card .c-shape .glyph{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#3d3527;}
+.card .c-shape .glyph svg{width:22px; height:22px;}
+.card .c-fire{display:flex; gap:1px; color:var(--ember);}
+.card .c-fire svg{width:11px; height:11px; filter:drop-shadow(0 0 3px rgba(255,154,60,.7));}
+.tile .fire-badge{color:var(--ember-glow);}
+.tile .fire-badge svg{width:10px; height:10px; filter:drop-shadow(0 0 3px rgba(255,154,60,.9)); display:block;}
+.card .c-text{font-size:10px; line-height:1.35; color:var(--ink-soft); flex:1; overflow:hidden;}
+.card .c-text b{color:#5c4022;}
+.card .c-type{font-size:8px; text-transform:uppercase; letter-spacing:1px; color:#8a744e; text-align:center;}
+
+/* ---------- Buttons ---------- */
+.btn{
+  font-family:inherit; font-size:12px; letter-spacing:1.5px;
+  padding:7px 16px; border-radius:2px; cursor:pointer;
+  background:rgba(255,255,255,.04);
+  color:#c3c7cc; border:1px solid rgba(160,165,172,.38);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.06), 0 1px 2px rgba(0,0,0,.45);
+  text-shadow:0 -1px 1px rgba(0,0,0,.5);
+  transition:background .15s, color .15s, transform .1s;
+  text-transform:uppercase;
+}
+.btn:hover{background:rgba(255,255,255,.10); color:#eceef0;}
+.btn:active{transform:translateY(1px);}
+.btn:disabled{opacity:.45; cursor:default;}
+.btn.danger{border-color:rgba(200,100,70,.5); color:#d9a08a;}
+.btn.danger:hover{background:rgba(200,100,70,.13); color:#f0c0aa;}
+.btn.arcane{border-color:rgba(160,135,210,.5); color:#bcaad8;}
+.btn.arcane:hover{background:rgba(140,110,200,.13); color:#d8caf0;}
+.btn.ghost{border-color:rgba(160,165,172,.25); color:#9a9ea3;}
+/* buttons on parchment overlays read in warm brown */
+#overlay .btn{
+  color:#5c4022; border-color:rgba(122,90,48,.55);
+  background:rgba(122,90,48,.07); text-shadow:none;
+}
+#overlay .btn:hover{background:rgba(122,90,48,.16); color:#3f2b14;}
+#overlay .btn.ghost{color:#7a5e3a; border-color:rgba(122,90,48,.35);}
+#overlay .btn.ghost:hover{background:rgba(122,90,48,.12); color:#5c4022;}
+#overlay .btn:disabled{opacity:.4;}
+
+/* ---------- Overlays ---------- */
+#overlay{
+  position:fixed; inset:0; background:rgba(15,12,8,.78);
+  display:flex; align-items:center; justify-content:center;
+  z-index:300; opacity:0; pointer-events:none; transition:opacity .5s;
+}
+#overlay.show{opacity:1; pointer-events:auto;}
+#overlay .panel{
+  background:linear-gradient(165deg, var(--parchment), var(--parchment-dark));
+  border:2px solid #9a8055; border-radius:12px;
+  padding:34px 46px; text-align:center; max-width:520px;
+  box-shadow:0 20px 60px rgba(0,0,0,.7);
+  animation:pop-in .5s cubic-bezier(.34,1.4,.64,1);
+}
+#overlay h2{font-size:26px; letter-spacing:3px; text-transform:uppercase; margin-bottom:12px; color:#5c4022;}
+#overlay p{font-size:14px; line-height:1.6; color:var(--ink-soft); margin-bottom:18px;}
+#overlay .panel.wide{max-width:1020px; width:92vw;}
+.lib-grid{
+  display:grid; grid-template-columns:repeat(auto-fill, minmax(122px,1fr));
+  gap:12px; max-height:54vh; overflow-y:auto; padding:8px 4px;
+  scrollbar-width:thin;
+}
+.lib-entry{display:flex; flex-direction:column; align-items:center; gap:5px;}
+.lib-grid .card{
+  position:relative; bottom:auto; left:auto;
+  transform:none; transition:box-shadow .2s; cursor:default;
+}
+.lib-grid .card:hover{transform:none; z-index:1 !important; box-shadow:0 6px 14px rgba(0,0,0,.45);}
+.lib-stepper{display:flex; align-items:center; gap:8px;}
+.lib-stepper .btn{padding:2px 10px; font-size:14px;}
+.lib-count{font-size:14px; color:#4c3b22; min-width:16px; font-weight:bold;}
+.lib-count.zeroed{opacity:.4;}
+.lib-entry .card.excluded{filter:grayscale(.9) brightness(.75);}
+.dk-cols{
+  display:flex; gap:26px; justify-content:center; text-align:left;
+  max-height:56vh; overflow-y:auto; scrollbar-width:thin;
+}
+.dk-cols>div{min-width:190px;}
+.dk-cols h3{
+  font-size:12px; letter-spacing:2px; text-transform:uppercase;
+  color:#7a5a30; margin-bottom:8px; border-bottom:1px solid rgba(122,90,48,.35); padding-bottom:4px;
+}
+.dk-row{
+  display:flex; align-items:center; gap:8px;
+  font-size:13px; color:var(--ink); padding:2.5px 0;
+}
+.dk-row .dk-ic{width:18px; height:18px; color:#4c3b22;}
+.dk-row .dk-ic svg{width:18px; height:18px; display:block;}
+.dk-row .dk-n{margin-left:auto; color:#8a744e;}
+.dk-row.dk-pick{cursor:pointer; border-radius:3px; padding:3px 6px;}
+.dk-row.dk-pick:hover{background:rgba(122,90,48,.16);}
+/* deck selection */
+.deck-cols{display:flex; gap:22px; justify-content:center; text-align:left; max-height:58vh; overflow-y:auto;}
+.deck-cols>div{flex:1; min-width:280px; max-width:380px;}
+.deck-col-h{
+  font-size:12px; letter-spacing:2px; text-transform:uppercase; color:#7a5a30;
+  margin-bottom:8px; border-bottom:1px solid rgba(122,90,48,.35); padding-bottom:4px;
+}
+.deck-opt{
+  border:1px solid rgba(122,90,48,.3); border-radius:5px;
+  padding:8px 11px; margin-bottom:7px; cursor:pointer;
+  transition:background .15s, border-color .15s;
+  display:flex; align-items:center; gap:11px;
+}
+.deck-opt-ic{width:26px; height:26px; flex:none; color:#5c4022;}
+.deck-opt-ic svg{width:26px; height:26px; display:block;}
+.deck-opt:hover{background:rgba(122,90,48,.1);}
+.deck-opt.chosen{
+  border-color:var(--ember); background:rgba(232,114,42,.1);
+  box-shadow:0 0 0 1px var(--ember);
+}
+.deck-opt-name{font-size:14px; font-weight:bold; color:#4c3820; letter-spacing:.5px;}
+.deck-opt-tag{font-size:11px; color:var(--ink-soft); line-height:1.35; margin-top:2px;}
+.lobby-input{
+  font-family:inherit; font-size:14px; letter-spacing:3px; text-transform:uppercase;
+  width:76px; padding:5px 8px; text-align:center;
+  background:rgba(255,255,255,.5); color:var(--ink);
+  border:1px solid #9a8055; border-radius:3px;
+}
+.tooltip{
+  position:fixed; z-index:400; pointer-events:none;
+  background:linear-gradient(165deg,#f7ecd4,#e6d6b0);
+  border:1px solid #9a8055; border-radius:7px;
+  padding:9px 11px; width:190px;
+  font-size:11px; line-height:1.4; color:var(--ink);
+  box-shadow:0 8px 20px rgba(0,0,0,.55);
+  opacity:0; transition:opacity .12s;
+}
+.tooltip.show{opacity:1;}
+.tooltip .t-name{font-weight:bold; font-size:12px; margin-bottom:3px;}
+.tooltip .t-sub{color:#8a744e; font-size:9.5px; text-transform:uppercase; letter-spacing:1px; margin-bottom:4px;}
+.tooltip .t-more{
+  margin-top:6px; padding-top:6px;
+  border-top:1px solid rgba(122,90,48,.35);
+  font-style:italic; font-size:10.5px; color:#5c4a2e;
+}
+.tooltip .t-hint{margin-top:5px; font-size:9px; color:#9a8055; letter-spacing:.5px;}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="topbar">
+    <h1>Ashlar</h1>
+    <div id="turn-banner">Your turn</div>
+    <button class="btn ghost" id="btn-help">Rules</button>
+  </div>
+
+  <div id="battlefield">
+    <div class="castle-panel" id="panel-0">
+      <div class="hand-row"></div>
+      <div class="castle-title">
+        <span class="title-label">You</span>
+        <span class="flames" id="flames-0"></span>
+        <span class="fire-meter" id="fires-0"></span>
+      </div>
+      <div class="board" id="board-0"></div>
+    </div>
+
+    <div id="center-col">
+      <div id="stack-panel">
+        <h3>The Stack</h3>
+        <div id="stack-items"><div style="font-size:11px;color:#8f81a8;">Empty — effects resolve here.</div></div>
+      </div>
+      <div id="log-panel">
+        <h3>Chronicle</h3>
+        <div id="log"></div>
+      </div>
+    </div>
+
+    <div class="castle-panel" id="panel-1">
+      <div class="hand-row"><span class="hand-meter" id="hand-meter-1" title="Tiles in the rival's hand"></span></div>
+      <div class="castle-title">
+        <span class="title-label">Rival</span>
+        <span class="flames" id="flames-1"></span>
+        <span class="fire-meter" id="fires-1"></span>
+      </div>
+      <div class="board" id="board-1"></div>
+    </div>
+  </div>
+
+  <div id="prompt-bar"></div>
+
+  <div id="hand-area">
+    <div id="deck-info" title="View your deck and the graveyards" style="cursor:pointer;">
+      <div class="deck-stack"></div>
+      <span id="deck-count">30</span>
+      <span id="grave-count" style="opacity:.75;">0 fallen</span>
+    </div>
+    <div id="hand"></div>
+  </div>
+</div>
+
+<div id="overlay"><div class="panel" id="overlay-panel"></div></div>
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+"use strict";
+/* =====================================================
+   Ashlar — data
+   Edges are [N,E,S,W]; true = open (buildable), false = sealed.
+   Power is priced in shape: the stronger the tile, the fewer
+   open edges it offers your castle.
+===================================================== */
+const W = 9, H = 11, CX = 4, CY = 5;
+const DIRS = [[0,-1],[1,0],[0,1],[-1,0]]; // N,E,S,W as dx,dy
+const OPP = [2,3,0,1];
+
+/* hand-drawn line glyphs — no emoji in the valley */
+/* seeded PRNG — all GAME-LOGIC randomness flows through RNG() so two
+   lockstep clients simulate identically; visual randomness keeps Math.random */
+function mulberry32(a){
+  return function(){
+    a|=0; a=a+0x6D2B79F5|0;
+    let t=Math.imul(a^a>>>15, 1|a);
+    t=t+Math.imul(t^t>>>7, 61|t)^t;
+    return ((t^t>>>14)>>>0)/4294967296;
+  };
+}
+let RNG_SEED=(Math.random()*2**31)|0;
+let RNG=mulberry32(RNG_SEED);
+function setSeed(s){ RNG_SEED=s|0; RNG=mulberry32(RNG_SEED); }
+
+const SVGW=(body)=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${body}</svg>`;
+const ICONS={
+  hearth:SVGW('<path d="M5.3 11 8.7 8.2V19.6H5.3Z" fill="currentColor" stroke="none"/><path d="M10.3 4.5h3.4v15.1h-3.4Z" fill="currentColor" stroke="none"/><path d="M18.7 11 15.3 8.2V19.6h3.4Z" fill="currentColor" stroke="none"/><path d="M4.5 21.2h15" stroke="#7a5230" stroke-width="2.6" stroke-linecap="butt"/>'),
+  brazier:SVGW('<path d="M6 11.5h12a6 6 0 0 1-12 0Z"/><path d="M12 3.5c-1 1.4-1.9 2.3-1.9 3.7a1.9 1.9 0 0 0 3.8 0c0-1.4-.9-2.3-1.9-3.7Z" fill="currentColor" stroke="none"/><path d="M9 20h6M12 17.4V20"/>'),
+  hallway:SVGW('<path d="M7 20V10a5 5 0 0 1 10 0v10"/><path d="M4 20h16"/>'),
+  wall:SVGW('<path d="M4 20V8h3V5h3v3h4V5h3v3h3v12Z"/><path d="M4 14h16M9 14v6M15 14v6M12 8v6"/>'),
+  catapult:SVGW('<path d="M4 19h16"/><path d="M7.5 19 16.5 6.5"/><circle cx="17.3" cy="5.4" r="1.7"/><path d="M10.5 19v-3.2M14 19v-3.2"/>'),
+  bulwark:SVGW('<path d="M12 3l7 2.6V12c0 4.6-3.1 7.4-7 9-3.9-1.6-7-4.4-7-9V5.6Z"/><path d="M12 6.6V18"/>'),
+  ward:SVGW('<path d="M12 3l1.8 6.2L20 11l-6.2 1.8L12 19l-1.8-6.2L4 11l6.2-1.8Z"/>'),
+  veil:SVGW('<path d="M4 10a9.2 5.8 0 0 0 16 0"/><path d="M6.5 13.8 5.1 15.7M12 15v2.3M17.5 13.8l1.4 1.9"/>'),
+  watchtower:SVGW('<path d="M8 21V8H7V4.5h2.5v1.8h5V4.5H17V8h-1v13"/><path d="M7 21h10M11 21v-3.6a1 1 0 0 1 2 0V21M10.5 11.5h3"/>'),
+  scriptorium:SVGW('<path d="M4 6.5c2.6-1.4 5.4-1.4 8 0 2.6-1.4 5.4-1.4 8 0V18c-2.6-1.4-5.4-1.4-8 0-2.6-1.4-5.4-1.4-8 0Z"/><path d="M12 6.5V18"/>'),
+  boulder:SVGW('<path d="M7.5 5 15 4l4.5 5.5L18 17l-8 3-6-5.5Z"/><path d="M9 9.5 15 8"/>'),
+  witch:SVGW('<path d="M12 21V6.5M12 11 6.5 4.5M12 11l5.5-6.5"/><circle cx="12" cy="4.2" r="0.5" fill="currentColor"/>'),
+  courtyard:SVGW('<path d="M12 21V10"/><path d="M12 13.5C8.6 13.5 6 11 6 7.5c3.4 0 6 2.5 6 6Z"/><path d="M12 11.5c0-3.5 2.6-6 6-6 0 3.5-2.6 6-6 6Z"/>'),
+  serpent:SVGW('<path d="M6 5h6.5a3.5 3.5 0 0 1 0 7h-1a3.5 3.5 0 0 0 0 7H18"/><circle cx="18.8" cy="19" r="0.5" fill="currentColor"/>'),
+  spire:SVGW('<path d="M12 2.5 15.8 10h-1.6v10.5H9.8V10H8.2Z"/><path d="M9 20.5h6"/>'),
+  trebuchet:SVGW('<path d="M3.5 20h17"/><path d="M8 20 12 9.5 16 20"/><path d="M12 9.5 19.5 4.3"/><path d="M18.6 3.3l2.1 1.4-1.3 1.9-2.1-1.4Z"/>'),
+  bombard:SVGW('<path d="M4 14.5 14 8l3.6 5.3L8 19.8Z"/><circle cx="6.8" cy="19" r="1.7"/><path d="M16.3 6.8 19 4"/>'),
+  ballista:SVGW('<path d="M5 9.5a9 9 0 0 1 14 0"/><path d="M12 3.5V20"/><path d="M9.3 17h5.4"/><path d="M12 3.5 9.9 6.4M12 3.5l2.1 2.9"/>'),
+  flame:SVGW('<path d="M12 3C9.5 6.5 7.5 8.8 7.5 12.5a4.5 4.5 0 0 0 9 0C16.5 8.8 14.5 6.5 12 3Z" fill="currentColor" stroke="none"/>'),
+  echo:SVGW('<path d="M17.8 6.2A7 7 0 1 0 19 12"/><path d="M19.6 3.2v3.6H16"/>'),
+  rats:SVGW('<path d="M5 14.5c1-4 6-5.5 9-3.5l3.5-2-1.2 3 .7 2.5c-3 3-8.5 3-12 0Z"/><path d="M5 14.5c-1.8 0-2.6 1.6-1.6 3"/><circle cx="14.5" cy="12.2" r="0.5" fill="currentColor"/>'),
+  thief:SVGW('<path d="M14.5 3.5c-2 2.8-3.6 4.6-3.6 7.6a3.6 3.6 0 0 0 7.2 0c0-3-1.6-4.8-3.6-7.6Z" fill="currentColor" stroke="none"/><path d="M4 19.5h8.5M4 19.5 6.5 17M4 19.5 6.5 22"/>'),
+  gatehouse:SVGW('<path d="M4 20V8h3V5h2.5v3h5V5H17v3h3v12"/><path d="M8.5 20v-7.5M12 20v-7.5M15.5 20v-7.5M6 15.8h12"/>'),
+  reliquary:SVGW('<path d="M6 20V10.5L12 6l6 4.5V20Z"/><path d="M12 9.5v4.6M9.8 11.8h4.4"/><path d="M4.5 20h15"/>'),
+  keystone:SVGW('<path d="M6 5h12l-2.5 15h-7Z"/><path d="M7.5 10.5h9"/>'),
+  mirror:SVGW('<path d="M12 3.5v17" stroke-dasharray="2.2 2.2"/><path d="M8.5 8 5 12l3.5 4M15.5 8 19 12l-3.5 4"/>'),
+  aqueduct:SVGW('<path d="M4 7h16"/><path d="M6 20v-7a3 3 0 0 1 6 0v7M12 20v-7a3 3 0 0 1 6 0v7"/><path d="M6 7v3M12 7v3M18 7v3"/>'),
+  garden:SVGW('<circle cx="12" cy="9" r="1.7" fill="currentColor" stroke="none"/><circle cx="12" cy="5.4" r="1.8"/><circle cx="15.4" cy="7.9" r="1.8"/><circle cx="14.1" cy="12" r="1.8"/><circle cx="9.9" cy="12" r="1.8"/><circle cx="8.6" cy="7.9" r="1.8"/><path d="M12 13.8V21M12 17c-2.6 0-4.3-1.7-4.3-3.8"/>'),
+  guild:SVGW('<path d="M12 5 6.5 20M12 5l5.5 15"/><path d="M8.3 14.5a7.5 7.5 0 0 0 7.4 0"/><circle cx="12" cy="4.2" r="1.3"/>'),
+  tollgate:SVGW('<path d="M5 20V10a7 7 0 0 1 14 0v10"/><circle cx="12" cy="14.5" r="2.6"/><path d="M12 13v3M3.5 20h17"/>'),
+  forge:SVGW('<path d="M5 9h13c-1 2.4-3 3.4-5 3.4V17h2.8v3H8.2v-3H11v-4.6C8 12.4 6 11.4 5 9Z"/><path d="M3.5 6.5h6"/>'),
+  barracks:SVGW('<path d="M12 4 3.5 20h17Z"/><path d="M12 20v-6.5l-3.5 6.5M12 13.5 15.5 20"/>'),
+  festival:SVGW('<path d="M4 5h16"/><path d="M5.5 5v3.5L8 7l2.5 1.5V5M13.5 5v3.5L16 7l2.5 1.5V5"/><path d="M12 5v15M9 20h6"/>'),
+  ossuary:SVGW('<path d="M5 6 19 18M19 6 5 18"/><circle cx="5" cy="6" r="1.4"/><circle cx="19" cy="6" r="1.4"/><circle cx="5" cy="18" r="1.4"/><circle cx="19" cy="18" r="1.4"/>'),
+  whisper:SVGW('<path d="M7 4a11 11 0 0 1 0 16"/><path d="M11 6.5a8 8 0 0 1 0 11"/><path d="M15 9a4.5 4.5 0 0 1 0 6"/>'),
+  outriders:SVGW('<path d="M6 20c0-6 2.5-8 5-8l2-4 2 1.5-1.5 3.5c3 0 5 2 5 7"/><path d="M4 20h17M8.5 20v-3M15.5 20v-3"/>'),
+  wolfpack:SVGW('<ellipse cx="12" cy="15.5" rx="4" ry="3.2"/><circle cx="7" cy="9.5" r="1.7"/><circle cx="11" cy="7.5" r="1.7"/><circle cx="15.5" cy="8" r="1.7"/><circle cx="18.5" cy="11" r="1.5"/>'),
+  stormaltar:SVGW('<path d="M13 3 6.5 13h4L9 21l8.5-11h-4.5Z"/>'),
+  necropolis:SVGW('<path d="M7 20V9a5 5 0 0 1 10 0v11"/><path d="M4.5 20h15M12 8v6M9.8 10h4.4"/>'),
+  mastermason:SVGW('<path d="M4 6 12 4l8 2-8 3.5Z"/><path d="M12 9.5V14"/><path d="M9 14h6v2.5a3 3 0 0 1-6 0Z"/>'),
+  haunt:SVGW('<path d="M6 20V10a6 6 0 0 1 12 0v10l-2.4-2-2.4 2-1.2-2-1.2 2-2.4-2Z"/><circle cx="9.7" cy="10" r="0.6" fill="currentColor"/><circle cx="14.3" cy="10" r="0.6" fill="currentColor"/>'),
+  pyre:SVGW('<path d="M12 4c-2 2.6-3.4 4.3-3.4 7a3.4 3.4 0 0 0 6.8 0c0-2.7-1.4-4.4-3.4-7Z" fill="currentColor" stroke="none"/><path d="M4.5 20 19.5 17M4.5 17l15 3" stroke-linecap="butt"/>'),
+  spiral:SVGW('<path d="M12 12h5.5V6.5H7v11h11.5"/><path d="M12 12v-3h3"/>'),
+  twingates:SVGW('<path d="M4 20v-8a4 4 0 0 1 8 0v8"/><path d="M12 20v-8a4 4 0 0 1 8 0v8"/><path d="M2.5 20h19"/>'),
+  cornerstone:SVGW('<path d="M4 4v16h16"/><path d="M7 13h6v7H7Z"/><path d="M4 4l4 4"/>'),
+  milestone:SVGW('<path d="M9 20V7l3-3 3 3v13"/><path d="M6.5 20h11M12 9v4"/>'),
+  cloisterwalk:SVGW('<path d="M3.5 6h17M3.5 20h17"/><path d="M5 20v-9a2.5 2.5 0 0 1 5 0v9M14 20v-9a2.5 2.5 0 0 1 5 0v9"/><path d="M5 6v2M12 6v3M19 6v2"/>'),
+  burrows:SVGW('<path d="M4 18c0-4 3.5-7 8-7s8 3 8 7"/><ellipse cx="12" cy="18" rx="4" ry="2"/><path d="M3 18h18"/>'),
+  bonfire:SVGW('<path d="M12 3C9 6.8 6.8 9 6.8 12.6a5.2 5.2 0 0 0 10.4 0C17.2 9 15 6.8 12 3Z" fill="currentColor" stroke="none"/><path d="M4.5 21 19.5 18M4.5 18l15 3" stroke-linecap="butt"/>'),
+  coalcellar:SVGW('<path d="M4 20V9l8-4.5L20 9v11"/><circle cx="9.5" cy="16.5" r="1.7"/><circle cx="14.5" cy="16.5" r="1.7"/><circle cx="12" cy="13" r="1.7"/>'),
+  earthquake:SVGW('<path d="M3.5 8h6l2 3 2.5-5 2 4h4.5"/><path d="M12 11.5 10 15l3 1.5-2 4.5" stroke-linecap="butt"/>'),
+  caravan:SVGW('<path d="M4 15h13l3-4h-5V8H4Z"/><circle cx="8" cy="17.8" r="1.9"/><circle cx="15.5" cy="17.8" r="1.9"/>'),
+};
+const icon=k=>ICONS[k]||"";
+
+const DEFS = {
+  hearth:{ name:"Central Hearth", edges:[1,1,1,1], hp:3, fires:2, type:"Hearth",
+    text:"The heart. Grants 2 fires, holds 3 flames."},
+  brazier:{ name:"Brazier", edges:[1,1,1,0], hp:1, fires:1, type:"Fire",
+    text:"<b>Fire source.</b> Grants 1 fire."},
+  hallway:{ name:"Hallway", edges:[0,1,0,1], hp:1, type:"Passage",
+    text:"<b>Raise:</b> draw a tile, gain +1 play."},
+  wall:{ name:"Rampart", edges:[1,1,1,1], hp:2, type:"Structure",
+    text:"Honest stone. Nothing more."},
+  catapult:{ name:"Catapult", edges:[0,1,1,0], hp:1, needsFire:1, type:"Siege",
+    text:"<b>Raise:</b> deal 1 to any enemy tile."},
+  bulwark:{ name:"Bulwark", edges:[0,0,1,0], hp:1, type:"Defense",
+    text:"Absorbs the next blow at itself or its 8 neighbors."},
+  ward:{ name:"Veiled Ward", edges:[0,1,0,1], hp:1, type:"Ward",
+    text:"<b>Veiled.</b> Flip (free fire) to counter an ability."},
+  watchtower:{ name:"Watchtower", edges:[0,0,1,0], hp:1, reaction:true, type:"Reaction",
+    text:"<b>Reaction.</b> Place beside a targeted tile — the blow strikes here."},
+  scriptorium:{ name:"Scriptorium", edges:[0,1,1,0], hp:1, needsFire:2, persistent:true, type:"Study",
+    text:"<b>Kindled:</b> draw an extra tile each turn."},
+  boulder:{ name:"Boulder", edges:[0,0,0,0], hp:1, type:"Blockade",
+    text:"Hurl onto enemy ground. Sealed shut until destroyed."},
+  witch:{ name:"Cinder Witch", edges:[0,0,1,0], hp:1, needsFire:1, type:"Hex",
+    text:"<b>Raise:</b> brick target enemy tile."},
+  courtyard:{ name:"Courtyard", edges:[1,1,1,1], hp:1, type:"Grounds",
+    text:"<b>Raise:</b> draw 1 per courtyard — an enclosed empty cell."},
+  serpent:{ name:"Serpent Wall", edges:[0,1,0,1], hp:1, type:"Structure",
+    text:"<b>Raise:</b> no 2×2 in your castle? Draw a tile, gain +1 play."},
+  spire:{ name:"High Spire", edges:[0,0,1,0], hp:1, needsFire:1, type:"Siege",
+    text:"<b>Raise:</b> deal 1 — or 2 from 4+ steps out."},
+  trebuchet:{ name:"Trebuchet", edges:[0,0,1,0], hp:1, needsFire:2, type:"Siege",
+    text:"<b>Raise:</b> deal damage = the line behind it, max 3."},
+  bombard:{ name:"Bombard", edges:[0,0,1,0], hp:1, needsFire:2, type:"Siege",
+    text:"<b>Raise:</b> <b>splash</b> 1 — target and its neighbors."},
+  ballista:{ name:"Grand Ballista", edges:[0,1,0,0], hp:1, needsFire:1, type:"Siege",
+    text:"<b>Raise:</b> deal damage = castle span ÷ 3."},
+  echo:{ name:"Echo Arch", edges:[0,0,1,0], hp:1, type:"Arcana",
+    text:"<b>Raise:</b> blink an adjacent tile — it re-enters, Raising anew."},
+  rats:{ name:"Rat Swarm", edges:[0,0,1,0], hp:1, needsFire:1, type:"Plague",
+    text:"<b>Raise:</b> the rival discards a random tile."},
+  thief:{ name:"Ember Thief", edges:[0,0,1,0], hp:1, type:"Plague",
+    text:"Seizes one rival fire while this stands."},
+  gatehouse:{ name:"Gatehouse", edges:[1,1,1,1], hp:1, type:"Passage",
+    text:"<b>Raise:</b> gain +1 play."},
+  reliquary:{ name:"Reliquary", edges:[0,0,1,0], hp:1, type:"Study",
+    text:"<b>Raise:</b> draw 2 tiles."},
+  keystone:{ name:"Keystone", edges:[1,1,1,1], hp:1, type:"Structure",
+    text:"<b>Raise:</b> surrounded on all 4 sides? Draw 2, gain +1 play."},
+  mirror:{ name:"Mirror Hall", edges:[0,1,0,1], hp:1, type:"Arcana",
+    text:"<b>Raise:</b> castle mirrored across your hearth? Draw 2, gain +1 play."},
+  aqueduct:{ name:"Aqueduct", edges:[0,1,0,1], hp:1, type:"Structure",
+    text:"<b>Raise:</b> draw 1 per 3 tiles in your longest straight line."},
+  garden:{ name:"Hidden Garden", edges:[0,1,1,0], hp:1, needsFire:1, persistent:true, type:"Grounds",
+    text:"<b>Kindled:</b> draw an extra tile each turn you keep a courtyard."},
+  guild:{ name:"Masons' Guild", edges:[0,0,1,0], hp:1, type:"Guild",
+    text:"<b>Raise:</b> move an adjacent tile anywhere it may stand (no Raise)."},
+  /* --- triggered engines --- */
+  tollgate:{ name:"Toll Gate", edges:[0,1,0,1], hp:1, needsFire:1, persistent:true, type:"Passage",
+    text:"<b>Kindled:</b> when a rival attack lands on you, draw a tile."},
+  forge:{ name:"Forge", edges:[0,1,1,0], hp:1, needsFire:1, persistent:true, type:"Guild",
+    text:"<b>Kindled:</b> the first fire claimed each turn grants +1 play."},
+  barracks:{ name:"Barracks", edges:[1,1,1,1], hp:1, needsFire:1, persistent:true, type:"Guild",
+    text:"<b>Kindled:</b> once per turn, placing a tile beside this draws a tile."},
+  festival:{ name:"Festival Room", edges:[1,1,1,1], hp:1, persistent:true, type:"Grounds",
+    text:"Start of turn: placed 3+ tiles last turn? +1 play, draw 1."},
+  ossuary:{ name:"Ossuary", edges:[0,0,1,0], hp:1, needsFire:1, persistent:true, type:"Crypt",
+    text:"<b>Kindled:</b> start of turn — any tile fallen since your last? Draw 1."},
+  whisper:{ name:"Whisper Gallery", edges:[0,1,0,1], hp:1, needsFire:1, persistent:true, type:"Arcana",
+    text:"<b>Kindled:</b> when you counter or intercept, draw 2."},
+  /* --- warbands: repeat attackers, aim decided by geometry --- */
+  outriders:{ name:"Outriders", edges:[0,0,1,0], hp:1, needsFire:1, persistent:true, type:"Warband",
+    text:"<b>Kindled:</b> each turn, deal 1 to the rival tile furthest from their hearth."},
+  wolfpack:{ name:"Wolf Pack", edges:[0,0,1,0], hp:1, needsFire:1, persistent:true, type:"Warband",
+    text:"<b>Kindled:</b> each turn, deal 1 to a random rival leaf."},
+  stormaltar:{ name:"Storm Altar", edges:[0,0,1,0], hp:1, needsFire:2, persistent:true, type:"Warband",
+    text:"<b>Kindled:</b> each turn, deal 1 to the rival's newest tile."},
+  /* --- the grave --- */
+  necropolis:{ name:"Necropolis", edges:[0,0,1,0], hp:1, needsFire:1, type:"Crypt",
+    text:"<b>Raise:</b> deal 1 per 8 fallen tiles anywhere (max 3)."},
+  mastermason:{ name:"Master Mason", edges:[0,1,1,0], hp:1, type:"Guild",
+    text:"<b>Raise:</b> return a fallen tile from your graveyard to hand."},
+  haunt:{ name:"Haunt", edges:[0,0,1,0], hp:1, type:"Arcana",
+    text:"<b>Raise:</b> becomes a copy of a tile in your graveyard — Raising anew."},
+  pyre:{ name:"Pyre", edges:[0,0,1,0], hp:1, type:"Crypt",
+    text:"<b>Raise:</b> burn one of your tiles — draw 2."},
+  /* --- shape payoffs --- */
+  spiral:{ name:"Spiral Stair", edges:[1,1,0,0], hp:1, type:"Structure",
+    text:"<b>Raise:</b> draw 1 per 2 elbows in your castle."},
+  twingates:{ name:"Twin Gates", edges:[1,0,1,0], hp:1, type:"Passage",
+    text:"<b>Raise:</b> castle touches two opposite board edges? Draw 2, gain +2 plays."},
+  cornerstone:{ name:"Cornerstone Shrine", edges:[1,1,0,0], hp:1, type:"Grounds",
+    text:"<b>Raise:</b> placed on a corner of the board? Draw 3."},
+  milestone:{ name:"Milestone", edges:[0,1,0,1], hp:1, type:"Structure",
+    text:"<b>Raise:</b> draw 1 — or 2 if extending a line of 3+."},
+  cloisterwalk:{ name:"Cloister Walk", edges:[1,1,1,1], hp:1, type:"Grounds",
+    text:"<b>Raise:</b> enclosed a new courtyard? Draw 1, gain +1 play."},
+  burrows:{ name:"Burrows", edges:[1,0,1,0], hp:1, needsFire:1, persistent:true, type:"Grounds",
+    text:"<b>Kindled:</b> your leaf tiles take 2 hits to fell."},
+  /* --- fire economy --- */
+  bonfire:{ name:"Great Bonfire", edges:[1,0,1,0], hp:1, fires:2, type:"Fire",
+    text:"Grants 2 fires. Death-blast: deals 1 to its neighbors."},
+  coalcellar:{ name:"Coal Cellar", edges:[0,0,1,0], hp:1, needsFire:2, persistent:true, maxCopies:1, type:"Fire",
+    text:"<b>Kindled:</b> each turn, your spent siege engines release their fires."},
+  /* --- calamity & trade --- */
+  earthquake:{ name:"Earthquake", edges:[1,1,1,1], hp:1, needsFire:1, type:"Calamity",
+    text:"<b>Raise:</b> deal 1 to every leaf tile — yours and theirs."},
+  caravan:{ name:"Trade Caravan", edges:[0,1,0,1], hp:1, type:"Trade",
+    text:"<b>Raise:</b> both players draw 2; you gain +1 play."},
+};
+/* extra detail shown while holding ⌘ over a tile */
+const MORE = {
+  hearth:"Its 2 fires are always granted while it burns, even at 1 flame. Example: a Catapult and a Scriptorium claim both — demolish either, or add a Brazier, to power something new.",
+  brazier:"Anchors mini-castles: if the path to your hearth is cut, tiles still tracing to a Brazier survive the structure check. Its fire is lost while bricked.",
+  hallway:"The extra play stacks — a second Hallway that turn grants a third play. Its two sealed sides make it a poor corner piece but a perfect corridor.",
+  wall:"Two hits to fell, and open on all four sides — the glue of any castle. Also the cheapest thing to feed to a Bombard's splash.",
+  catapult:"Example: with both hearth fires free, it claims one on arrival and fires unless countered. Demolishing it later frees the fire for a fresh engine.",
+  bulwark:"Absorbs one entire hit — even a 3-damage Trebuchet shot — for itself or any of the 8 tiles around it, then crumbles. Park it diagonal to your hearth.",
+  ward:"Flips at instant speed while an enemy ability is on the stack; needs a free fire only at that moment, and counters that ability. It remains as inert spent stone after. Your rival sees a face-down tile and must respect it.",
+  watchtower:"Playable during the rival's turn, in response to their attack — but only onto a cell adjacent or diagonal to the declared target. The attack strikes the tower instead.",
+  scriptorium:"Claims TWO fires on arrival and holds them while it stands — a serious commitment; while lit you draw the extra tile at the start of your turn. If supply shrinks, the newest claims go dormant first. The Hidden Garden is the cheaper, conditional alternative.",
+  boulder:"Sits on the rival's ground, sealed on all sides: nothing connects through it and nothing builds on it. It never crumbles from disconnection — they must spend an attack.",
+  witch:"Cannot target the Hearth. Bricked tiles keep their edges but lose everything else — abilities gone, claimed fires released. Brick a Brazier to starve their engines, or a Bulwark just before your siege volley.",
+  courtyard:"An enclosed cell = an empty cell with your tiles on all 4 sides. Example: a ring of 8 tiles around a hole is one courtyard; two holes, two draws.",
+  serpent:"On placement, if your castle holds no 2×2 block of tiles (Boulders don't count): draw a tile and gain an extra play this turn. Keep your castle winding — corridors and elbows, never plazas.",
+  spire:"Distance is counted in steps (no diagonals) from your hearth. 4+ steps away, its shot deals 2 — reward for a long reaching arm.",
+  trebuchet:"Counts the unbroken straight line of your tiles running from its open edge: 3 or more = the full 3 damage. Mount it at the end of a long wall.",
+  bombard:"Claims two fires. The blast deals 1 to the target and 1 to each orthogonal neighbor — aim at the seam between their engine and their hearth.",
+  ballista:"Damage = your castle's longest span (width or height) ÷ 3, minimum 1. A castle stretched across all 9 columns deals 3.",
+  echo:"Blink: an orthogonally adjacent tile of yours (not the Hearth, a Boulder, or a veiled tile) leaves and re-enters its cell — fresh stone (damage healed), fires released and re-claimed, and its Raise triggers again. Blink a Catapult for a second shot, or a Courtyard for a recount.",
+  rats:"Claims a fire on arrival; the rival discards one tile from their hand at random. A tempo jab — best when their hand is fat with answers.",
+  thief:"While it stands, one of the rival's free fires is seized — their engines can't use it, and their newest Kindled tiles go dormant if supply runs short. Destroying or bricking the Thief returns the fire.",
+  gatehouse:"Pure tempo: the turn you place it, you may place one more tile. Open on all four sides, so it never clogs the works.",
+  reliquary:"A dead-end shrine: one open edge, two tiles drawn. Card advantage priced entirely in shape — every Reliquary is a stub your castle must carry.",
+  keystone:"Checks its own 4 orthogonal neighbors on placement — all four must be your tiles (Boulders don't count). The natural home is a courtyard hole... but filling it kills the Courtyard payoff. Choose.",
+  mirror:"On placement, every tile of yours must have a partner mirrored across your hearth's column (the hearth mirrors itself; Boulders are ignored). Symmetric castles are strong castles.",
+  aqueduct:"Finds the longest unbroken straight run of your tiles anywhere — row or column — and draws one tile per 3 in it. A 6-run draws 2; a full 9-run draws 3. Feeds the Trebuchet's line.",
+  garden:"Claims a fire while it stands. At the start of your turn, if your castle holds at least one courtyard (an enclosed empty cell), draw an extra tile. Your rival can Boulder the hole shut.",
+  guild:"Move an orthogonally adjacent tile (not the Hearth or a Boulder — veiled tiles may move) to any cell where its edges legally connect. It keeps its damage, fires, and face-down state; its Raise does NOT retrigger. Careless moves can sever tiles — they crumble.",
+  tollgate:"Draws whenever a rival attack deals damage to your castle — even damage a Bulwark absorbs, and once per tile struck by a splash. Turns their aggression into your cards.",
+  forge:"The first time each of your turns that any tile of yours claims fire, gain +1 play. Rewards curving out engines; a dead card in a fireless deck.",
+  barracks:"Once per turn, when you play a tile from your hand onto a cell adjacent to the Barracks, draw a tile. A placement magnet — your castle will grow around it. Blinked or moved tiles don't count.",
+  festival:"At the start of your turn, if you placed 3 or more tiles since your last turn began (reactions count; blinks and moves don't), gain +1 play and draw a tile. Needs no fire — the condition is the cost.",
+  ossuary:"At the start of your turn, if any tile entered any graveyard since your last turn began — destroyed, demolished, or discarded, yours or theirs — draw a tile.",
+  whisper:"Whenever you counter with a Ward or intercept with a Watchtower, draw 2 tiles. Converts defense into inevitability.",
+  outriders:"At the start of your turn, deals 1 to the rival's non-Hearth tile furthest from their hearth (ties random). Warbands strike directly — no stack, no counter; Bulwarks still absorb. Punishes sprawl.",
+  wolfpack:"At the start of your turn, deals 1 to a random rival leaf — a tile with exactly one connection. No stack, no counter; Bulwarks still absorb. Hunts Reliquaries, siege stubs, and dead-ends.",
+  stormaltar:"At the start of your turn, deals 1 to the newest tile in the rival's castle. No stack, no counter; Bulwarks still absorb. Taxes their every play.",
+  necropolis:"Damage equals one per 8 fallen tiles across BOTH graveyards, max 3. With fewer than 8 fallen it holds its fire and claims nothing. The longer the war, the harder it hits.",
+  mastermason:"Choose any tile in your graveyard and return it to your hand. The rebuy: a fallen Bombard, a countered Ward, a devoured engine.",
+  haunt:"Choose a fallen tile in your graveyard: the Haunt becomes it — same cell, same rotation, and its Raise triggers. The chosen tile leaves the grave. Careful: the new form's edges may no longer connect, and severed tiles crumble.",
+  pyre:"Destroy one of your own tiles (not the Hearth) for free — no masons' fee — and draw 2. Feeds the Ossuary, the Necropolis count, and frees any fires the burned tile claimed.",
+  spiral:"An elbow is a tile of yours with exactly two neighbors at a right angle. Draw 1 per 2 elbows. Zigzag castles cash in; straight walls count nothing.",
+  twingates:"If your tiles touch two opposite edges of the board — left and right, or the longer top and bottom — draw 2 and gain +2 plays. The board is 11 tall: the vertical crossing is the epic.",
+  cornerstone:"Draw 3 if placed on one of the board's four corner cells. The corners are far from home — the arm you build to reach one is exposed the whole way.",
+  milestone:"Draw 1. If its placement extends an unbroken straight line of your tiles to length 3 or more, draw 2 instead. The Long Wall's early fuel.",
+  cloisterwalk:"If placing this tile creates a new courtyard (an enclosed empty cell that wasn't there before), draw a tile and gain +1 play. Rewards the act of enclosure itself.",
+  burrows:"While lit, your leaf tiles — exactly one connection — take 2 hits to fell. The winding castle's answer to Wolf Packs and Earthquakes.",
+  bonfire:"A double Brazier with only two open edges. When destroyed — by anyone, including your own demolition — it deals 1 to every orthogonally adjacent tile. Castles never touch, so the blast hits your own tiles... and enemy Boulders.",
+  coalcellar:"At the start of your turn, every spent one-shot siege engine of yours releases its claimed fire — your artillery reloads itself. Claims two fires and is limited to one per deck.",
+  earthquake:"Deals 1 to every leaf tile on BOTH castles — hearths excepted, your own leaves included. Build broad and connected, then shake the valley.",
+  caravan:"Both players draw 2 tiles; only you gain the extra play. A symmetrical gift with an asymmetric tempo edge.",
+};
+
+const DECK_LIST = [
+  ["brazier",4],["hallway",4],["wall",3],["catapult",3],["bulwark",3],
+  ["ward",3],["watchtower",2],["scriptorium",2],["boulder",2],["witch",2],
+  ["courtyard",2],["serpent",2],["spire",2],["trebuchet",2],["bombard",2],["ballista",2],
+  ["echo",2],["rats",2],["thief",2],["gatehouse",2],["reliquary",2],
+  ["keystone",2],["mirror",2],["aqueduct",2],["garden",2],["guild",2],
+  ["tollgate",2],["forge",2],["barracks",2],["festival",1],["ossuary",2],["whisper",2],
+  ["outriders",2],["wolfpack",2],["stormaltar",1],
+  ["necropolis",2],["mastermason",2],["haunt",2],["pyre",2],
+  ["spiral",2],["twingates",1],["cornerstone",1],["milestone",2],["cloisterwalk",2],["burrows",2],
+  ["bonfire",2],["coalcellar",1],["earthquake",2],["caravan",2],
+];
+
+/* ---------- utilities ---------- */
+const key = (x,y)=>x+","+y;
+const inBounds = (x,y)=>x>=0&&y>=0&&x<W&&y<H;
+function rotEdges(edges,rot){ const e=edges.slice(); for(let i=0;i<rot;i++) e.unshift(e.pop()); return e; }
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(RNG()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+const sleep = ms=>new Promise(r=>setTimeout(r,ms));
+
+/* ---------- state ---------- */
+let uidCounter = 0;
+function makeTile(defId, rot=0, faceDown=false){
+  const d = DEFS[defId];
+  return { uid:++uidCounter, defId, rot, edges:rotEdges(d.edges,rot), hp:d.hp,
+           faceDown, bricked:false, spent:false, claims:0, owner:null, x:0, y:0 };
+}
+/* ---------- seats & network ----------
+   MYSEAT: which logical player the local human is (0 solo/host, 1 joiner).
+   V(i): logical seat -> screen side (local player always renders on side 0).
+   S(k): screen side -> logical seat.                                    */
+let MYSEAT=0;
+const V=i=> i===MYSEAT?0:1;
+const S=k=> k===0?MYSEAT:1-MYSEAT;
+const who=i=> i===MYSEAT?"you":"foe";
+const NET={
+  mode:"local",        // local | host | join
+  peer:null, conn:null,
+  actQ:[], actWait:null,
+  choiceQ:[], choiceWait:null,
+};
+function netSend(msg){ if(NET.conn){ try{ NET.conn.send(JSON.stringify(msg)); }catch(e){} } }
+function netAwaitAction(){
+  return new Promise(res=>{
+    if(NET.actQ.length) res(NET.actQ.shift());
+    else NET.actWait=res;
+  });
+}
+function netAwaitChoice(){
+  return new Promise(res=>{
+    if(NET.choiceQ.length) res(NET.choiceQ.shift());
+    else NET.choiceWait=res;
+  });
+}
+function netReceive(raw){
+  let msg; try{ msg=JSON.parse(raw); }catch(e){ return; }
+  if(msg.a!==undefined){
+    if(NET.actWait){ const w=NET.actWait; NET.actWait=null; w(msg.a); }
+    else NET.actQ.push(msg.a);
+  }else if(msg.c!==undefined){
+    if(NET.choiceWait){ const w=NET.choiceWait; NET.choiceWait=null; w(msg.c); }
+    else NET.choiceQ.push(msg.c);
+  }else if(msg.l!==undefined && NET.onLobby){
+    NET.onLobby(msg);
+  }
+}
+/* three-way chooser: local UI (and broadcast) / remote wire / solo AI */
+async function choose(p, uiFn, aiFn, enc, dec){
+  if(p.i===MYSEAT){
+    const v=await uiFn();
+    if(NET.mode!=="local") netSend({c: enc?enc(v):(v===undefined?null:v)});
+    return v;
+  }
+  if(NET.mode==="local") return aiFn();
+  const raw=await netAwaitChoice();
+  return dec?dec(raw):raw;
+}
+const encTile=t=>t?t.uid:null;
+const decTileOn=p=>u=>u==null?null:[...p.board.values()].find(t=>t.uid===u)||null;
+
+const G = {
+  players:[null,null],
+  active:0,            // whose turn
+  playsLeft:1,
+  stack:[],            // {kind:'attack'|'ability', label, source, controller, target:{p,x,y}|null, dmg, effect}
+  mode:"idle",         // idle | place | target | respond | gameover | animating
+  pending:null,        // context for current interaction
+  over:false,
+};
+let LIB_COUNTS=null; // custom deck composition chosen in the library
+/* the six architects' decks */
+const DECKS={
+  longwall:{name:"The Long Wall", tag:"Lines & artillery.",
+    counts:{trebuchet:3,aqueduct:3,ballista:2,outriders:2,coalcellar:1,brazier:4,wall:4,bulwark:2,watchtower:2,hallway:3,gatehouse:2,milestone:3,ward:2,catapult:2},
+    bias:{trebuchet:1.25,aqueduct:1.3,milestone:1.3,wall:1.15,outriders:1.2}},
+  warren:{name:"The Warren", tag:"Snake & scurry.",
+    counts:{serpent:3,spiral:3,echo:2,wolfpack:2,guild:2,hallway:4,gatehouse:2,brazier:3,ward:2,bulwark:2,burrows:2,reliquary:2,thief:2,spire:2,catapult:2},
+    bias:{serpent:1.35,spiral:1.3,burrows:1.25,guild:1.2,wolfpack:1.15}},
+  cloister:{name:"The Cloister", tag:"Courtyards & turtling.",
+    counts:{courtyard:3,garden:2,keystone:2,mirror:2,tollgate:2,brazier:3,bulwark:3,watchtower:2,ward:2,gatehouse:2,hallway:2,cloisterwalk:3,spire:2,bombard:1,outriders:1,wall:2,boulder:2},
+    bias:{courtyard:1.3,cloisterwalk:1.3,garden:1.25,keystone:1.2,bulwark:1.15}},
+  ashes:{name:"The Ashes", tag:"Graveyard value.",
+    counts:{necropolis:2,haunt:2,mastermason:2,ossuary:2,rats:2,earthquake:2,brazier:3,bonfire:1,bulwark:2,ward:2,watchtower:1,reliquary:2,pyre:3,catapult:2,wolfpack:1,hallway:2,gatehouse:2,wall:2},
+    bias:{pyre:1.35,haunt:1.3,necropolis:1.25,earthquake:1.2,rats:1.15}},
+  siegecamp:{name:"The Siege Camp", tag:"Aggro. Burn fast.",
+    counts:{catapult:3,bombard:2,spire:2,stormaltar:1,forge:2,brazier:4,bonfire:2,gatehouse:2,hallway:2,scriptorium:1,festival:1,bulwark:2,watchtower:2,wall:2,trebuchet:2,boulder:2},
+    bias:{catapult:1.25,bombard:1.25,forge:1.3,bonfire:1.2,stormaltar:1.2}},
+  veil:{name:"The Veil", tag:"Control. Counter everything.",
+    counts:{ward:3,watchtower:3,witch:2,thief:2,rats:2,tollgate:2,whisper:2,brazier:4,gatehouse:2,hallway:2,spire:2,ballista:1,catapult:2,wolfpack:1,reliquary:2,bulwark:2,scriptorium:1,boulder:2},
+    bias:{ward:1.3,watchtower:1.25,whisper:1.3,thief:1.2,witch:1.2}},
+};
+function newPlayer(i, counts){
+  const deck=[];
+  if(counts){
+    Object.entries(counts).forEach(([id,n])=>{ for(let k=0;k<n;k++) deck.push(id); });
+  }else{
+    DECK_LIST.forEach(([id,n])=>{
+      const c=LIB_COUNTS ? (LIB_COUNTS[id]??n) : n;
+      for(let k=0;k<c;k++) deck.push(id);
+    });
+  }
+  shuffle(deck);
+  const p = { i, board:new Map(), deck, hand:[], grave:[], flames:3, claimOrder:[] };
+  const h = makeTile("hearth"); h.owner=i; h.x=CX; h.y=CY;
+  p.board.set(key(CX,CY),h);
+  for(let k=0;k<5;k++) p.hand.push(p.deck.pop());
+  return p;
+}
+
+/* ---------- fire economy ---------- */
+function fireSources(p){
+  let n=0;
+  for(const t of p.board.values()){
+    if(t.bricked||t.spent) continue;
+    const d=DEFS[t.defId];
+    if(d.fires) n+=d.fires;
+  }
+  return n;
+}
+// every fire claim funnels through here so the Forge can watch it
+function claimFire(p,tile,n){
+  tile.claims=n;
+  p.claimOrder.push(tile.uid);
+  if(G.active===p.i && p.flags && !p.flags.fireClaimed){
+    p.flags.fireClaimed=true;
+    const forges=litTiles(p,"forge").filter(f=>f.uid!==tile.uid);
+    if(forges.length){
+      G.playsLeft+=forges.length;
+      log(`${pname(p.i)} Forge rings — +${forges.length} play${forges.length>1?"s":""}.`, who(p.i));
+    }
+  }
+}
+function claimedFires(p){
+  let n=0;
+  for(const t of p.board.values()) if(!t.bricked) n+=t.claims;
+  return n;
+}
+// Ember Thieves in the rival's castle each seize one of this player's fires
+function seizedFrom(p){
+  let n=0;
+  for(const t of G.players[1-p.i].board.values())
+    if(t.defId==="thief" && !t.bricked) n++;
+  return n;
+}
+function freeFires(p){ return fireSources(p)-claimedFires(p)-seizedFrom(p); }
+// when supply shrinks, suspend newest persistent claims (dormancy)
+function settleDormancy(p){
+  const supply=fireSources(p)-seizedFrom(p);
+  let used=0;
+  // rebuild in claim order; tiles beyond supply go dormant
+  p.claimOrder = p.claimOrder.filter(uid=>{
+    for(const t of p.board.values()) if(t.uid===uid) return true;
+    return false;
+  });
+  const byUid={}; for(const t of p.board.values()) byUid[t.uid]=t;
+  for(const uid of p.claimOrder){
+    const t=byUid[uid]; if(!t||t.bricked||!t.claims) continue;
+    if(used+t.claims<=supply){ used+=t.claims; t.dormant=false; }
+    else t.dormant=true;
+  }
+}
+
+/* ---------- connectivity ---------- */
+function connectedSet(p){
+  const seen=new Set(), queue=[];
+  for(const t of p.board.values()){
+    const d=DEFS[t.defId];
+    if(d.fires && !t.bricked && !t.spent){ seen.add(key(t.x,t.y)); queue.push(t); }
+  }
+  while(queue.length){
+    const t=queue.pop();
+    DIRS.forEach(([dx,dy],dir)=>{
+      const nx=t.x+dx, ny=t.y+dy, k2=key(nx,ny);
+      if(seen.has(k2)) return;
+      const n=p.board.get(k2); if(!n) return;
+      if(t.edges[dir] && n.edges[OPP[dir]]){ seen.add(k2); queue.push(n); }
+    });
+  }
+  return seen;
+}
+async function structureCheck(){
+  // loop until stable: a bonfire blast during collapse can sever more
+  let changed=true;
+  while(changed && !G.over){
+    changed=false;
+    for(const p of G.players){
+      const alive=connectedSet(p);
+      const doomed=[];
+      for(const t of p.board.values()){
+        if(t.defId==="boulder") continue; // boulders squat anywhere
+        if(!alive.has(key(t.x,t.y))) doomed.push(t);
+      }
+      if(doomed.length){
+        changed=true;
+        log(`${doomed.length} severed tile${doomed.length>1?"s":""} in ${pname(p.i)} castle crumble${doomed.length>1?"":"s"} — no path to a fire.`,"system");
+        for(const t of doomed){ if(G.over) return; await destroyTile(p,t,true); }
+      }
+      settleDormancy(p);
+    }
+  }
+}
+/* ---------- placement ---------- */
+function canPlaceAt(p, edges, x, y){
+  if(!inBounds(x,y) || p.board.has(key(x,y))) return false;
+  let connects=false;
+  for(let dir=0;dir<4;dir++){
+    const [dx,dy]=DIRS[dir];
+    const n=p.board.get(key(x+dx,y+dy));
+    if(!n) continue;
+    if(edges[dir] && n.edges[OPP[dir]] && !(n.defId==="boulder")) connects=true;
+  }
+  return connects;
+}
+function legalCells(p, edges){
+  const cells=[];
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++)
+    if(canPlaceAt(p,edges,x,y)) cells.push([x,y]);
+  return cells;
+}
+function boulderCells(p){ // empty cells orthogonally adjacent to any enemy tile
+  const cells=[];
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+    if(p.board.has(key(x,y))) continue;
+    if(DIRS.some(([dx,dy])=>p.board.has(key(x+dx,y+dy)))) cells.push([x,y]);
+  }
+  return cells;
+}
+function putTile(p, tile, x, y){
+  tile.owner=p.i; tile.x=x; tile.y=y;
+  p.board.set(key(x,y),tile);
+}
+/* a barracks musters when its owner builds beside it (once per turn) */
+async function checkBarracks(p,x,y){
+  for(const b of litTiles(p,"barracks")){
+    if(b.usedBarracks) continue;
+    if(Math.abs(b.x-x)+Math.abs(b.y-y)===1){
+      b.usedBarracks=true;
+      log(`${pname(p.i)} Barracks musters — draw a tile.`, who(p.i));
+      await drawTiles(p,1);
+    }
+  }
+}
+/* whisper galleries pay out when their owner counters or intercepts */
+async function checkWhispers(p){
+  for(const w of litTiles(p,"whisper")){
+    log(`${pname(p.i)} Whisper Gallery murmurs — draw 2.`, who(p.i));
+    await drawTiles(p,2);
+  }
+}
+
+/* ---------- shape payoffs ---------- */
+function countCourtyards(p){
+  let n=0;
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+    if(p.board.has(key(x,y))) continue;
+    if(DIRS.every(([dx,dy])=>{
+      const t=p.board.get(key(x+dx,y+dy));
+      return t && t.defId!=="boulder";
+    })) n++;
+  }
+  return n;
+}
+function hasTwoByTwo(p){
+  for(let y=0;y<H-1;y++)for(let x=0;x<W-1;x++){
+    if([[0,0],[1,0],[0,1],[1,1]].every(([dx,dy])=>{
+      const t=p.board.get(key(x+dx,y+dy));
+      return t && t.defId!=="boulder";
+    })) return true;
+  }
+  return false;
+}
+function distFromHearth(p,x,y){ return Math.abs(x-CX)+Math.abs(y-CY); }
+// trebuchet: length of the unbroken line of own tiles extending from an open edge
+function lineFromOpenEdge(p, x, y, edges){
+  const dir=edges.findIndex(e=>e);
+  if(dir<0) return 0;
+  const [dx,dy]=DIRS[dir];
+  let n=0, cx=x+dx, cy=y+dy;
+  while(inBounds(cx,cy)){
+    const t=p.board.get(key(cx,cy));
+    if(!t||t.defId==="boulder") break;
+    n++; cx+=dx; cy+=dy;
+  }
+  return n;
+}
+// tiles of a given kind that are lit (claimed fire, awake, whole)
+function litTiles(p, defId){
+  return [...p.board.values()].filter(t=>t.defId===defId&&t.claims>0&&!t.dormant&&!t.bricked);
+}
+// how many true connections (mutual open edges) a tile has
+function connectionCount(p,t){
+  let n=0;
+  DIRS.forEach(([dx,dy],dir)=>{
+    const q=p.board.get(key(t.x+dx,t.y+dy));
+    if(q && q.defId!=="boulder" && t.edges[dir] && q.edges[OPP[dir]]) n++;
+  });
+  return n;
+}
+const isLeaf=(p,t)=> t.defId!=="hearth" && t.defId!=="boulder" && connectionCount(p,t)===1;
+// spiral stair: elbows are tiles with exactly two neighbors at a right angle
+function countElbows(p){
+  let n=0;
+  for(const t of p.board.values()){
+    if(t.defId==="boulder") continue;
+    let h=0,v=0;
+    DIRS.forEach(([dx,dy])=>{
+      const q=p.board.get(key(t.x+dx,t.y+dy));
+      if(q&&q.defId!=="boulder"){ if(dy===0)h++; else v++; }
+    });
+    if(h===1&&v===1) n++;
+  }
+  return n;
+}
+// twin gates: the castle spans two opposite board edges
+function touchesOppositeEdges(p){
+  let minX=99,maxX=-1,minY=99,maxY=-1;
+  for(const t of p.board.values()){
+    if(t.defId==="boulder") continue;
+    minX=Math.min(minX,t.x); maxX=Math.max(maxX,t.x);
+    minY=Math.min(minY,t.y); maxY=Math.max(maxY,t.y);
+  }
+  return (minX===0&&maxX===W-1)||(minY===0&&maxY===H-1);
+}
+// mirror hall: every tile has a partner reflected across the hearth's column
+function mirrorSymmetric(p){
+  for(const t of p.board.values()){
+    if(t.defId==="boulder") continue;
+    const m=p.board.get(key(2*CX-t.x, t.y));
+    if(!m||m.defId==="boulder") return false;
+  }
+  return true;
+}
+// aqueduct: longest unbroken straight run of tiles, any row or column
+function longestRun(p){
+  let best=0;
+  for(let y=0;y<H;y++){
+    let run=0;
+    for(let x=0;x<W;x++){
+      const t=p.board.get(key(x,y));
+      run = (t&&t.defId!=="boulder") ? run+1 : 0;
+      best=Math.max(best,run);
+    }
+  }
+  for(let x=0;x<W;x++){
+    let run=0;
+    for(let y=0;y<H;y++){
+      const t=p.board.get(key(x,y));
+      run = (t&&t.defId!=="boulder") ? run+1 : 0;
+      best=Math.max(best,run);
+    }
+  }
+  return best;
+}
+// keystone: all four orthogonal neighbors are yours
+function fullySurrounded(p,x,y){
+  return DIRS.every(([dx,dy])=>{
+    const t=p.board.get(key(x+dx,y+dy));
+    return t && t.defId!=="boulder";
+  });
+}
+// grand ballista: widest span of the castle (boulders don't count)
+function castleSpan(p){
+  let minX=99,maxX=-1,minY=99,maxY=-1;
+  for(const t of p.board.values()){
+    if(t.defId==="boulder") continue;
+    minX=Math.min(minX,t.x); maxX=Math.max(maxX,t.x);
+    minY=Math.min(minY,t.y); maxY=Math.max(maxY,t.y);
+  }
+  if(maxX<0) return 1;
+  return Math.max(maxX-minX+1, maxY-minY+1);
+}
+
+/* ---------- damage & destruction ---------- */
+function findBulwark(p, x, y){
+  for(const t of p.board.values()){
+    if(t.defId!=="bulwark"||t.bricked||t.faceDown) continue;
+    if(Math.abs(t.x-x)<=1 && Math.abs(t.y-y)<=1) return t;
+  }
+  return null;
+}
+async function dealDamage(p, tile, dmg, sourceLabel, attacker){
+  // toll gates collect on rival aggression — even blows a bulwark will eat
+  if(attacker===1-p.i){
+    for(const tg of litTiles(p,"tollgate")){
+      log(`${pname(p.i)} Toll Gate collects — draw a tile.`, who(p.i));
+      await drawTiles(p,1);
+    }
+  }
+  // bulwark interception
+  const bw=findBulwark(p, tile.x, tile.y);
+  if(bw && bw.uid!==tile.uid){
+    log(`${pname(p.i)} Bulwark hurls itself before the blow!`, who(p.i));
+    await animateHit(p.i,bw.x,bw.y);
+    await destroyTile(p,bw);
+    return;
+  }
+  if(bw && bw.uid===tile.uid){ /* bulwark itself targeted: it just dies absorbing */ }
+  tile.hp-=dmg;
+  if(tile.defId==="hearth"){
+    await animateHit(p.i,tile.x,tile.y);
+    p.flames=Math.max(0,tile.hp);
+    log(`A flame of ${pname(p.i)} hearth is snuffed! (${p.flames} remain)`,"system");
+    renderAll();
+    if(p.flames<=0){ endGame(1-p.i); return; }
+    return; // hearth never leaves the board
+  }
+  if(tile.hp<=0){
+    // burrows: protected leaves cling on at the brink
+    if(tile.hp===0 && litTiles(p,"burrows").length && isLeaf(p,tile)){
+      log(`The ${DEFS[tile.defId].name} shelters in its burrow — barely standing.`, who(p.i));
+      await animateHit(p.i,tile.x,tile.y);
+      renderAll();
+      return;
+    }
+    // a killing blow shatters on impact — no flash first
+    await destroyTile(p,tile);
+  }else{
+    await animateHit(p.i,tile.x,tile.y);
+    renderAll();
+  }
+}
+async function destroyTile(p,tile,silent){
+  if(tile.defId==="hearth") return;
+  const el=tileEl(p.i,tile.x,tile.y);
+  if(el){
+    // the blow lands: the face cracks and jolts in the same instant
+    spawnShatter(p.i,tile.x,tile.y,tile);
+    el.style.visibility="hidden";
+    await sleep(550);
+  }
+  p.board.delete(key(tile.x,tile.y));
+  p.claimOrder=p.claimOrder.filter(u=>u!==tile.uid);
+  p.grave.push(tile.defId);
+  if(!silent) log(`${DEFS[tile.defId].name} in ${pname(p.i)} castle is destroyed.`, who(p.i));
+  settleDormancy(p);
+  renderAll();
+  // a falling bonfire erupts over its neighbors
+  if(tile.defId==="bonfire" && !G.over){
+    log("The Great Bonfire erupts as it falls!","system");
+    for(const [dx,dy] of DIRS){
+      if(G.over) return;
+      const n=p.board.get(key(tile.x+dx,tile.y+dy));
+      if(n) await dealDamage(p,n,1,"Great Bonfire",p.i);
+    }
+  }
+}
+
+/* ---------- the stack ---------- */
+function pushStack(item){ G.stack.push(item); renderStack(); }
+async function resolveStack(){
+  while(G.stack.length){
+    // response window for the non-controller of the top item
+    const top=G.stack[G.stack.length-1];
+    const responder=1-top.controller;
+    if(!top.noRespond && !top.countered){
+      let reacted;
+      if(responder===MYSEAT) reacted=await humanResponseWindow(top);
+      else if(NET.mode==="local") reacted=await aiResponseWindow(top);
+      else reacted=await remoteResponseWindow(top);
+      if(reacted) continue; // a new item was added; loop to offer responses to it
+    }
+    const item=G.stack.pop();
+    renderStack();
+    if(item.countered){
+      log(`${item.label} fizzles — countered.`,"system");
+      // the source never fired: release its fire claim and let it stand dormant
+      const sp=G.players[item.controller];
+      const src=[...sp.board.values()].find(t=>t.uid===item.sourceUid);
+      if(src && src.claims){
+        src.claims=0; src.dormant=true;
+        sp.claimOrder=sp.claimOrder.filter(u=>u!==src.uid);
+        settleDormancy(sp);
+      }
+    }else{
+      await item.effect();
+    }
+    await structureCheck();
+    if(G.over) return;
+  }
+  renderStack();
+}
+
+/* ---------- ETB abilities ---------- */
+async function onEnterAbility(p, tile){
+  const d=DEFS[tile.defId];
+  const id=tile.defId;
+  if(id==="hallway"){
+    G.playsLeft++;
+    log(`${pname(p.i)} Hallway: draw a tile, play an extra tile.`, who(p.i));
+    await drawTiles(p,1);
+  }
+  else if(id==="courtyard"){
+    const n=countCourtyards(p);
+    if(n>0){ log(`Courtyard: ${n} enclosed ground${n>1?"s":""} — draw ${n}.`, who(p.i)); await drawTiles(p,n); }
+    else log(`Courtyard finds no enclosed grounds.`, who(p.i));
+  }
+  else if(id==="serpent"){
+    if(!hasTwoByTwo(p)){
+      G.playsLeft++; await drawTiles(p,1);
+      log(`Serpent Wall: the castle winds like a snake — draw a tile, play an extra tile.`, who(p.i));
+    } else log(`Serpent Wall: the castle is too blocky. Nothing happens.`, who(p.i));
+  }
+  else if(id==="spiral"){
+    const n=Math.floor(countElbows(p)/2);
+    if(n>0){ log(`The Spiral Stair winds through ${countElbows(p)} elbows — draw ${n}.`, who(p.i)); await drawTiles(p,n); }
+    else log(`The Spiral Stair winds to nowhere.`, who(p.i));
+  }
+  else if(id==="twingates"){
+    if(touchesOppositeEdges(p)){
+      G.playsLeft+=2;
+      log(`The Twin Gates open — the castle spans the valley! Draw 2, +2 plays.`, who(p.i));
+      await drawTiles(p,2);
+    } else log(`The Twin Gates await a castle that spans the valley.`, who(p.i));
+  }
+  else if(id==="cornerstone"){
+    if((tile.x===0||tile.x===W-1)&&(tile.y===0||tile.y===H-1)){
+      log(`The Cornerstone Shrine blesses the far corner — draw 3.`, who(p.i));
+      await drawTiles(p,3);
+    } else log(`The Cornerstone Shrine yearns for a true corner.`, who(p.i));
+  }
+  else if(id==="milestone"){
+    const runThrough=(dx,dy)=>{
+      let n=1;
+      for(const s of [-1,1]){
+        let cx=tile.x+dx*s, cy=tile.y+dy*s;
+        while(inBounds(cx,cy)){
+          const q=p.board.get(key(cx,cy));
+          if(!q||q.defId==="boulder") break;
+          n++; cx+=dx*s; cy+=dy*s;
+        }
+      }
+      return n;
+    };
+    const n=Math.max(runThrough(1,0),runThrough(0,1))>=3?2:1;
+    log(`The Milestone marks the road — draw ${n}.`, who(p.i));
+    await drawTiles(p,n);
+  }
+  else if(id==="cloisterwalk"){
+    const now=countCourtyards(p);
+    p.board.delete(key(tile.x,tile.y));
+    const before=countCourtyards(p);
+    p.board.set(key(tile.x,tile.y),tile);
+    if(now>before){
+      G.playsLeft++;
+      log(`The Cloister Walk closes the ring — draw 1, +1 play.`, who(p.i));
+      await drawTiles(p,1);
+    } else log(`The Cloister Walk encloses nothing new.`, who(p.i));
+  }
+  else if(id==="caravan"){
+    G.playsLeft++;
+    log(`The Trade Caravan arrives — both larders fill.`, who(p.i));
+    await drawTiles(p,2);
+    await drawTiles(G.players[1-p.i],2);
+  }
+  else if(id==="pyre"){
+    const own=[...p.board.values()].filter(t=>t.defId!=="hearth"&&t.defId!=="boulder"&&t.uid!==tile.uid);
+    if(!own.length){ log(`The Pyre finds nothing to burn.`, who(p.i)); return; }
+    const victim = await choose(p,
+      ()=>humanPickOwnTile(own,"Choose a tile to feed to the Pyre."),
+      ()=>aiPickPyre(p,own), encTile, decTileOn(p));
+    if(!victim){ log(`The Pyre stays cold.`, who(p.i)); return; }
+    const item={
+      kind:"ability", label:`Pyre → ${victim.faceDown?"a veiled tile":DEFS[victim.defId].name}`,
+      sourceUid:tile.uid, controller:p.i, target:{p:p.i, uid:victim.uid},
+      effect:async()=>{
+        const cur=[...p.board.values()].find(t=>t.uid===item.target.uid);
+        if(!cur){ log("The Pyre's offering is already gone.","system"); return; }
+        await destroyTile(p,cur);
+        if(G.over) return;
+        await drawTiles(p,2);
+      }
+    };
+    pushStack(item);
+    log(`${pname(p.i)} Pyre is stacked with kindling...`, who(p.i));
+    await resolveStack();
+  }
+  else if(id==="mastermason"){
+    if(!p.grave.length){ log(`The Master Mason finds no fallen stone.`, who(p.i)); return; }
+    const pickId = await choose(p,
+      ()=>showGravePicker(p,"Return a fallen tile to your hand"),
+      ()=>aiPickGrave(p));
+    if(pickId==null){ log(`The Master Mason rests.`, who(p.i)); return; }
+    const item={
+      kind:"ability", label:`Master Mason → ${DEFS[pickId].name}`,
+      sourceUid:tile.uid, controller:p.i, target:null,
+      effect:async()=>{
+        const gi=p.grave.indexOf(pickId);
+        if(gi<0){ log("The fallen stone is beyond recall.","system"); return; }
+        p.grave.splice(gi,1);
+        p.hand.push(pickId);
+        log(`The Master Mason restores a ${DEFS[pickId].name} to ${pname(p.i)} hand.`,"system");
+        renderHandArea(); renderAll();
+      }
+    };
+    pushStack(item);
+    log(`${pname(p.i)} Master Mason sifts the rubble...`, who(p.i));
+    await resolveStack();
+  }
+  else if(id==="haunt"){
+    if(!p.grave.length){ log(`The Haunt finds no spirit to wear.`, who(p.i)); return; }
+    const pickId = await choose(p,
+      ()=>showGravePicker(p,"Choose a fallen tile for the Haunt to become"),
+      ()=>aiPickGrave(p));
+    if(pickId==null){ log(`The Haunt stays formless.`, who(p.i)); return; }
+    const item={
+      kind:"ability", label:`Haunt → ${DEFS[pickId].name}`,
+      sourceUid:tile.uid, controller:p.i, target:{p:p.i, uid:tile.uid},
+      effect:async()=>{
+        const cur=[...p.board.values()].find(t=>t.uid===tile.uid);
+        if(!cur){ log("The Haunt was banished before taking form.","system"); return; }
+        const gi=p.grave.indexOf(pickId);
+        if(gi<0){ log("The chosen spirit has fled.","system"); return; }
+        p.grave.splice(gi,1);
+        cur.defId=pickId;
+        cur.edges=rotEdges(DEFS[pickId].edges,cur.rot);
+        cur.hp=DEFS[pickId].hp;
+        animatePop(p.i,cur.x,cur.y);
+        log(`The Haunt takes the form of a ${DEFS[pickId].name}!`,"system");
+        renderAll();
+        await sleep(380);
+        await onEnterAbility(p,cur);
+      }
+    };
+    pushStack(item);
+    log(`${pname(p.i)} Haunt reaches into the grave...`, who(p.i));
+    await resolveStack();
+  }
+  else if(id==="earthquake"){
+    if(freeFires(p)<1){
+      tile.dormant=true;
+      log(`The Earthquake slumbers — no free fire.`, who(p.i));
+      return;
+    }
+    claimFire(p,tile,1);
+    const item={
+      kind:"ability", label:"Earthquake", sourceUid:tile.uid, controller:p.i, target:null,
+      effect:async()=>{
+        const victims=[];
+        for(const q of G.players)
+          for(const t of q.board.values())
+            if(isLeaf(q,t)) victims.push({q,t});
+        log(`The valley shakes — ${victims.length} loose stone${victims.length===1?"":"s"}!`,"system");
+        for(const v of victims){
+          if(G.over) return;
+          const still=[...v.q.board.values()].find(x=>x.uid===v.t.uid);
+          if(still) await dealDamage(v.q, still, 1, "Earthquake", p.i);
+        }
+      }
+    };
+    pushStack(item);
+    log(`${pname(p.i)} Earthquake rumbles beneath the valley...`, who(p.i));
+    await resolveStack();
+  }
+  else if(d.persistent && d.needsFire){
+    if(freeFires(p)>=d.needsFire){
+      claimFire(p,tile,d.needsFire);
+      log(`${d.name} takes its fire${d.needsFire>1?"s":""}.`, who(p.i));
+    } else {
+      tile.dormant=true;
+      log(`${d.name} sits dark — needs ${d.needsFire} free fire${d.needsFire>1?"s":""}.`, who(p.i));
+    }
+  }
+  else if(id==="gatehouse"){
+    G.playsLeft++;
+    log(`${pname(p.i)} Gatehouse swings wide — an extra play.`, who(p.i));
+  }
+  else if(id==="keystone"){
+    if(fullySurrounded(p,tile.x,tile.y)){
+      G.playsLeft++;
+      log(`The Keystone locks into place — draw 2, play an extra tile!`, who(p.i));
+      await drawTiles(p,2);
+    } else log(`The Keystone sits loose — nothing embraces it.`, who(p.i));
+  }
+  else if(id==="mirror"){
+    if(mirrorSymmetric(p)){
+      G.playsLeft++;
+      log(`The Mirror Hall gleams — the castle is in balance! Draw 2, play an extra tile.`, who(p.i));
+      await drawTiles(p,2);
+    } else log(`The Mirror Hall reflects only disorder.`, who(p.i));
+  }
+  else if(id==="aqueduct"){
+    const n=Math.floor(longestRun(p)/3);
+    if(n>0){
+      log(`The Aqueduct flows along ${longestRun(p)} stones — draw ${n}.`, who(p.i));
+      await drawTiles(p,n);
+    } else log(`The Aqueduct finds no line to follow.`, who(p.i));
+  }
+  else if(id==="guild"){
+    const elig=[];
+    DIRS.forEach(([dx,dy])=>{
+      const n=p.board.get(key(tile.x+dx,tile.y+dy));
+      if(n && n.defId!=="hearth" && n.defId!=="boulder") elig.push(n);
+    });
+    if(!elig.length){ log("The Masons' Guild has nothing to shift.", who(p.i)); return; }
+    let mover=null, dest=null;
+    if(p.i===MYSEAT){
+      mover=await humanPickOwnTile(elig,"Choose an adjacent tile for the masons to move.");
+      if(NET.mode!=="local") netSend({c:encTile(mover)});
+      if(mover){
+        p.board.delete(key(mover.x,mover.y));
+        const cells=legalCells(p,mover.edges).filter(([cx,cy])=>!(cx===mover.x&&cy===mover.y));
+        p.board.set(key(mover.x,mover.y),mover);
+        if(cells.length) dest=await humanPickCell(cells,"Choose where the masons carry it.");
+        if(NET.mode!=="local") netSend({c:dest});
+      }
+    }else if(NET.mode!=="local"){
+      mover=decTileOn(p)(await netAwaitChoice());
+      if(mover) dest=await netAwaitChoice();
+    }else{
+      const mv=aiPickGuildMove(p,elig);
+      if(mv){ mover=mv.tile; dest=mv.dest; }
+    }
+    if(!mover||!dest){ log("The masons rest their trowels.", who(p.i)); return; }
+    const item={
+      kind:"ability", label:`Masons' Guild → ${mover.faceDown?"a veiled tile":DEFS[mover.defId].name}`,
+      sourceUid:tile.uid, controller:p.i, target:{p:p.i, uid:mover.uid},
+      effect:async()=>{
+        const cur=[...p.board.values()].find(t=>t.uid===item.target.uid);
+        if(!cur){ log("The masons find nothing left to move.","system"); return; }
+        const [nx,ny]=dest;
+        if(p.board.has(key(nx,ny))){ log("The masons' site is occupied — they stand down.","system"); return; }
+        p.board.delete(key(cur.x,cur.y));
+        if(!canPlaceAt(p,cur.edges,nx,ny)){ // re-verify at resolution
+          p.board.set(key(cur.x,cur.y),cur);
+          log("The ground no longer suits — the masons stand down.","system");
+          return;
+        }
+        cur.x=nx; cur.y=ny;
+        p.board.set(key(nx,ny),cur);
+        animatePop(p.i,nx,ny);
+        log(`The masons carry the ${cur.faceDown?"veiled tile":DEFS[cur.defId].name} to new ground.`,"system");
+        renderAll();
+      }
+    };
+    pushStack(item);
+    log(`${pname(p.i)} Masons' Guild takes up their tools...`, who(p.i));
+    await resolveStack();
+  }
+  else if(id==="reliquary"){
+    log(`${pname(p.i)} Reliquary yields its treasures — draw 2.`, who(p.i));
+    await drawTiles(p,2);
+  }
+  else if(id==="thief"){
+    const ep=G.players[1-p.i];
+    log(`${pname(p.i)} Ember Thief seizes a rival fire!`, who(p.i));
+    settleDormancy(ep);
+    renderAll();
+  }
+  else if(id==="rats"){
+    if(freeFires(p)<1){
+      tile.dormant=true;
+      log(`The Rat Swarm slumbers — no free fire.`, who(p.i));
+      return;
+    }
+    claimFire(p,tile,1);
+    const item={
+      kind:"ability", label:"Rat Swarm", sourceUid:tile.uid, controller:p.i, target:null,
+      effect:async()=>{
+        const ep=G.players[1-p.i];
+        if(!ep.hand.length){ log("The rats find an empty larder.","system"); return; }
+        const idx=Math.floor(RNG()*ep.hand.length);
+        const lost=ep.hand[idx];
+        await discardFromHand(ep,idx);
+        log(`The rats devour ${ep.i===MYSEAT?"your":"the rival's"} ${DEFS[lost].name}!`,"system");
+        renderAll();
+      }
+    };
+    pushStack(item);
+    log(`${pname(p.i)} Rat Swarm scurries toward the larder...`, who(p.i));
+    await resolveStack();
+  }
+  else if(id==="echo"){
+    const elig=[];
+    DIRS.forEach(([dx,dy])=>{
+      const n=p.board.get(key(tile.x+dx,tile.y+dy));
+      if(n && n.defId!=="hearth" && n.defId!=="boulder" && !n.faceDown) elig.push(n);
+    });
+    if(!elig.length){ log("The Echo Arch hums to no one.", who(p.i)); return; }
+    const target = await choose(p,
+      ()=>humanPickOwnTile(elig,"Choose an adjacent tile to blink."),
+      ()=>aiPickEcho(p,elig), encTile, decTileOn(p));
+    if(!target){ log("The Echo Arch stays quiet.", who(p.i)); return; }
+    const item={
+      kind:"ability", label:`Echo Arch → ${DEFS[target.defId].name}`,
+      sourceUid:tile.uid, controller:p.i, target:{p:p.i, uid:target.uid},
+      effect:async()=>{
+        const cur=[...p.board.values()].find(t=>t.uid===item.target.uid);
+        if(!cur){ log("The echo finds nothing to answer.","system"); return; }
+        const {x,y,rot,defId}=cur;
+        p.board.delete(key(x,y));
+        p.claimOrder=p.claimOrder.filter(u=>u!==cur.uid);
+        settleDormancy(p);
+        const fresh=makeTile(defId,rot,false);
+        putTile(p,fresh,x,y);
+        animatePop(p.i,x,y);
+        log(`${DEFS[defId].name} shimmers and re-enters!`,"system");
+        renderAll();
+        await sleep(420);
+        await onEnterAbility(p,fresh);
+      }
+    };
+    pushStack(item);
+    log(`${pname(p.i)} Echo Arch resonates...`, who(p.i));
+    await resolveStack();
+  }
+  else if(d.needsFire){
+    const need=d.needsFire;
+    if(freeFires(p)<need){
+      tile.dormant=true;
+      log(`${d.name} enters dormant — not enough free fire to crew it.`, who(p.i));
+      return;
+    }
+    const isBrick = id==="witch";
+    const aoe = id==="bombard";
+    let dmg=1;
+    if(id==="spire") dmg = distFromHearth(p,tile.x,tile.y)>=4?2:1;
+    if(id==="trebuchet") dmg = Math.min(3, Math.max(1, lineFromOpenEdge(p,tile.x,tile.y,tile.edges)));
+    if(id==="ballista") dmg = Math.max(1, Math.floor(castleSpan(p)/3));
+    if(id==="necropolis"){
+      dmg = Math.min(3, Math.floor((G.players[0].grave.length+G.players[1].grave.length)/8));
+      if(dmg<=0){
+        tile.dormant=true;
+        log(`The Necropolis finds too few dead to answer it.`, who(p.i));
+        return;
+      }
+    }
+    const target = await choose(p,
+      ()=>humanPickTarget(1-p.i, isBrick),
+      ()=>aiPickTarget(1-p.i, isBrick, dmg, aoe),
+      encTile, decTileOn(G.players[1-p.i]));
+    if(!target){
+      tile.dormant=true;
+      log(`${d.name} holds its fire — no target.`, who(p.i));
+      return;
+    }
+    claimFire(p,tile,need);
+    const tName = target.faceDown ? "a veiled tile" : DEFS[target.defId].name;
+    const item={
+      kind: isBrick?"ability":"attack",
+      label: isBrick ? `${d.name} → ${tName}`
+           : `${d.name} (${dmg}${aoe?", splash":""}) → ${tName}`,
+      sourceUid:tile.uid, controller:p.i,
+      target:{p:1-p.i, uid:target.uid},
+      dmg,
+      effect:async()=>{
+        const ep=G.players[1-p.i];
+        const cur=[...ep.board.values()].find(t=>t.uid===item.target.uid);
+        if(!cur){ log(`${d.name}'s target is already gone.`,"system"); return; }
+        await animateProjectile(p.i,tile.x,tile.y, 1-p.i,cur.x,cur.y);
+        if(isBrick){
+          cur.bricked=true; cur.claims=0;
+          ep.claimOrder=ep.claimOrder.filter(u=>u!==cur.uid);
+          log(`${DEFS[cur.defId].name} is bricked by the Cinder Witch!`, "system");
+          settleDormancy(ep); renderAll();
+        }else if(aoe){
+          const cx=cur.x, cy=cur.y;
+          await dealDamage(ep,cur,1,d.name,p.i);
+          for(const [dx,dy] of DIRS){
+            if(G.over) return;
+            const n=ep.board.get(key(cx+dx,cy+dy));
+            if(n) await dealDamage(ep,n,1,d.name,p.i);
+          }
+        }else{
+          await dealDamage(ep,cur,dmg,d.name,p.i);
+        }
+      }
+    };
+    pushStack(item);
+    log(`${pname(p.i)} ${d.name} takes aim at ${tName}...`, who(p.i));
+    await resolveStack();
+  }
+}
+/* ---------- turn flow ---------- */
+const HAND_LIMIT=7;
+/* discard a card from hand to the graveyard, with its animation */
+async function discardFromHand(p, idx){
+  const id=p.hand[idx];
+  if(id===undefined) return null;
+  if(p.i===MYSEAT){
+    const takeoff=handCardTakeoff(idx);
+    G._playedIdx=idx;
+    p.hand.splice(idx,1);
+    p.grave.push(id);
+    animateDiscard(takeoff);
+    renderHandArea();
+    await sleep(260);
+  }else{
+    p.hand.splice(idx,1);
+    p.grave.push(id);
+    renderMeters();
+  }
+  return id;
+}
+/* the card slumps toward the graveyard pile, draining to gray */
+function animateDiscard(takeoff){
+  if(!takeoff.rect||!takeoff.node) return;
+  const g=document.createElement("div");
+  g.className="flycard";
+  g.style.left=takeoff.rect.left+"px"; g.style.top=takeoff.rect.top+"px";
+  g.style.width=takeoff.rect.width+"px"; g.style.height=takeoff.rect.height+"px";
+  takeoff.node.classList.remove("selected","drawn","unplayable");
+  takeoff.node.style.animation="none";
+  takeoff.node.style.left="0px";
+  takeoff.node.style.setProperty("--fy","0px");
+  takeoff.node.style.setProperty("--fr","0deg");
+  g.appendChild(takeoff.node);
+  document.body.appendChild(g);
+  const dk=document.getElementById("deck-info");
+  const dr=dk&&dk.getBoundingClientRect ? dk.getBoundingClientRect() : {left:60,top:innerHeight-100,width:60,height:90};
+  const dx=dr.left+dr.width/2-(takeoff.rect.left+takeoff.rect.width/2);
+  const dy=dr.top+dr.height/2-(takeoff.rect.top+takeoff.rect.height/2);
+  g.animate(
+    [{transform:"translate(0,0) scale(1) rotate(0deg)", opacity:1, filter:"grayscale(0) brightness(1)"},
+     {transform:`translate(${dx*0.5}px,${dy*0.5}px) scale(.6) rotate(-8deg)`, opacity:.85, filter:"grayscale(.7) brightness(.8)", offset:.5},
+     {transform:`translate(${dx}px,${dy}px) scale(.28) rotate(-14deg)`, opacity:0, filter:"grayscale(1) brightness(.5)"}],
+    {duration:520, easing:"cubic-bezier(.45,.1,.45,1)", fill:"forwards"});
+  setTimeout(()=>g.remove(), 600);
+}
+async function drawTiles(p,n){
+  // one card at a time, so every draw gets its animation — and multiple
+  // draws sweep in one after another
+  for(let i=0;i<n;i++){
+    if(!p.deck.length) break;
+    p.hand.push(p.deck.pop());
+    if(p.i===MYSEAT){ renderHandArea(); await sleep(300); }
+    else { renderMeters(); await sleep(140); }
+  }
+  renderHandArea();
+}
+function pname(i){ return i===MYSEAT?"your":"the rival's"; }
+
+async function startTurn(i){
+  if(G.over) return;
+  G.active=i; G.playsLeft=1;
+  document.getElementById("turn-banner").textContent = i===MYSEAT?"Your turn":"Rival's turn";
+  document.getElementById("turn-banner").classList.toggle("enemy", i===1);
+  document.getElementById("panel-"+V(i)).classList.toggle("active-turn", true);
+  document.getElementById("panel-"+V(1-i)).classList.toggle("active-turn", false);
+  const p=G.players[i];
+  p.flags={fireClaimed:false};
+  for(const t of p.board.values()) t.usedBarracks=false;
+  // festival room: momentum pays out
+  if((p.placedCount||0)>=3){
+    for(const f of [...p.board.values()].filter(t=>t.defId==="festival"&&!t.bricked)){
+      G.playsLeft++;
+      log(`${pname(i)} Festival Room celebrates the building spree — +1 play, draw 1.`, who(i));
+      await drawTiles(p,1);
+    }
+  }
+  p.placedCount=0;
+  // coal cellar: the artillery reloads
+  if(litTiles(p,"coalcellar").length){
+    const ONESHOT=["catapult","spire","trebuchet","bombard","ballista","witch","rats","necropolis"];
+    let freed=0;
+    for(const t of p.board.values()){
+      if(ONESHOT.includes(t.defId)&&t.claims>0){
+        freed+=t.claims; t.claims=0;
+        p.claimOrder=p.claimOrder.filter(u=>u!==t.uid);
+      }
+    }
+    if(freed){
+      settleDormancy(p);
+      log(`${pname(i)} Coal Cellar reloads the engines — ${freed} fire${freed>1?"s":""} freed.`, who(i));
+      renderAll();
+    }
+  }
+  // relight: kindled tiles that arrived dark claim their fire when it frees
+  for(const t of p.board.values()){
+    const dd=DEFS[t.defId];
+    if(dd.persistent && dd.needsFire && t.dormant && !t.bricked && t.claims===0
+       && freeFires(p)>=dd.needsFire){
+      claimFire(p,t,dd.needsFire);
+      t.dormant=false;
+      log(`${pname(i)} ${dd.name} relights.`, who(i));
+    }
+  }
+  // studies and gardens
+  for(const t of p.board.values()){
+    if(t.claims>0 && !t.dormant && !t.bricked){
+      if(t.defId==="scriptorium"){
+        log(`${pname(i)} Scriptorium yields an extra tile.`, who(i));
+        await drawTiles(p,1);
+      }else if(t.defId==="garden" && countCourtyards(p)>0){
+        log(`${pname(i)} Hidden Garden blooms in its courtyard — an extra tile.`, who(i));
+        await drawTiles(p,1);
+      }
+    }
+  }
+  // ossuary: the dead pay tribute
+  const graveSum=G.players[0].grave.length+G.players[1].grave.length;
+  if(graveSum>(p.lastGraveSum||0)){
+    for(const o of litTiles(p,"ossuary")){
+      log(`${pname(i)} Ossuary counts the fallen — draw a tile.`, who(i));
+      await drawTiles(p,1);
+    }
+  }
+  p.lastGraveSum=graveSum;
+  // the warbands ride
+  const ep=G.players[1-i];
+  for(const wb of [...p.board.values()].filter(t=>
+      ["outriders","wolfpack","stormaltar"].includes(t.defId)&&t.claims>0&&!t.dormant&&!t.bricked)){
+    if(G.over) return;
+    const enemies=[...ep.board.values()].filter(t=>t.defId!=="hearth"&&t.defId!=="boulder");
+    if(!enemies.length) continue;
+    let target=null;
+    if(wb.defId==="outriders"){
+      let best=-1;
+      for(const t of enemies){
+        const dd=Math.abs(t.x-CX)+Math.abs(t.y-CY);
+        if(dd>best||(dd===best&&RNG()<0.5)){ best=dd; target=t; }
+      }
+    }else if(wb.defId==="wolfpack"){
+      const leaves=enemies.filter(t=>isLeaf(ep,t));
+      if(leaves.length) target=leaves[Math.floor(RNG()*leaves.length)];
+    }else{ // storm altar hunts the newest stone
+      target=enemies.reduce((a,b)=>a.uid>b.uid?a:b);
+    }
+    if(!target) continue;
+    log(`${pname(i)} ${DEFS[wb.defId].name} strikes the ${target.faceDown?"veiled tile":DEFS[target.defId].name}!`, who(i));
+    await animateProjectile(i,wb.x,wb.y,1-i,target.x,target.y);
+    await dealDamage(ep,target,1,DEFS[wb.defId].name,i);
+    if(G.over) return;
+    await structureCheck();
+    if(G.over) return;
+  }
+  await drawTiles(p,1);
+  renderAll();
+  if(i===MYSEAT){
+    G.mode="idle";
+    setPrompt(`Play a tile (${G.playsLeft} play left), demolish one of yours, or end your turn.`,
+      [{label:"End Turn", cls:"", fn:()=>endTurn()},
+       {label:"Demolish a tile", cls:"danger", fn:()=>beginDemolish()}]);
+  }else{
+    setPrompt("The rival architect ponders...");
+    if(NET.mode==="local") await aiTurn();
+    else await remoteTurnLoop();
+  }
+}
+/* the remote player's turn: their actions arrive over the wire */
+async function remoteTurnLoop(){
+  while(!G.over){
+    const a=await netAwaitAction();
+    if(a.t==="place") await applyRemotePlace(a);
+    else if(a.t==="demolish") await applyRemoteDemolish(a);
+    else if(a.t==="end"){ await endTurn(); return; }
+  }
+}
+async function applyRemotePlace(a){
+  const p=G.players[G.active];
+  const id=p.hand[a.handIdx];
+  if(id===undefined) return;
+  p.hand.splice(a.handIdx,1);
+  G.playsLeft--;
+  const isBoulder=id==="boulder";
+  const targetP=isBoulder?G.players[1-p.i]:p;
+  const tile=makeTile(id,a.rot,a.fd);
+  putTile(targetP,tile,a.x,a.y);
+  await flyCard(rivalHandRect(),targetP.i,a.x,a.y,null);
+  animatePop(targetP.i,a.x,a.y);
+  log(isBoulder ? "The rival hurls a Boulder into your grounds!" :
+      (a.fd?"The rival lays a tile face down...":`The rival builds a ${DEFS[id].name}.`),"foe");
+  renderAll();
+  p.placedCount=(p.placedCount||0)+1;
+  if(!isBoulder) await checkBarracks(p,a.x,a.y);
+  if(isBoulder) await structureCheck();
+  else if(!a.fd) await onEnterAbility(p,tile);
+  renderAll();
+}
+async function applyRemoteDemolish(a){
+  const p=G.players[G.active];
+  await discardFromHand(p,a.d);
+  G.playsLeft--;
+  const tile=p.board.get(key(a.x,a.y));
+  if(tile){
+    log(`The rival pays the masons and demolishes a ${DEFS[tile.defId].name}.`,"foe");
+    await destroyTile(p,tile,true);
+    await structureCheck();
+  }
+}
+async function endTurn(){
+  if(G.over) return;
+  if(NET.mode!=="local" && G.active===MYSEAT) netSend({a:{t:"end"}});
+  clearSelection();
+  setPrompt("");
+  await structureCheck();
+  if(G.over) return;
+  {
+    const tp=G.players[G.active];
+    if(tp.hand.length>HAND_LIMIT){
+      if(G.active===MYSEAT) await humanDiscardDown();
+      else if(NET.mode!=="local"){ while(tp.hand.length>HAND_LIMIT){ const di=await netAwaitChoice(); await discardFromHand(tp, di); } }
+    }
+  }
+  await sleep(300);
+  startTurn(1-G.active);
+}
+/* overburdened: click cards to discard until at the hand limit */
+function humanDiscardDown(){
+  return new Promise(res=>{
+    G.mode="discard";
+    G.pending={discardDownResolve:res};
+    updateDiscardPrompt();
+    renderHandArea();
+  });
+}
+function updateDiscardPrompt(){
+  const n=G.players[MYSEAT].hand.length-HAND_LIMIT;
+  if(n<=0){
+    const r=G.pending&&G.pending.discardDownResolve;
+    G.mode="idle"; G.pending=null; setPrompt(""); renderHandArea();
+    if(r) r();
+    return;
+  }
+  setPrompt(`Overburdened — click ${n} tile${n>1?"s":""} to discard.`);
+}
+/* pick exactly one card to discard (the masons' fee) */
+function humanPickDiscardOne(msg){
+  return new Promise(res=>{
+    G.mode="discard";
+    G.pending={discardPickResolve:res};
+    setPrompt(msg,[{label:"Cancel", cls:"ghost", fn:()=>{
+      G.mode="idle"; G.pending=null; setPrompt(""); renderHandArea(); res(null);
+    }}]);
+    renderHandArea();
+  });
+}
+
+/* demolish: spend your play to remove one of your own tiles (frees fires) */
+function beginDemolish(){
+  if(G.playsLeft<1){ setPromptFlash("No plays left this turn."); return; }
+  if(!G.players[MYSEAT].hand.length){ setPromptFlash("The masons want payment — you have no tile to discard."); return; }
+  G.mode="demolish";
+  setPrompt("Choose one of your tiles to demolish (not the Hearth). It will cost a discard.",
+    [{label:"Cancel", cls:"ghost", fn:()=>{G.mode="idle"; renderAll(); startIdlePrompt();}}]);
+  renderAll();
+}
+async function doDemolish(tile){
+  G.mode="idle"; renderAll();
+  const idx=await humanPickDiscardOne(`The masons want payment — discard a tile to demolish the ${DEFS[tile.defId].name}.`);
+  if(idx==null){ startIdlePrompt(); return; }
+  if(NET.mode!=="local") netSend({a:{t:"demolish", x:tile.x, y:tile.y, d:idx}});
+  const paid=await discardFromHand(G.players[MYSEAT],idx);
+  G.playsLeft--;
+  log(`You pay the masons a ${DEFS[paid].name} and demolish your ${DEFS[tile.defId].name}${tile.claims?", freeing its fire":""}.`,"you");
+  await destroyTile(G.players[MYSEAT],tile,true);
+  await structureCheck();
+  afterHumanPlay();
+}
+function startIdlePrompt(){
+  setPrompt(`Play a tile (${G.playsLeft} play${G.playsLeft===1?"":"s"} left), demolish, or end your turn.`,
+    [{label:"End Turn", cls:"", fn:()=>endTurn()},
+     {label:"Demolish a tile", cls:"danger", fn:()=>beginDemolish()}]);
+}
+function afterHumanPlay(){
+  if(G.over) return;
+  renderAll();
+  renderHandArea();
+  if(G.playsLeft>0) startIdlePrompt();
+  else setPrompt("No plays remain.", [{label:"End Turn", cls:"", fn:()=>endTurn()}]);
+}
+
+/* ---------- human play flow ---------- */
+let sel = null; // {handIndex, defId, rot, faceDown}
+function clearSelection(){ sel=null; G.mode="idle"; renderHandArea(); renderAll(); }
+function selectCard(idx){
+  if(G.over) return;
+  if(G.mode==="discard" && G.pending){
+    if(G.pending.discardPickResolve){
+      const r=G.pending.discardPickResolve;
+      G.mode="idle"; G.pending=null; setPrompt("");
+      r(idx);
+    }else{
+      if(NET.mode!=="local") netSend({c:idx});
+      discardFromHand(G.players[MYSEAT],idx).then(updateDiscardPrompt);
+    }
+    return;
+  }
+  if(G.active!==MYSEAT || G.mode==="target" || G.mode==="respond" || G.mode==="discard") return;
+  const p=G.players[MYSEAT];
+  if(G.playsLeft<1){ setPromptFlash("No plays left — end your turn."); return; }
+  const defId=p.hand[idx];
+  if(sel && sel.handIndex===idx){ clearSelection(); startIdlePrompt(); return; }
+  sel={handIndex:idx, defId, rot:0, faceDown: defId==="ward"};
+  G.mode="place";
+  const d=DEFS[defId];
+  const btns=[{label:"Rotate (R)", cls:"", fn:()=>rotateSel()},
+              {label:"Cancel", cls:"ghost", fn:()=>{clearSelection(); startIdlePrompt();}}];
+  if(defId==="boulder")
+    setPrompt("Hurl the Boulder — choose any empty cell beside a rival tile.", [{label:"Cancel", cls:"ghost", fn:()=>{clearSelection(); startIdlePrompt();}}]);
+  else
+    setPrompt(`Place your ${d.name}${defId==="ward"?" (face down)":""} — glowing cells connect. Press R to rotate.`, btns);
+  renderAll(); renderHandArea();
+}
+function rotateSel(){
+  if(!sel || sel.defId==="boulder") return;
+  sel.rot=(sel.rot+1)%4;
+  renderAll(); renderHandArea();
+}
+document.addEventListener("keydown",e=>{
+  if(e.key==="r"||e.key==="R") rotateSel();
+  if(e.key==="Escape" && sel){ clearSelection(); if(G.active===MYSEAT) startIdlePrompt(); }
+});
+async function humanPlaceAt(x,y){
+  const p=G.players[MYSEAT];
+  const defId=sel.defId, rot=sel.rot, faceDown=sel.faceDown;
+  const isBoulder = defId==="boulder";
+  const targetP = isBoulder ? G.players[1-MYSEAT] : p;
+  if(isBoulder){ if(!boulderCells(targetP).some(([cx,cy])=>cx===x&&cy===y)) return; }
+  else if(!canPlaceAt(p, rotEdges(DEFS[defId].edges,rot), x, y)) return;
+  if(NET.mode!=="local") netSend({a:{t:"place", handIdx:sel.handIndex, rot, x, y, fd:!!faceDown}});
+  const takeoff=handCardTakeoff(sel.handIndex);
+  G._playedIdx=sel.handIndex;
+  p.hand.splice(sel.handIndex,1);
+  G.playsLeft--;
+  clearSelection(); // renders the board while the cell is still empty
+  const tile=makeTile(defId,rot,faceDown);
+  putTile(targetP,tile,x,y);
+  await flyCard(takeoff.rect, targetP.i, x, y, takeoff.node);
+  animatePop(targetP.i,x,y);
+  log(isBoulder ? "You hurl a Boulder into the rival's grounds!" :
+      `You lay a ${faceDown?"face-down tile":DEFS[defId].name}.`, "you");
+  renderAll();
+  p.placedCount=(p.placedCount||0)+1;
+  if(!isBoulder) await checkBarracks(p,x,y);
+  if(!faceDown && !isBoulder) await onEnterAbility(p,tile);
+  if(isBoulder) await structureCheck();
+  afterHumanPlay();
+}
+
+/* human picks one of their own tiles (e.g. a blink target) */
+function humanPickOwnTile(elig, promptText){
+  return new Promise(res=>{
+    G.mode="target";
+    G.pending={ownUids:new Set(elig.map(t=>t.uid)),
+               resolve:(t)=>{G.mode="idle"; G.pending=null; setPrompt(""); res(t);}};
+    setPrompt(promptText,
+      [{label:"Never mind", cls:"ghost", fn:()=>G.pending.resolve(null)}]);
+    renderAll();
+  });
+}
+
+/* human picks an empty cell (e.g. a masons' destination) */
+function humanPickCell(cells, promptText){
+  return new Promise(res=>{
+    G.mode="target";
+    G.pending={moveCells:new Set(cells.map(([x,y])=>key(x,y))),
+               resolveCell:(xy)=>{G.mode="idle"; G.pending=null; setPrompt(""); res(xy);}};
+    setPrompt(promptText,
+      [{label:"Never mind", cls:"ghost", fn:()=>G.pending.resolveCell(null)}]);
+    renderAll();
+  });
+}
+
+/* human picks an enemy tile as an attack/hex target */
+function humanPickTarget(enemyIdx, isBrick){
+  return new Promise(res=>{
+    G.mode="target";
+    G.pending={enemyIdx, isBrick, resolve:(t)=>{G.mode="idle"; G.pending=null; setPrompt(""); res(t);}};
+    setPrompt(isBrick ? "Choose a rival tile to brick (not the Hearth)." : "Choose a rival tile to strike.",
+      [{label:"Hold fire", cls:"ghost", fn:()=>G.pending.resolve(null)}]);
+    renderAll();
+  });
+}
+
+/* ---------- response windows ---------- */
+function playerHasResponse(p, top){
+  const wards=[...p.board.values()].filter(t=>t.faceDown && !t.bricked);
+  const canWard = wards.length>0 && freeFires(p)>=1;
+  const isAttackOnMe = top.kind==="attack" && top.target && top.target.p===p.i;
+  const towers = p.hand.map((id,idx)=>({id,idx})).filter(c=>c.id==="watchtower");
+  // a tower can only shelter tiles adjacent or diagonal to it: it must land
+  // within one step of the declared target, on a legally-connected cell
+  let towerSpots=[], targetTile=null;
+  if(isAttackOnMe && towers.length){
+    targetTile=[...p.board.values()].find(t=>t.uid===top.target.uid);
+    if(targetTile){
+      for(let rot=0;rot<4;rot++){
+        for(const [x,y] of legalCells(p, rotEdges(DEFS.watchtower.edges,rot)))
+          if(Math.abs(x-targetTile.x)<=1 && Math.abs(y-targetTile.y)<=1)
+            towerSpots.push({x,y,rot});
+      }
+    }
+  }
+  const canTower = towerSpots.length>0;
+  return {canWard, wards, canTower, towers, towerSpots, targetTile, isAttackOnMe};
+}
+function isTowerSpot(p, top, x, y, rot){
+  const tgt=[...p.board.values()].find(t=>t.uid===top.target.uid);
+  if(!tgt || Math.abs(x-tgt.x)>1 || Math.abs(y-tgt.y)>1) return false;
+  return canPlaceAt(p, rotEdges(DEFS.watchtower.edges,rot), x, y);
+}
+/* the remote player is deciding whether to respond — both clients computed
+   the same playerHasResponse, so we only wait when they truly have options */
+async function remoteResponseWindow(top){
+  const p=G.players[1-MYSEAT];
+  const r=playerHasResponse(p,top);
+  if(!r.canWard && !r.canTower) return false;
+  if(top.target){ G.threatUid=top.target.uid; renderAll(); }
+  setPrompt("The rival weighs a response...");
+  const msg=await netAwaitChoice();
+  G.threatUid=null; setPrompt(""); renderAll();
+  if(!msg || msg.r==="pass") return false;
+  if(msg.r==="ward"){ await flipWard(p, r.wards[0], top); return true; }
+  if(msg.r==="tower"){
+    p.hand.splice(msg.handIdx,1);
+    const tile=makeTile("watchtower",msg.rot,false);
+    putTile(p,tile,msg.x,msg.y);
+    animatePop(p.i,msg.x,msg.y);
+    top.target={p:p.i, uid:tile.uid};
+    top.label+=" → Watchtower";
+    log("The rival's Watchtower rises to intercept!","foe");
+    renderAll(); renderStack();
+    p.placedCount=(p.placedCount||0)+1;
+    await checkBarracks(p,msg.x,msg.y);
+    await checkWhispers(p);
+    return true;
+  }
+  return false;
+}
+function humanResponseWindow(top){
+  return new Promise(res=>{
+    const p=G.players[MYSEAT];
+    const r=playerHasResponse(p,top);
+    if(!r.canWard && !r.canTower){ res(false); return; }
+    G.mode="respond";
+    document.getElementById("stack-panel").classList.add("hot");
+    if(top.target){ G.threatUid=top.target.uid; renderAll(); }
+    const btns=[];
+    if(r.canWard) btns.push({label:"Flip Ward — counter it", cls:"arcane", fn:async()=>{
+      finish();
+      if(NET.mode!=="local") netSend({c:{r:"ward"}});
+      await flipWard(p, r.wards[0], top);
+      res(true);
+    }});
+    if(r.canTower) btns.push({label:"Watchtower — intercept", cls:"arcane", fn:()=>{
+      finish();
+      beginTowerPlacement(p, r.towers[0].idx, top).then(placed=>{
+        if(!placed && NET.mode!=="local") netSend({c:{r:"pass"}});
+        res(placed);
+      });
+    }});
+    btns.push({label:"Let it resolve", cls:"ghost", fn:()=>{
+      finish();
+      if(NET.mode!=="local") netSend({c:{r:"pass"}});
+      res(false);
+    }});
+    setPrompt(`Rival's ${top.label} is on the stack — respond?`, btns);
+    function finish(){
+      G.mode="idle"; G.threatUid=null;
+      document.getElementById("stack-panel").classList.remove("hot");
+      setPrompt(""); renderAll();
+    }
+  });
+}
+async function flipWard(p, ward, top){
+  ward.faceDown=false; ward.spent=true;
+  top.countered=true;
+  const el=tileEl(p.i,ward.x,ward.y);
+  if(el){ el.classList.remove("facedown"); el.classList.add("hit-flash"); }
+  log(`${p.i===MYSEAT?"You flip":"The rival flips"} a Veiled Ward — ${top.label} is countered!`, who(p.i));
+  renderAll();
+  await sleep(500);
+  await checkWhispers(p);
+}
+function beginTowerPlacement(p, handIdx, top){
+  return new Promise(res=>{
+    G.mode="place";
+    if(top.target) G.threatUid=top.target.uid;
+    sel={handIndex:handIdx, defId:"watchtower", rot:0, faceDown:false, reactionTop:top,
+         reactionResolve:res};
+    setPrompt("Place the Watchtower beside the threatened tile (R to rotate) — it only shelters its 8 neighbors.",
+      [{label:"Rotate (R)", cls:"", fn:()=>rotateSel()},
+       {label:"Never mind", cls:"ghost", fn:()=>{G.threatUid=null; clearSelection(); res(false);}}]);
+    renderAll();
+  });
+}
+async function placeReactionTower(x,y){
+  const p=G.players[MYSEAT];
+  const top=sel.reactionTop, resolveFn=sel.reactionResolve;
+  if(!isTowerSpot(p, top, x, y, sel.rot)){ return; }
+  const takeoff=handCardTakeoff(sel.handIndex);
+  const rot=sel.rot;
+  if(NET.mode!=="local") netSend({c:{r:"tower", handIdx:sel.handIndex, x, y, rot}});
+  G._playedIdx=sel.handIndex;
+  p.hand.splice(sel.handIndex,1);
+  G.threatUid=null;
+  clearSelection(); // renders the board while the cell is still empty
+  const tile=makeTile("watchtower",rot,false);
+  putTile(p,tile,x,y);
+  await flyCard(takeoff.rect, p.i, x, y, takeoff.node);
+  animatePop(p.i,x,y);
+  top.target={p:p.i, uid:tile.uid};
+  top.label+=" → Watchtower";
+  log("Your Watchtower rises to take the blow!","you");
+  renderAll(); renderStack();
+  p.placedCount=(p.placedCount||0)+1;
+  await checkBarracks(p,x,y);
+  await checkWhispers(p);
+  resolveFn(true);
+}
+/* =====================================================
+   Rendering
+===================================================== */
+function tileEl(pi,x,y){
+  return document.querySelector(`#board-${V(pi)} .cell[data-x="${x}"][data-y="${y}"] .tile`);
+}
+function cellEl(pi,x,y){
+  return document.querySelector(`#board-${V(pi)} .cell[data-x="${x}"][data-y="${y}"]`);
+}
+function buildBoards(){
+  for(let i=0;i<2;i++){
+    const b=document.getElementById("board-"+i);
+    b.style.gridTemplateColumns=`repeat(${W}, var(--tile-size))`;
+    b.innerHTML="";
+    for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+      const c=document.createElement("div");
+      c.className="cell"; c.dataset.x=x; c.dataset.y=y;
+      c.addEventListener("click",()=>onCellClick(S(i),x,y));
+      b.appendChild(c);
+    }
+  }
+}
+function edgeMarkup(edges, hideAll){
+  const names=["n","e","s","w"];
+  return names.map((n,i)=>`<div class="edge ${n} ${hideAll?"sealed":(edges[i]?"open":"sealed")}"></div>`).join("");
+}
+function renderBoard(pi){
+  const p=G.players[pi];
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+    const c=cellEl(pi,x,y);
+    const t=p.board.get(key(x,y));
+    c.classList.remove("placeable","targetable");
+    const existing=c.querySelector(".tile");
+    if(!t){ if(existing) existing.remove(); markInteractiveCell(pi,x,y,c); continue; }
+    const d=DEFS[t.defId];
+    const hideInfo = t.faceDown && pi!==MYSEAT; // enemy face-down: hidden
+    const showFaceDown = t.faceDown;
+    let cls="tile";
+    if(t.defId==="hearth") cls+=" hearth-tile";
+    if(t.defId==="brazier") cls+=" brazier-tile";
+    if(t.defId==="boulder") cls+=" boulder-tile";
+    if(showFaceDown) cls+=" facedown";
+    if(t.dormant&&!showFaceDown) cls+=" dormant";
+    if(t.bricked) cls+=" bricked";
+    if(pi===1-MYSEAT && isEnemyTargetableNow(t)) cls+=" enemy-targetable";
+    if(pi===MYSEAT && G.mode==="demolish" && t.defId!=="hearth") cls+=" selectable-own";
+    if(pi===MYSEAT && G.mode==="target" && G.pending && G.pending.ownUids && G.pending.ownUids.has(t.uid)) cls+=" selectable-own";
+    if(G.threatUid && t.uid===G.threatUid) cls+=" threatened";
+    const glyph = showFaceDown ? ICONS.veil : icon(t.defId);
+    const hp = (!showFaceDown && (d.hp>1||t.hp>1) && t.defId!=="hearth") ? `<span class="hp-badge">${t.hp}</span>` : "";
+    const fire = (!showFaceDown && t.claims>0 && !t.dormant && !t.bricked) ? `<span class="fire-badge">${ICONS.flame.repeat(t.claims)}</span>` : "";
+    const html=`${edgeMarkup(t.edges, showFaceDown&&pi!==MYSEAT)}<span class="glyph">${glyph}</span>${hp}${fire}`;
+    if(existing){
+      existing.className=cls+(existing.classList.contains("pop")?" pop":"");
+      existing.innerHTML=html;
+      existing.dataset.uid=t.uid;
+    }else{
+      const el=document.createElement("div");
+      el.className=cls; el.innerHTML=html; el.dataset.uid=t.uid;
+      c.appendChild(el);
+    }
+    const el=c.querySelector(".tile");
+    el.onmouseenter=(e)=>showTooltip(e, t, pi);
+    el.onmouseleave=hideTooltip;
+    el.onmousemove=(e)=>moveTooltip(e);
+  }
+}
+function markInteractiveCell(pi,x,y,c){
+  if(G.mode==="target" && G.pending && G.pending.moveCells){
+    if(pi===MYSEAT && G.pending.moveCells.has(key(x,y))) c.classList.add("placeable");
+    return;
+  }
+  if(G.mode!=="place"||!sel) return;
+  if(sel.reactionTop){
+    if(pi===MYSEAT && isTowerSpot(G.players[MYSEAT], sel.reactionTop, x, y, sel.rot)) c.classList.add("placeable");
+    return;
+  }
+  const isBoulder=sel.defId==="boulder";
+  if(isBoulder){
+    if(pi===1-MYSEAT && boulderCells(G.players[1-MYSEAT]).some(([cx,cy])=>cx===x&&cy===y)) c.classList.add("placeable");
+  }else{
+    if(pi===MYSEAT && canPlaceAt(G.players[MYSEAT], rotEdges(DEFS[sel.defId].edges, sel.rot), x, y)) c.classList.add("placeable");
+  }
+}
+function isEnemyTargetableNow(t){
+  if(G.mode!=="target"||!G.pending||G.pending.ownUids) return false;
+  if(G.pending.isBrick && t.defId==="hearth") return false;
+  if(t.faceDown) return true; // you may strike unknown tiles
+  return true;
+}
+function onCellClick(pi,x,y){
+  if(G.over) return;
+  const p=G.players[pi];
+  const t=p.board.get(key(x,y));
+  if(G.mode==="place" && sel){
+    if(sel.reactionResolve){ if(pi===MYSEAT) placeReactionTower(x,y); return; }
+    if(sel.defId==="boulder"){ if(pi===1-MYSEAT) humanPlaceAt(x,y); return; }
+    if(pi===MYSEAT) humanPlaceAt(x,y);
+    return;
+  }
+  if(G.mode==="target" && G.pending && G.pending.moveCells){
+    if(pi===MYSEAT && !t && G.pending.moveCells.has(key(x,y))) G.pending.resolveCell([x,y]);
+    return;
+  }
+  if(G.mode==="target" && G.pending && G.pending.ownUids){
+    if(pi===MYSEAT && t && G.pending.ownUids.has(t.uid)) G.pending.resolve(t);
+    return;
+  }
+  if(G.mode==="target" && G.pending && pi===G.pending.enemyIdx && t){
+    if(G.pending.isBrick && t.defId==="hearth") return;
+    G.pending.resolve(t);
+    return;
+  }
+  if(G.mode==="demolish" && pi===MYSEAT && t && t.defId!=="hearth"){
+    doDemolish(t);
+    return;
+  }
+}
+
+/* header meters */
+function renderMeters(){
+  for(let i=0;i<2;i++){
+    const p=G.players[i];
+    // flame niches: reconciled in place so the gutter-out animation can play
+    const fl=document.getElementById("flames-"+V(i));
+    while(fl.children.length<3){
+      const d=document.createElement("div");
+      d.className="flame-pip";
+      fl.appendChild(d);
+    }
+    [...fl.children].forEach((d,k)=>{
+      const lit=k<p.flames;
+      if(!lit && d.dataset.was==="lit"){
+        d.classList.add("snuff");
+        setTimeout(()=>d.classList.remove("snuff"), 3800);
+      }
+      d.classList.toggle("out", !lit);
+      d.dataset.was = lit?"lit":"out";
+    });
+    // fire sockets: reconciled in place (never rebuilt) so the punch-through
+    // and kindle animations survive re-renders
+    const total=fireSources(p), free=freeFires(p);
+    const fm=document.getElementById("fires-"+V(i));
+    if(!fm.dataset.built){
+      fm.dataset.built="1";
+      fm.innerHTML=`fires&nbsp;<span class="fire-sockets"></span><span class="fire-free" style="opacity:.7"></span>`;
+    }
+    const sock=fm.querySelector(".fire-sockets");
+    const prev=G._fireTotals ? G._fireTotals[i] : total;
+    while(sock.children.length>total) sock.lastChild.remove();
+    while(sock.children.length<total){
+      const d=document.createElement("span");
+      d.className="fire-dot";
+      if(sock.children.length>=prev){
+        d.classList.add("punch");
+        setTimeout(()=>d.classList.remove("punch"), 900);
+      }
+      sock.appendChild(d);
+    }
+    [...sock.children].forEach((d,k)=>{
+      const claimed=k>=free;
+      if(claimed && d.dataset.was==="free"){
+        d.classList.remove("ignite");
+        d.classList.add("snuff");
+        setTimeout(()=>d.classList.remove("snuff"), 3100);
+      }
+      if(!claimed && d.dataset.was==="claimed"){
+        d.classList.remove("snuff");
+        d.classList.add("ignite");
+        setTimeout(()=>d.classList.remove("ignite"), 750);
+      }
+      d.classList.toggle("claimed", claimed);
+      d.dataset.was = claimed?"claimed":"free";
+    });
+    fm.querySelector(".fire-free").textContent=`${free}/${total} free`;
+    G._fireTotals=G._fireTotals||[2,2];
+    G._fireTotals[i]=total;
+  }
+  // rival hand pips: reconciled so additions glide in instead of jolting
+  document.getElementById("grave-count").textContent=G.players[MYSEAT].grave.length+" fallen";
+  const hn=G.players[1-MYSEAT].hand.length;
+  const hm=document.getElementById("hand-meter-1");
+  if(!hm.dataset.built){
+    hm.dataset.built="1";
+    hm.innerHTML='<span class="hand-pips"></span><span class="hand-count"></span>';
+  }
+  const pips=hm.querySelector(".hand-pips");
+  const want=Math.min(hn,14);
+  while(pips.children.length>want) pips.lastChild.remove();
+  while(pips.children.length<want){
+    const d=document.createElement("span");
+    d.className="hand-pip pip-in";
+    setTimeout(()=>d.classList.remove("pip-in"), 350);
+    pips.appendChild(d);
+  }
+  hm.querySelector(".hand-count").textContent=hn;
+  document.getElementById("deck-count").textContent=G.players[MYSEAT].deck.length+" tiles";
+}
+
+/* hand */
+function cardInnerHTML(id,rot){
+  const d=DEFS[id];
+  const edges=rotEdges(d.edges,rot||0);
+  return `
+      <div class="c-name"><span>${d.name}</span>${d.needsFire?`<span class="c-fire">${ICONS.flame.repeat(d.needsFire)}</span>`:""}</div>
+      <div class="c-shape">${edgeMarkup(edges)}<span class="glyph">${icon(id)}</span></div>
+      <div class="c-text">${d.text}</div>
+      <div class="c-type">${d.type}${d.hp>1?" · "+d.hp+" hits":""}</div>`;
+}
+/* fan the cards: overlapping when crowded, arcing like a held hand */
+function layoutHand(){
+  const h=document.getElementById("hand");
+  if(!h.getBoundingClientRect) return;
+  const cards=[...h.children].filter(c=>c.classList&&c.classList.contains("card"));
+  const n=cards.length;
+  let spacer=h.querySelector(".hand-spacer");
+  if(!spacer){ spacer=document.createElement("div"); spacer.className="hand-spacer"; h.appendChild(spacer); }
+  if(!n){ spacer.style.width="0px"; return; }
+  const cw=108, minPeek=32;
+  const avail=Math.max(0,(h.clientWidth||600)-cw-16);
+  const spread = n<=1 ? 0 : Math.min(cw+10, Math.max(minPeek, avail/(n-1)));
+  const total=cw+spread*(n-1);
+  const left0 = total+16>(h.clientWidth||600) ? 8 : (h.clientWidth-total)/2;
+  const mid=(n-1)/2;
+  const tilt=Math.min(2.2, 9/Math.max(n,1));
+  cards.forEach((c,i)=>{
+    c.style.left=(left0+i*spread)+"px";
+    c.style.setProperty("--fr", ((i-mid)*tilt)+"deg");
+    c.style.setProperty("--fy", (Math.pow(Math.abs(i-mid),1.6)*1.5)+"px");
+    c.style.zIndex=i+1;
+  });
+  spacer.style.width=(left0+total+8)+"px";
+}
+function renderHandArea(){
+  const p=G.players[MYSEAT];
+  const h=document.getElementById("hand");
+  let cards=[...h.children].filter(c=>c.classList&&c.classList.contains("card"));
+  // a played card leaves; the rest glide into their new places
+  if(G._playedIdx!=null && cards.length===p.hand.length+1){
+    const gone=cards[G._playedIdx];
+    if(gone) gone.remove();
+    cards.splice(G._playedIdx,1);
+  }
+  G._playedIdx=null;
+  if(cards.length>p.hand.length){ // fell out of sync: rebuild
+    cards.forEach(c=>c.remove()); cards=[];
+  }
+  while(cards.length<p.hand.length){ // fresh from the deck
+    const card=document.createElement("div");
+    card.className="card drawn";
+    h.appendChild(card); cards.push(card);
+    setTimeout(()=>card.classList.remove("drawn"), 520);
+  }
+  cards.forEach((card,idx)=>{
+    const id=p.hand[idx], d=DEFS[id];
+    let cls="card";
+    if(sel&&sel.handIndex===idx&&G.mode==="place") cls+=" selected";
+    if(G.active===MYSEAT&&G.playsLeft<1&&G.mode!=="discard") cls+=" unplayable";
+    if(d.reaction) cls+=" reaction-glow";
+    if(card.classList.contains("drawn")) cls+=" drawn";
+    card.className=cls;
+    const rot=(sel&&sel.handIndex===idx)?sel.rot:0;
+    card.innerHTML=cardInnerHTML(id,rot);
+    card.onclick=()=>selectCard(idx);
+    const pseudo={defId:id, faceDown:false, dormant:false, bricked:false, spent:false, claims:0};
+    card.onmouseenter=(e)=>showTooltip(e,pseudo,0);
+    card.onmousemove=(e)=>moveTooltip(e);
+    card.onmouseleave=hideTooltip;
+  });
+  layoutHand();
+  renderMeters();
+}
+function renderStack(){
+  const el=document.getElementById("stack-items");
+  if(!G.stack.length){
+    el.innerHTML='<div style="font-size:11px;color:#8f81a8;">Empty — effects resolve here.</div>';
+    return;
+  }
+  el.innerHTML=G.stack.map((s,i)=>{
+    const top=i===G.stack.length-1;
+    return `<div class="stack-item${top?" top":""}">${s.controller===0?"You":"Rival"}: <b>${s.label}</b>${s.countered?" — countered":""}</div>`;
+  }).join("");
+}
+function renderAll(){
+  renderBoard(0); renderBoard(1); renderMeters(); renderStack();
+}
+
+/* prompt bar */
+function setPrompt(text, buttons){
+  const bar=document.getElementById("prompt-bar");
+  bar.innerHTML="";
+  if(text){ const s=document.createElement("span"); s.textContent=text; bar.appendChild(s); }
+  (buttons||[]).forEach(b=>{
+    const btn=document.createElement("button");
+    btn.className="btn "+(b.cls||""); btn.textContent=b.label;
+    btn.addEventListener("click",b.fn);
+    bar.appendChild(btn);
+  });
+}
+function setPromptFlash(msg){
+  const bar=document.getElementById("prompt-bar");
+  const s=document.createElement("span"); s.textContent=" "+msg; s.style.color="#e8a48a";
+  bar.appendChild(s); setTimeout(()=>s.remove(),1600);
+}
+
+/* tooltip — hold ⌘ for the long version */
+const tipEl=document.getElementById("tooltip");
+let metaHeld=false, lastTip=null;
+document.addEventListener("keydown",e=>{
+  if(e.key==="Meta"||e.key==="Control"){
+    metaHeld=true;
+    if(lastTip){ renderTooltip(); tipEl.classList.add("show"); }
+  }
+});
+document.addEventListener("keyup",e=>{
+  if(e.key==="Meta"||e.key==="Control"){ metaHeld=false; tipEl.classList.remove("show"); }
+});
+window.addEventListener("blur",()=>{ metaHeld=false; tipEl.classList.remove("show"); });
+window.addEventListener("resize",()=>layoutHand());
+function renderTooltip(){
+  const {t,pi}=lastTip;
+  const hidden=t.faceDown&&pi===1;
+  const d=DEFS[t.defId];
+  if(hidden){
+    tipEl.innerHTML=`<div class="t-name">Veiled Tile</div><div class="t-sub">Unknown</div>Your rival laid this face down. It may flip in response to your abilities...`;
+    return;
+  }
+  const more=MORE[t.defId]?`<div class="t-more">${MORE[t.defId]}</div>`:"";
+  tipEl.innerHTML=`<div class="t-name">${d.name}</div><div class="t-sub">${d.type}${t.dormant?" · dormant":""}${t.bricked?" · bricked":""}${t.spent?" · spent":""}</div>${d.text}${t.claims?`<br><i>Claiming ${t.claims} fire.</i>`:""}${more}`;
+}
+function showTooltip(e,t,pi){
+  lastTip={t,pi};
+  renderTooltip();
+  if(metaHeld) tipEl.classList.add("show");
+  moveTooltip(e);
+}
+function moveTooltip(e){
+  // measure the real tooltip and flip above/left of the cursor near edges
+  const w=tipEl.offsetWidth||200, h=tipEl.offsetHeight||130;
+  let x=e.clientX+16, y=e.clientY+14;
+  if(x+w>innerWidth-8) x=e.clientX-w-12;
+  if(y+h>innerHeight-8) y=e.clientY-h-12;
+  tipEl.style.left=Math.max(8,x)+"px";
+  tipEl.style.top=Math.max(8,y)+"px";
+}
+function hideTooltip(){ tipEl.classList.remove("show"); lastTip=null; }
+
+/* log */
+function log(msg, cls){
+  const el=document.getElementById("log");
+  const d=document.createElement("div");
+  d.className="entry "+(cls||"system"); d.textContent=msg;
+  el.appendChild(d); el.scrollTop=el.scrollHeight;
+}
+
+/* ---------- animations ---------- */
+function animatePop(pi,x,y){
+  requestAnimationFrame(()=>{
+    renderBoard(pi);
+    const el=tileEl(pi,x,y);
+    if(el){ el.classList.add("pop"); setTimeout(()=>el.classList.remove("pop"),450); }
+  });
+}
+/* the tile breaks into a 3x3 grid of jagged fragments of its own face,
+   which fly apart from where they sat, tumble, and fall */
+/* a card sails from a hand and shrinks onto its cell */
+function flyCard(fromRect, pi, x, y, cardNode){
+  const cell=cellEl(pi,x,y);
+  if(!cell||!fromRect) return Promise.resolve();
+  const to=cell.getBoundingClientRect();
+  const g=document.createElement("div");
+  g.className="flycard"+(cardNode?"":" flyback");
+  g.style.left=fromRect.left+"px"; g.style.top=fromRect.top+"px";
+  g.style.width=fromRect.width+"px"; g.style.height=fromRect.height+"px";
+  if(cardNode){
+    cardNode.classList.remove("selected","drawn","unplayable");
+    cardNode.style.animation="none";
+    cardNode.style.left="0px";
+    cardNode.style.setProperty("--fy","0px");
+    cardNode.style.setProperty("--fr","0deg");
+    g.appendChild(cardNode);
+  }
+  document.body.appendChild(g);
+  const dx=to.left+to.width/2-(fromRect.left+fromRect.width/2);
+  const dy=to.top+to.height/2-(fromRect.top+fromRect.height/2);
+  const sc=Math.max(to.width/fromRect.width,.12);
+  const at=f=>`translate(${dx*f}px,${dy*f}px) scale(${1+(sc-1)*f})`;
+  // the card burns away mid-flight: brightens, blurs, and is gone by
+  // the halfway point — shedding embers where it went
+  g.animate(
+    [{transform:at(0),   opacity:1,   filter:"blur(0px) brightness(1)"},
+     {transform:at(.2),  opacity:.9,  filter:"blur(0.5px) brightness(1.25) sepia(.25)", offset:.22},
+     {transform:at(.36), opacity:.55, filter:"blur(2px) brightness(1.7) sepia(.5)",     offset:.38},
+     {transform:at(.5),  opacity:0,   filter:"blur(6px) brightness(2.2) sepia(.7)",     offset:.52},
+     {transform:at(1),   opacity:0,   filter:"blur(6px) brightness(2.2)"}],
+    {duration:480, easing:"cubic-bezier(.4,.1,.3,1)", fill:"forwards"});
+  // ember motes drift off the dissolve point
+  setTimeout(()=>{
+    const px=fromRect.left+fromRect.width/2+dx*0.42;
+    const py=fromRect.top+fromRect.height/2+dy*0.42;
+    for(let i=0;i<6;i++){
+      const m=document.createElement("div");
+      m.className="mote";
+      const sz=2+Math.random()*2.5;
+      m.style.width=sz+"px"; m.style.height=sz+"px";
+      m.style.left=(px+(Math.random()*36-18))+"px";
+      m.style.top=(py+(Math.random()*26-13))+"px";
+      document.body.appendChild(m);
+      m.animate(
+        [{transform:"translate(0,0)", opacity:.95},
+         {transform:`translate(${Math.random()*24-12}px,${-(14+Math.random()*22)}px)`, opacity:0}],
+        {duration:520+Math.random()*380, easing:"ease-out", fill:"forwards"});
+      setTimeout(()=>m.remove(), 950);
+    }
+  }, 170);
+  return new Promise(res=>setTimeout(()=>{g.remove(); res();}, 260));
+}
+function rivalHandRect(){
+  const hm=document.getElementById("hand-meter-1");
+  if(!hm||!hm.getBoundingClientRect) return null;
+  const r=hm.getBoundingClientRect();
+  return {left:r.left+r.width/2-20, top:r.top+r.height/2-27, width:40, height:54};
+}
+function handCardTakeoff(idx){
+  const cardEl=[...document.getElementById("hand").children]
+    .filter(c=>c.classList&&c.classList.contains("card"))[idx];
+  if(!cardEl||!cardEl.getBoundingClientRect) return {rect:null, node:null};
+  return {rect:cardEl.getBoundingClientRect(),
+          node: typeof cardEl.cloneNode==="function"?cardEl.cloneNode(true):null};
+}
+function spawnShatter(pi,x,y,tile){
+  const c=cellEl(pi,x,y); if(!c) return;
+  const r=c.getBoundingClientRect();
+  let light="#90938c", dark="#6d7069";
+  if(tile){
+    if(tile.faceDown){ light="#5b4a6b"; dark="#3a3046"; }
+    else if(tile.defId==="boulder"){ light="#6f6a62"; dark="#403c34"; }
+    else if(tile.defId==="brazier"){ light="#6e4218"; dark="#3a2d1e"; }
+  }
+  // fracture: cracks radiate from one interior break-point out to jittered
+  // marks on the tile's edges, splitting the face into 3-4 large wedges
+  const R=()=>Math.random();
+  const C=[38+R()*24, 38+R()*24]; // the break-point
+  const cycle=[
+    {mark:true,  pt:[25+R()*50, 0]},   {pt:[100,0]},
+    {mark:true,  pt:[100, 25+R()*50]}, {pt:[100,100]},
+    {mark:true,  pt:[75-R()*50, 100]}, {pt:[0,100]},
+    {mark:true,  pt:[0, 75-R()*50]},   {pt:[0,0]},
+  ];
+  if(R()<0.5){ // three pieces: one crack fewer
+    const marks=cycle.filter(c=>c.mark);
+    marks[Math.floor(R()*4)].mark=false;
+  }
+  const pieces=[];
+  const startIdx=cycle.findIndex(c=>c.mark);
+  let cur=null;
+  for(let k=0;k<=cycle.length;k++){
+    const node=cycle[(startIdx+k)%cycle.length];
+    if(node.mark){
+      if(cur){ cur.push(node.pt); pieces.push(cur); }
+      if(k<cycle.length) cur=[node.pt];
+    } else if(cur) cur.push(node.pt);
+  }
+  const src=tileEl(pi,x,y);
+  const canClone = src && typeof src.cloneNode==="function";
+  for(const poly of pieces){
+    const s=document.createElement("div");
+    s.className="shard";
+    s.style.width=r.width+"px"; s.style.height=r.height+"px";
+    s.style.left=r.left+"px"; s.style.top=r.top+"px";
+    s.style.clipPath=`polygon(${[...poly, C].map(p=>p[0]+"% "+p[1]+"%").join(",")})`;
+    if(canClone){
+      // each wedge carries the tile's actual face — glyph, edges and all
+      const clone=src.cloneNode(true);
+      clone.classList.remove("pop","hit-flash","quake","selectable-own","enemy-targetable");
+      clone.style.visibility="visible";
+      s.appendChild(clone);
+    }else{
+      s.style.background=`linear-gradient(${150+Math.floor(R()*40-20)}deg, ${light}, ${dark})`;
+    }
+    document.body.appendChild(s);
+    // the wedges settle straight into their cracked-open resting places —
+    // slightly spread, tilted inward — sit broken a while, then dissolve
+    const mx=poly.reduce((a,p)=>a+p[0],0)/poly.length - C[0];
+    const my=poly.reduce((a,p)=>a+p[1],0)/poly.length - C[1];
+    const len=Math.hypot(mx,my)||1;
+    const dx=(mx/len)*(2+R()*2);
+    const dy=(my/len)*(1.4+R()*1.4)+1;
+    const rot=-(mx/len)*(4+R()*4);
+    const b=0.88+R()*0.24; // broken faces catch the light unevenly
+    const fb=`brightness(${b})`;
+    const settled=`translate(${dx}px,${dy}px) rotate(${rot}deg)`;
+    s.animate(
+      [{transform:"none", opacity:1, filter:fb},
+       {transform:settled, opacity:1, filter:fb, offset:.08},
+       {transform:settled, opacity:1, filter:fb, offset:.74},
+       {transform:`translate(${dx}px,${dy+1.5}px) rotate(${rot}deg)`, opacity:0, filter:`${fb} blur(2px)`}],
+      {duration:1600+R()*200, easing:"ease-out", fill:"both"});
+    setTimeout(()=>s.remove(), 2100);
+  }
+}
+async function animateHit(pi,x,y){
+  const el=tileEl(pi,x,y);
+  if(el){ el.classList.add("hit-flash"); await sleep(430); el.classList.remove("hit-flash"); }
+}
+async function animateProjectile(fromP,fx,fy,toP,tx,ty){
+  const a=cellEl(fromP,fx,fy), b=cellEl(toP,tx,ty);
+  if(!a||!b) return;
+  const r1=a.getBoundingClientRect(), r2=b.getBoundingClientRect();
+  const pr=document.createElement("div"); pr.className="projectile";
+  document.body.appendChild(pr);
+  const x1=r1.left+r1.width/2, y1=r1.top+r1.height/2;
+  const x2=r2.left+r2.width/2, y2=r2.top+r2.height/2;
+  const dur=650, start=performance.now();
+  await new Promise(done=>{
+    function step(now){
+      const t=Math.min(1,(now-start)/dur);
+      const ease=t*t*(3-2*t);
+      const x=x1+(x2-x1)*ease, y=y1+(y2-y1)*ease - Math.sin(t*Math.PI)*90;
+      pr.style.left=(x-7)+"px"; pr.style.top=(y-7)+"px";
+      pr.style.transform=`scale(${1+Math.sin(t*Math.PI)*.5})`;
+      if(t<1) requestAnimationFrame(step); else done();
+    }
+    requestAnimationFrame(step);
+  });
+  pr.remove();
+}
+/* =====================================================
+   The Rival Architect (AI)
+===================================================== */
+function tileValue(t, p){
+  if(t.defId==="boulder") return -5;
+  switch(t.defId){
+    case "hearth": return 100 + (3-p.flames)*40;
+    case "brazier": return 60;
+    case "scriptorium": return 55;
+    case "bulwark": return (Math.abs(t.x-CX)<=2&&Math.abs(t.y-CY)<=2)?45:25;
+    case "thief": return 70; // it is stealing OUR fire
+    case "outriders": case "wolfpack": case "stormaltar": return 68; // stop the raids
+    case "coalcellar": return 62;
+    case "bonfire": return 58;
+    case "barracks": case "forge": case "whisper": case "tollgate": return 45;
+    case "festival": case "ossuary": case "garden": return 40;
+    case "burrows": return 42;
+    case "wall": return 15;
+    case "catapult": case "spire": case "trebuchet": case "bombard": case "ballista": case "rats":
+      return 12; // destroying them frees their fire
+    default: return 20;
+  }
+}
+function aiPickTarget(enemyIdx, isBrick, dmg, aoe){
+  const ep=G.players[enemyIdx];
+  let best=null, bestV=-1;
+  for(const t of ep.board.values()){
+    if(t.defId==="boulder") continue;
+    if(isBrick){
+      if(t.defId==="hearth"||t.bricked||t.spent) continue;
+      let v=0;
+      if(t.defId==="brazier") v=70;
+      else if(t.defId==="scriptorium") v=60;
+      else if(t.defId==="bulwark") v=50;
+      else if(t.faceDown) v=40;
+      else v=8;
+      if(v>bestV){bestV=v; best=t;}
+    }else{
+      let v=tileValue(t,ep);
+      if(aoe){ // splash: add the neighbors' worth
+        for(const [dx,dy] of DIRS){
+          const n=ep.board.get(key(t.x+dx,t.y+dy));
+          if(n&&n.defId!=="boulder") v+=tileValue(n,ep)*0.7;
+        }
+      }
+      const bw=findBulwark(ep,t.x,t.y);
+      if(bw&&bw.uid!==t.uid) v*=0.45; // shielded — blow gets absorbed
+      if(v>bestV){bestV=v; best=t;}
+    }
+  }
+  return best;
+}
+/* how juicy is blinking this neighbor? */
+function echoValue(p,n){
+  if(!n||n.defId==="hearth"||n.defId==="boulder"||n.faceDown||n.bricked) return 0;
+  const need=DEFS[n.defId].needsFire||0;
+  const refire=freeFires(p)+n.claims>=need;
+  switch(n.defId){
+    case "hallway": return 25;
+    case "gatehouse": return 20;
+    case "reliquary": return 30;
+    case "courtyard": return Math.min(3,countCourtyards(p))*20;
+    case "serpent": return hasTwoByTwo(p)?0:25;
+    case "catapult": case "spire": case "witch": case "rats": return refire?40:2;
+    case "trebuchet": return refire?Math.min(3,lineFromOpenEdge(p,n.x,n.y,n.edges))*13:2;
+    case "bombard": return refire?45:2;
+    case "ballista": return refire?Math.max(1,Math.floor(castleSpan(p)/3))*14:2;
+    case "wall": return n.hp<2?12:0;
+    case "keystone": return fullySurrounded(p,n.x,n.y)?35:0;
+    case "mirror": return mirrorSymmetric(p)?38:0;
+    case "aqueduct": return Math.floor(longestRun(p)/3)*15;
+    case "guild": return 15;
+    default: return 4;
+  }
+}
+function aiPickEcho(p,elig){
+  let best=null,bestV=5;
+  for(const n of elig){ const v=echoValue(p,n); if(v>bestV){bestV=v; best=n;} }
+  return best;
+}
+/* pick from the graveyard: Master Mason / Haunt */
+function showGravePicker(p, title){
+  return new Promise(res=>{
+    const grouped={};
+    p.grave.forEach(id=>grouped[id]=(grouped[id]||0)+1);
+    const panel=document.getElementById("overlay-panel");
+    panel.classList.remove("wide");
+    panel.innerHTML=`<h2 style="font-size:18px;">${title}</h2>
+      <div class="dk-cols"><div>${
+        Object.entries(grouped)
+          .sort((a,b)=>DEFS[a[0]].name.localeCompare(DEFS[b[0]].name))
+          .map(([id,n])=>`<div class="dk-row dk-pick" data-g="${id}"><span class="dk-ic">${icon(id)}</span>${DEFS[id].name}<span class="dk-n">×${n}</span></div>`)
+          .join("")
+      }</div></div>
+      <button class="btn ghost" id="gp-cancel" style="margin-top:12px;">Never mind</button>`;
+    const close=()=>document.getElementById("overlay").classList.remove("show");
+    panel.querySelectorAll(".dk-pick").forEach(r=>r.onclick=()=>{ close(); res(r.dataset.g); });
+    panel.querySelector("#gp-cancel").onclick=()=>{ close(); res(null); };
+    document.getElementById("overlay").classList.add("show");
+  });
+}
+const GRAVE_VAL={bombard:9,ballista:8,witch:8,trebuchet:8,bonfire:8,brazier:7,spire:7,
+  earthquake:6,catapult:6,reliquary:6,scriptorium:5,necropolis:5,hallway:5,gatehouse:5,caravan:5};
+function aiPickGrave(p){
+  if(!p.grave.length) return null;
+  let best=p.grave[0], bv=-1;
+  for(const id of p.grave){ const v=GRAVE_VAL[id]||3; if(v>bv){bv=v; best=id;} }
+  return best;
+}
+/* pyre: burn spent engines first, never a load-bearing stone */
+function aiPickPyre(p,own){
+  let best=null, bv=-1;
+  for(const t of own){
+    let v=1;
+    if(t.claims>0 && !DEFS[t.defId].persistent) v=8+t.claims;
+    else if(t.spent) v=7;
+    else if(t.defId==="wall") v=4;
+    else if(t.defId==="hallway"||t.defId==="gatehouse") v=5;
+    if(connectionCount(p,t)>1) v-=4;
+    if(v>bv){bv=v; best=t;}
+  }
+  return bv>=4?best:null;
+}
+/* masons: try moves that stretch the span, break a 2x2, or close a courtyard */
+function aiPickGuildMove(p,elig){
+  const baseSpan=castleSpan(p), baseCourt=countCourtyards(p), baseBlock=hasTwoByTwo(p);
+  let best=null,bestGain=4;
+  for(const t of elig){
+    p.board.delete(key(t.x,t.y));
+    const cells=legalCells(p,t.edges);
+    for(const [cx,cy] of cells){
+      if(cx===t.x&&cy===t.y) continue;
+      const ox=t.x, oy=t.y;
+      t.x=cx; t.y=cy; p.board.set(key(cx,cy),t);
+      const conn=connectedSet(p);
+      let severed=0;
+      for(const q of p.board.values()) if(q.defId!=="boulder"&&!conn.has(key(q.x,q.y))) severed++;
+      let gain = severed>0 ? -99 :
+        (castleSpan(p)-baseSpan)*8 + (countCourtyards(p)-baseCourt)*18 + ((baseBlock&&!hasTwoByTwo(p))?16:0);
+      p.board.delete(key(cx,cy));
+      t.x=ox; t.y=oy;
+      if(gain>bestGain){ bestGain=gain; best={tile:t, dest:[cx,cy]}; }
+    }
+    p.board.set(key(t.x,t.y),t);
+  }
+  return best;
+}
+function aiBestPlacement(p, defId){
+  const d=DEFS[defId];
+  let best=null, bestScore=-Infinity;
+  for(let rot=0;rot<4;rot++){
+    const edges=rotEdges(d.edges,rot);
+    for(const [x,y] of legalCells(p,edges)){
+      let s=Math.random()*2;
+      const dist=distFromHearth(p,x,y);
+      if(defId==="spire") s+= dist>=4?25:0;
+      else if(defId==="trebuchet") s+= Math.min(3, lineFromOpenEdge(p,x,y,edges))*9;
+      else if(defId==="echo"){
+        let ev=0;
+        DIRS.forEach(([dx,dy])=>{ ev=Math.max(ev, echoValue(p, p.board.get(key(x+dx,y+dy)))); });
+        s+=ev;
+      }
+      else if(defId==="keystone"){
+        let nb=0; DIRS.forEach(([dx,dy])=>{ const t=p.board.get(key(x+dx,y+dy)); if(t&&t.defId!=="boulder") nb++; });
+        s+= nb===4?42:nb*2;
+      }
+      else if(defId==="mirror"||defId==="aqueduct"){
+        const t={...makeTile(defId,rot),x,y,owner:p.i};
+        p.board.set(key(x,y),t);
+        if(defId==="mirror") s+= mirrorSymmetric(p)?45:0;
+        else s+= Math.floor(longestRun(p)/3)*13;
+        p.board.delete(key(x,y));
+      }
+      else if(defId==="garden") s+= countCourtyards(p)*14 + (4-dist);
+      else if(defId==="cornerstone") s+= ((x===0||x===W-1)&&(y===0||y===H-1))?46:0;
+      else if(defId==="milestone"){
+        const t={...makeTile(defId,rot),x,y,owner:p.i};
+        p.board.set(key(x,y),t);
+        let run=1;
+        for(const [dx,dy] of [[1,0],[0,1]]){
+          let n=1;
+          for(const sgn of [-1,1]){
+            let cx=x+dx*sgn, cy=y+dy*sgn;
+            while(inBounds(cx,cy)){ const q=p.board.get(key(cx,cy)); if(!q||q.defId==="boulder")break; n++; cx+=dx*sgn; cy+=dy*sgn; }
+          }
+          run=Math.max(run,n);
+        }
+        p.board.delete(key(x,y));
+        s+= run>=3?14:0;
+      }
+      else if(defId==="cloisterwalk"){
+        const before=countCourtyards(p);
+        const t={...makeTile(defId,rot),x,y,owner:p.i};
+        p.board.set(key(x,y),t);
+        s+= countCourtyards(p)>before?36:0;
+        p.board.delete(key(x,y));
+      }
+      else if(defId==="spiral") s+= Math.floor(countElbows(p)/2)*10;
+      else if(defId==="barracks"||defId==="festival") s+= 5-Math.abs(dist-2);
+      else if(defId==="bulwark") s+= (Math.abs(x-CX)<=1&&Math.abs(y-CY)<=1)?18:-dist;
+      else if(defId==="brazier"||defId==="scriptorium") s+= 6-dist;
+      else if(defId==="serpent"){
+        p.board.set(key(x,y),{...makeTile(defId,rot),x,y,owner:p.i});
+        if(!hasTwoByTwo(p)) s+=25;
+        p.board.delete(key(x,y));
+      }
+      else if(defId==="courtyard"){
+        const t={...makeTile(defId,rot),x,y,owner:p.i};
+        p.board.set(key(x,y),t);
+        s+=countCourtyards(p)*30;
+        p.board.delete(key(x,y));
+      }
+      else s+= 4-Math.abs(dist-2); // gentle sprawl
+      // openness: keep future frontier
+      s+=edges.filter(Boolean).length*1.5;
+      if(s>bestScore){bestScore=s; best={x,y,rot,score:s};}
+    }
+  }
+  return best;
+}
+function aiBoulderCell(){
+  const hp=G.players[0]; // human board
+  let best=null, bestV=-1;
+  for(const [x,y] of boulderCells(hp)){
+    let v=0;
+    DIRS.forEach(([dx,dy],dir)=>{
+      const n=hp.board.get(key(x+dx,y+dy));
+      if(n){ v+=2; if(n.edges[OPP[dir]]) v+=3; if(n.defId==="hearth") v+=6; }
+    });
+    if(v>bestV){bestV=v; best=[x,y];}
+  }
+  return best;
+}
+function aiChooseMove(p, wantAll){
+  const options=[];
+  p.hand.forEach((id,idx)=>{
+    const d=DEFS[id];
+    let score=0, place=null;
+    if(id==="boulder"){
+      place=aiBoulderCell();
+      score=place?36:-99;
+    }else{
+      place=aiBestPlacement(p,id);
+      if(!place){ options.push({idx,id,score:-99}); return; }
+      const ff=freeFires(p);
+      switch(id){
+        case "catapult": score= ff>=1?82:6; break;
+        case "spire": score= ff>=1?(place.score>20?85:72):6; break;
+        case "trebuchet": score= ff>=1?(place.score>18?88:50):6; break;
+        case "bombard": score= ff>=2?86:5; break;
+        case "ballista": score= ff>=1?(44+castleSpan(p)*5):6; break;
+        case "witch": score= ff>=1&&aiPickTarget(0,true)?70:5; break;
+        case "brazier": score= ff<=0?88: (fireSources(p)<3?46:24); break;
+        case "scriptorium": score= ff>=2?60:8; break;
+        case "hallway": score=58; break;
+        case "serpent": score= place.score>20?54:14; break;
+        case "courtyard": score= 12+ (place.score>25?38:0); break;
+        case "bulwark": score= [...p.board.values()].some(t=>t.defId==="bulwark"&&!t.bricked)?18:48; break;
+        case "wall": score=22; break;
+        case "ward": score= fireSources(p)>=2?34:14; break;
+        case "watchtower": score=8; break; // hold as a reaction
+        case "gatehouse": score=48; break;
+        case "reliquary": score=58; break;
+        case "thief": score= freeFires(G.players[0])>0?55:16; break;
+        case "rats": score= ff>=1&&G.players[0].hand.length>0?64:5; break;
+        case "echo": score= place.score>18?38+place.score:8; break;
+        case "keystone": score= place.score>35?72:18; break;
+        case "mirror": score= place.score>38?70:14; break;
+        case "aqueduct": score= place.score>18?30+place.score:20; break;
+        case "garden": score= ff>=1?(countCourtyards(p)>0?62:24):8; break;
+        case "guild": score=24; break;
+        case "tollgate": score= ff>=1?40:10; break;
+        case "forge": score= ff>=1?46:8; break;
+        case "barracks": score= ff>=1?52:10; break;
+        case "festival": score=30; break;
+        case "ossuary": score= ff>=1?(G.players[0].grave.length+G.players[1].grave.length>0?48:34):8; break;
+        case "whisper": score= ff>=1&&p.hand.some(id2=>id2==="ward"||id2==="watchtower")?46:14; break;
+        case "outriders": score= ff>=1?66:8; break;
+        case "wolfpack": score= ff>=1?([...G.players[0].board.values()].some(t=>isLeaf(G.players[0],t))?64:32):8; break;
+        case "stormaltar": score= ff>=2?60:6; break;
+        case "necropolis": score= ff>=1&&(G.players[0].grave.length+G.players[1].grave.length)>=8?70:6; break;
+        case "mastermason": score= p.grave.length?46:4; break;
+        case "haunt": score= p.grave.length?(38+(GRAVE_VAL[aiPickGrave(p)]||3)*3):4; break;
+        case "pyre": score= [...p.board.values()].some(t=>t.claims>0&&!DEFS[t.defId].persistent)?58:20; break;
+        case "spiral": score= 24+place.score; break;
+        case "twingates": score= touchesOppositeEdges(p)?76:8; break;
+        case "cornerstone": score= place.score>40?70:10; break;
+        case "milestone": score= 38+(place.score>10?12:0); break;
+        case "cloisterwalk": score= place.score>30?66:22; break;
+        case "burrows": score= ff>=1?([...p.board.values()].filter(t=>isLeaf(p,t)).length>=2?52:20):8; break;
+        case "bonfire": score= ff<=0?80:(fireSources(p)<3?42:22); break;
+        case "coalcellar": score= ff>=2&&[...p.board.values()].some(t=>t.claims>0&&!DEFS[t.defId].persistent)?56:10; break;
+        case "earthquake": {
+          const el0=[...G.players[0].board.values()].filter(t=>isLeaf(G.players[0],t)).length;
+          const el1=[...p.board.values()].filter(t=>isLeaf(p,t)).length;
+          score= ff>=1&&el0-el1>=2?68:(ff>=1?12:5); break;
+        }
+        case "caravan": score=46; break;
+      }
+    }
+    if(G.aiBias && G.aiBias[id]) score*=G.aiBias[id];
+    options.push({idx,id,score,place});
+  });
+  options.sort((a,b)=>b.score-a.score);
+  if(wantAll) return options;
+  return options[0]&&options[0].score>0?options[0]:null;
+}
+function aiWorstCardIdx(p){
+  const opts=aiChooseMove(p,true);
+  if(!opts.length) return p.hand.length-1;
+  // never shed the sword arm: one-shot damage cards are held even when
+  // fire-starved (their low score means "not yet", not "worthless")
+  const THREATS=["catapult","spire","trebuchet","bombard","ballista","necropolis","earthquake","witch",
+                 "outriders","wolfpack","stormaltar"];
+  const keepable=opts.filter(o=>!THREATS.includes(o.id));
+  return (keepable.length?keepable:opts)[ (keepable.length?keepable:opts).length-1 ].idx;
+}
+async function aiTurn(){
+  const p=G.players[1];
+  await sleep(900);
+  while(G.playsLeft>0 && !G.over){
+    const mv=aiChooseMove(p);
+    // starved for fire with siege in hand: dismantle a spent engine (they are
+    // all single-edge leaves, so this never severs the castle behind them)
+    const SPENT=["catapult","spire","trebuchet","bombard","ballista","witch"];
+    if((!mv||mv.score<20) && freeFires(p)===0 && p.hand.length>1 &&
+       p.hand.some(id=>DEFS[id].needsFire) ){
+      const engine=[...p.board.values()].find(t=>SPENT.includes(t.defId)&&t.claims>0)
+        // starving with no spent shot to reclaim: sacrifice a passive engine
+        ||[...p.board.values()].find(t=>t.claims>0&&DEFS[t.defId].persistent&&
+            !["outriders","wolfpack","stormaltar"].includes(t.defId));
+      if(engine){
+        G.playsLeft--;
+        await discardFromHand(p, aiWorstCardIdx(p));
+        log("The rival pays the masons and dismantles a spent engine, freeing its fire.","foe");
+        await destroyTile(p,engine,true);
+        await structureCheck();
+        if(G.over) return;
+        await sleep(700);
+        continue;
+      }
+    }
+    if(!mv){
+      // frontier sealed: no legal placement anywhere — tear down a
+      // dead-end (never a fire source) to reopen ground
+      if(legalCells(p, DEFS.wall.edges).length===0 && p.hand.length>0){
+        const cand=[...p.board.values()].filter(t=>
+          t.defId!=="hearth" && !DEFS[t.defId].fires);
+        const leaf=cand.find(t=>t.defId!=="thief" && t.edges.filter(Boolean).length<=1)
+                 ||cand.find(t=>t.defId!=="thief")||cand[0];
+        if(leaf){
+          G.playsLeft--;
+          await discardFromHand(p, aiWorstCardIdx(p));
+          log("The rival pays the masons and tears down a blocked wing to open new ground.","foe");
+          await destroyTile(p,leaf,true);
+          await structureCheck();
+          if(G.over) return;
+          await sleep(700);
+          continue;
+        }
+      }
+      break;
+    }
+    p.hand.splice(mv.idx,1);
+    G.playsLeft--;
+    if(mv.id==="boulder"){
+      const [x,y]=mv.place;
+      const tile=makeTile("boulder");
+      putTile(G.players[0],tile,x,y);
+      await flyCard(rivalHandRect(), 0, x, y, null);
+      animatePop(0,x,y);
+      log("The rival hurls a Boulder into your grounds!","foe");
+      renderAll();
+      p.placedCount=(p.placedCount||0)+1;
+      await structureCheck();
+    }else{
+      const tile=makeTile(mv.id, mv.place.rot, mv.id==="ward");
+      putTile(p,tile,mv.place.x,mv.place.y);
+      await flyCard(rivalHandRect(), 1, mv.place.x, mv.place.y, null);
+      animatePop(1,mv.place.x,mv.place.y);
+      log(mv.id==="ward"?"The rival lays a tile face down...":`The rival builds a ${DEFS[mv.id].name}.`,"foe");
+      renderAll();
+      p.placedCount=(p.placedCount||0)+1;
+      await checkBarracks(p,mv.place.x,mv.place.y);
+      await sleep(650);
+      if(mv.id!=="ward") await onEnterAbility(p,tile);
+    }
+    if(G.over) return;
+    await sleep(800);
+  }
+  await structureCheck();
+  if(G.over) return;
+  while(p.hand.length>HAND_LIMIT){
+    await discardFromHand(p, aiWorstCardIdx(p));
+    log("The rival sheds a tile from an overfull hand.","foe");
+  }
+  setPrompt("");
+  await sleep(400);
+  startTurn(0);
+}
+/* AI deciding whether to respond to the human's stack item */
+async function aiResponseWindow(top){
+  const p=G.players[1];
+  if(top.countered) return false;
+  const r=playerHasResponse(p,top);
+  // what is threatened?
+  let threat=0, targetTile=null;
+  if(top.target && top.target.p===1){
+    targetTile=[...p.board.values()].find(t=>t.uid===top.target.uid);
+    if(targetTile) threat=tileValue(targetTile,p);
+  } else if(top.kind==="ability") threat=45;
+  if(r.canWard && threat>=55){
+    await sleep(700);
+    await flipWard(p, r.wards[0], top);
+    return true;
+  }
+  if(r.canTower && targetTile && threat>=60){
+    const spot=r.towerSpots[0];
+    if(spot){
+      await sleep(700);
+      const c=r.towers[0];
+      p.hand.splice(c.idx,1);
+      const tile=makeTile("watchtower",spot.rot,false);
+      putTile(p,tile,spot.x,spot.y);
+      animatePop(1,spot.x,spot.y);
+      top.target={p:1, uid:tile.uid};
+      top.label+=" → Watchtower";
+      log("The rival's Watchtower rises to intercept your attack!","foe");
+      renderAll(); renderStack();
+      p.placedCount=(p.placedCount||0)+1;
+      await checkBarracks(p,spot.x,spot.y);
+      await checkWhispers(p);
+      return true;
+    }
+  }
+  return false;
+}
+
+/* =====================================================
+   Game over, rules, init
+===================================================== */
+function endGame(winner){
+  G.over=true; G.mode="gameover";
+  setPrompt("");
+  const panel=document.getElementById("overlay-panel");
+  panel.classList.remove("wide");
+  panel.innerHTML= winner===MYSEAT
+    ? `<h2>Victory</h2><p>The rival's hearth lies cold and dark. Your castle stands — crooked, cunning, and warm.</p>
+       <button class="btn" onclick="location.reload()">Build Anew</button>`
+    : `<h2>Ashes</h2><p>Your central hearth has been snuffed three times. The rival architect claims the valley.</p>
+       <button class="btn danger" onclick="location.reload()">Build Anew</button>`;
+  document.getElementById("overlay").classList.add("show");
+  log(winner===MYSEAT?"YOU ARE VICTORIOUS.":"Your hearth falls dark. Defeat.","system");
+}
+document.getElementById("btn-help").addEventListener("click",()=>{
+  const panel=document.getElementById("overlay-panel");
+  panel.classList.remove("wide");
+  panel.innerHTML=`<h2>Rules of the Valley</h2>
+  <p style="text-align:left">
+  • Each turn: draw a tile, then <b>play one tile</b> (some grant extra plays), demolish one of yours (costs a discard), or pass. Hand limit is <b>7</b> — discard down at turn's end.<br>
+  • Tiles connect only through <b>open edges</b> (notched). Sealed edges (solid) never connect. Press <b>R</b> to rotate.<br>
+  • Your hearth grants <b>2 fires</b>; Braziers grant 1. Siege &amp; study tiles <b>claim</b> a fire while they stand — demolish or lose them to free it.<br>
+  • Any tile that cannot trace connected edges back to a fire source <b>crumbles</b>.<br>
+  • Attacks declare their target when played, then use <b>the stack</b> — Veiled Wards (face down, needs a free fire) counter them; a Watchtower (from hand, in response) intercepts, but only if placed adjacent or diagonal to the target.<br>
+  • Siege engines reward bold shapes: the Trebuchet hits harder at the end of a long straight line, the High Spire when far from your hearth, the Grand Ballista when your castle spans wide.<br>
+  • Snuff the rival hearth's <b>3 flames</b> to win.<br>
+  • <b>The lingo</b> — <b>Raise:</b> when this tile is placed. <b>Flame marks</b> (card corner): the tile claims that many free fires on arrival and holds them while it stands. <b>Kindled:</b> an ongoing effect that works only while its fire stays lit — it goes dormant if supply runs short. <b>Veiled:</b> enters face down. <b>Brick:</b> disable a tile; it releases its fires. <b>Splash:</b> hits the target and its orthogonal neighbors. <b>Blink:</b> a tile leaves and re-enters its cell — fresh stone, Raising anew. <b>Seize:</b> holds one of the rival's fires hostage while the seizing tile stands. <b>Warbands</b> strike at your turn's start — no stack, no counter; Bulwarks still absorb. <b>Leaf:</b> a tile with exactly one connection.<br>
+  • Hold <b>⌘</b> while hovering any tile or card for full details and examples.
+  </p>
+  <button class="btn" onclick="document.getElementById('overlay').classList.remove('show')">To Work</button>`;
+  document.getElementById("overlay").classList.add("show");
+});
+
+/* =====================================================
+   The Library — see every card, forge the decks
+===================================================== */
+/* =====================================================
+   Online play — PeerJS lockstep (loaded only when used)
+===================================================== */
+function loadPeerJS(){
+  return new Promise((res,rej)=>{
+    if(typeof Peer!=="undefined") return res();
+    const s=document.createElement("script");
+    s.src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js";
+    s.onload=()=>res();
+    s.onerror=()=>rej(new Error("Could not load the connection library — online play needs internet."));
+    document.head.appendChild(s);
+  });
+}
+function genCode(){
+  const A="ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+  return Array.from({length:4},()=>A[Math.floor(Math.random()*A.length)]).join("");
+}
+function myDeckCounts(){
+  if(SEL.you==="custom"){
+    if(!LIB_COUNTS){ LIB_COUNTS={}; DECK_LIST.forEach(([id,n])=>LIB_COUNTS[id]=n); }
+    return {...LIB_COUNTS};
+  }
+  return DECKS[SEL.you].counts;
+}
+function setLobbyStatus(html){
+  const el=document.getElementById("lobby-status");
+  if(el) el.innerHTML=html;
+}
+function netDropped(){
+  if(G.over) return;
+  G.over=true;
+  const panel=document.getElementById("overlay-panel");
+  panel.classList.remove("wide");
+  panel.innerHTML=`<h2>Severed</h2><p>The connection to your rival was lost.</p>
+    <button class="btn" onclick="location.reload()">Return to the Valley</button>`;
+  document.getElementById("overlay").classList.add("show");
+}
+function wireConn(conn){
+  NET.conn=conn;
+  conn.on("data",netReceive);
+  conn.on("close",netDropped);
+  conn.on("error",netDropped);
+}
+async function hostGame(){
+  try{ await loadPeerJS(); }catch(e){ setLobbyStatus(e.message); return; }
+  const code=genCode();
+  NET.peer=new Peer("ashlar-"+code);
+  setLobbyStatus(`Raising the banner...`);
+  NET.peer.on("open",()=>{
+    setLobbyStatus(`Room code: <b style="letter-spacing:3px;">${code}</b>
+      <button class="btn ghost" id="copy-code" style="margin:0 6px; padding:3px 10px; font-size:11px;">Copy</button>
+      waiting for a rival...`);
+    const b=document.getElementById("copy-code");
+    if(b) b.onclick=async()=>{
+      try{ await navigator.clipboard.writeText(code); b.textContent="Copied!"; }
+      catch(e){ b.textContent=code; }
+      setTimeout(()=>{ b.textContent="Copy"; },1400);
+    };
+  });
+  NET.peer.on("error",err=>setLobbyStatus("Connection trouble ("+err.type+") — try hosting again."));
+  NET.peer.on("connection",conn=>{
+    wireConn(conn);
+    conn.on("open",()=>{
+      const seed=(Math.random()*2**31)|0;
+      setSeed(seed);
+      NET.onLobby=(msg)=>{
+        if(msg.l==="deck"){
+          NET.onLobby=null;
+          beginMP("host",0,myDeckCounts(),msg.deck);
+        }
+      };
+      netSend({l:"hello", seed, deck:myDeckCounts()});
+    });
+  });
+}
+async function joinGame(code){
+  code=(code||"").trim().toUpperCase();
+  if(code.length<3){ setLobbyStatus("Enter the room code your rival gave you."); return; }
+  try{ await loadPeerJS(); }catch(e){ setLobbyStatus(e.message); return; }
+  NET.peer=new Peer();
+  setLobbyStatus("Riding to the host's keep...");
+  NET.peer.on("error",err=>setLobbyStatus("Could not reach that room ("+err.type+")."));
+  NET.peer.on("open",()=>{
+    const conn=NET.peer.connect("ashlar-"+code,{reliable:true});
+    wireConn(conn);
+    NET.onLobby=(msg)=>{
+      if(msg.l==="hello"){
+        NET.onLobby=null;
+        setSeed(msg.seed);
+        netSend({l:"deck", deck:myDeckCounts()});
+        beginMP("join",1,msg.deck,myDeckCounts());
+      }
+    };
+  });
+}
+function beginMP(mode, seat, counts0, counts1){
+  NET.mode=mode;
+  MYSEAT=seat;
+  beginGame(counts0, counts1, null,
+    "A living rival faces you across the valley. May the warmer hearth prevail.");
+}
+
+/* deck selection: choose the two architects */
+const SEL={you:"longwall", rival:"random"};
+function showDeckSelect(){
+  const panel=document.getElementById("overlay-panel");
+  panel.classList.add("wide");
+  const DECK_ICON={longwall:"trebuchet",warren:"serpent",cloister:"courtyard",
+                   ashes:"pyre",siegecamp:"bombard",veil:"ward"};
+  const opt=(side,idKey,name,tag,ic)=>`
+    <div class="deck-opt${SEL[side]===idKey?" chosen":""}" data-side="${side}" data-deck="${idKey}">
+      <span class="deck-opt-ic">${icon(ic)}</span>
+      <div>
+        <div class="deck-opt-name">${name}</div>
+        <div class="deck-opt-tag">${tag}</div>
+      </div>
+    </div>`;
+  const row=side=>{
+    let out=Object.entries(DECKS).map(([k,d])=>opt(side,k,d.name,d.tag,DECK_ICON[k])).join("");
+    if(side==="you") out+=opt("you","custom","Custom","Build both decks yourself.","guild");
+    else out+=opt("rival","random","Random","Surprise me.","veil");
+    return out;
+  };
+  panel.innerHTML=`<h2>Choose the Architects</h2>
+    <div class="deck-cols">
+      <div><h3 class="deck-col-h">Your deck</h3><div id="deck-row-you">${row("you")}</div></div>
+      <div><h3 class="deck-col-h">Rival's deck</h3><div id="deck-row-rival">${row("rival")}</div></div>
+    </div>
+    <div style="margin-top:14px; display:flex; gap:14px; justify-content:center; align-items:center;">
+      <button class="btn ghost" id="ds-library">Open the Library</button>
+      <button class="btn" id="ds-begin">Begin vs Rival AI</button>
+    </div>
+    <div style="margin-top:12px; display:flex; gap:10px; justify-content:center; align-items:center;">
+      <span style="font-size:11px; color:#7a5a30; letter-spacing:2px; text-transform:uppercase;" title="Each architect brings the deck selected under 'Your deck'. The rival's column is ignored online.">Play online</span>
+      <button class="btn ghost" id="ds-host">Host</button>
+      <input id="ds-code" class="lobby-input" maxlength="4" placeholder="CODE" autocomplete="off">
+      <button class="btn ghost" id="ds-join">Join</button>
+    </div>
+    <div id="lobby-status" style="margin-top:8px; font-size:12.5px; color:#5c4a2e; min-height:18px;"></div>`;
+  const refresh=()=>{
+    panel.querySelectorAll(".deck-opt").forEach(el=>{
+      el.classList.toggle("chosen", SEL[el.dataset.side]===el.dataset.deck);
+    });
+    const rivalRow=panel.querySelector("#deck-row-rival");
+    if(rivalRow) rivalRow.style.opacity = SEL.you==="custom" ? .35 : 1;
+  };
+  panel.querySelectorAll(".deck-opt").forEach(el=>{
+    el.onclick=()=>{ SEL[el.dataset.side]=el.dataset.deck; refresh(); };
+  });
+  panel.querySelector("#ds-library").onclick=showSetup;
+  panel.querySelector("#ds-host").onclick=hostGame;
+  panel.querySelector("#ds-join").onclick=()=>joinGame(panel.querySelector("#ds-code").value);
+  panel.querySelector("#ds-begin").onclick=()=>{
+    if(SEL.you==="custom"){ showSetup(); return; } // custom begins from the library
+    const rivalKey = SEL.rival==="random"
+      ? Object.keys(DECKS)[Math.floor(Math.random()*Object.keys(DECKS).length)]
+      : SEL.rival;
+    beginGame(DECKS[SEL.you].counts, DECKS[rivalKey].counts, DECKS[rivalKey].bias,
+      `You raise ${DECKS[SEL.you].name}; the rival raises ${DECKS[rivalKey].name}.`);
+  };
+  refresh();
+  document.getElementById("overlay").classList.add("show");
+}
+function libTotal(){ return Object.values(LIB_COUNTS).reduce((a,b)=>a+b,0); }
+function showSetup(){
+  if(!LIB_COUNTS){ LIB_COUNTS={}; DECK_LIST.forEach(([id,n])=>LIB_COUNTS[id]=n); }
+  const panel=document.getElementById("overlay-panel");
+  panel.classList.add("wide");
+  panel.innerHTML=`<h2>The Library</h2>
+    <p style="margin-bottom:10px;">Every tile in the game. Both architects draw from identical decks — choose how many of each enter them (0–4). Hold ⌘ over a card for details.</p>
+    <div class="lib-grid">${DECK_LIST.map(([id])=>`
+      <div class="lib-entry">
+        <div class="card${LIB_COUNTS[id]===0?" excluded":""}" data-lib="${id}">${cardInnerHTML(id,0)}</div>
+        <div class="lib-stepper">
+          <button class="btn ghost" data-dec="${id}">−</button>
+          <span class="lib-count${LIB_COUNTS[id]===0?" zeroed":""}" id="libc-${id}">${LIB_COUNTS[id]}</span>
+          <button class="btn ghost" data-inc="${id}">+</button>
+        </div>
+      </div>`).join("")}</div>
+    <div style="margin-top:14px; display:flex; gap:14px; justify-content:center; align-items:center;">
+      <span id="lib-total" style="font-size:13px; color:#5c4a2e;">${libTotal()} tiles per deck</span>
+      <button class="btn ghost" id="lib-back">Back</button>
+      <button class="btn ghost" id="lib-reset">Reset</button>
+      <button class="btn" id="lib-begin">Begin mirror match</button>
+    </div>`;
+  const refresh=()=>{
+    DECK_LIST.forEach(([id])=>{
+      const c=panel.querySelector("#libc-"+id);
+      if(c){ c.textContent=LIB_COUNTS[id]; c.classList.toggle("zeroed",LIB_COUNTS[id]===0); }
+      const cd=panel.querySelector(`[data-lib="${id}"]`);
+      if(cd) cd.classList.toggle("excluded",LIB_COUNTS[id]===0);
+    });
+    const tot=panel.querySelector("#lib-total");
+    tot.textContent=libTotal()+" tiles per deck"+(libTotal()<15?" — need at least 15":"");
+    panel.querySelector("#lib-begin").disabled=libTotal()<15;
+  };
+  panel.querySelectorAll("[data-dec]").forEach(b=>b.onclick=()=>{
+    const id=b.dataset.dec; LIB_COUNTS[id]=Math.max(0,LIB_COUNTS[id]-1); refresh();
+  });
+  panel.querySelectorAll("[data-inc]").forEach(b=>b.onclick=()=>{
+    const id=b.dataset.inc;
+    LIB_COUNTS[id]=Math.min(DEFS[id].maxCopies||4, LIB_COUNTS[id]+1);
+    refresh();
+  });
+  panel.querySelector("#lib-reset").onclick=()=>{
+    DECK_LIST.forEach(([id,n])=>LIB_COUNTS[id]=n); refresh();
+  };
+  panel.querySelector("#lib-back").onclick=showDeckSelect;
+  panel.querySelector("#lib-begin").onclick=()=>beginGame(null,null,null,
+    "A mirror match — both architects draw from your forged deck.");
+  panel.querySelectorAll("[data-lib]").forEach(cd=>{
+    const pseudo={defId:cd.dataset.lib, faceDown:false, dormant:false, bricked:false, spent:false, claims:0};
+    cd.onmouseenter=(e)=>showTooltip(e,pseudo,0);
+    cd.onmousemove=(e)=>moveTooltip(e);
+    cd.onmouseleave=hideTooltip;
+  });
+  document.getElementById("overlay").classList.add("show");
+}
+function beginGame(counts0, counts1, rivalBias, intro){
+  document.getElementById("overlay").classList.remove("show");
+  document.getElementById("overlay-panel").classList.remove("wide");
+  if(NET.mode==="local") setSeed((Math.random()*2**31)|0);
+  G.players[0]=newPlayer(0, counts0);
+  G.players[1]=newPlayer(1, counts1);
+  G.aiBias=rivalBias||null;
+  G._fireTotals=[2,2]; G._handLen=undefined;
+  document.getElementById("hand").innerHTML="";
+  buildBoards();
+  renderAll();
+  log("Two architects. One valley. May the warmer hearth prevail.","system");
+  if(intro) log(intro,"system");
+  startTurn(0);
+}
+/* deck & graveyard viewer */
+function showDeckOverlay(){
+  const grouped=list=>{
+    const m={}; list.forEach(id=>m[id]=(m[id]||0)+1);
+    const rows=Object.entries(m)
+      .sort((a,b)=>DEFS[a[0]].name.localeCompare(DEFS[b[0]].name))
+      .map(([id,n])=>`<div class="dk-row"><span class="dk-ic">${icon(id)}</span>${DEFS[id].name}<span class="dk-n">×${n}</span></div>`);
+    return rows.join("")||'<div class="dk-row" style="opacity:.55;">— empty —</div>';
+  };
+  const panel=document.getElementById("overlay-panel");
+  panel.classList.add("wide");
+  panel.innerHTML=`<h2>Deck &amp; Graveyards</h2>
+    <div class="dk-cols">
+      <div><h3>Your deck · ${G.players[MYSEAT].deck.length}</h3>${grouped(G.players[MYSEAT].deck)}</div>
+      <div><h3>Your graveyard · ${G.players[MYSEAT].grave.length}</h3>${grouped(G.players[MYSEAT].grave)}</div>
+      <div><h3>Rival graveyard · ${G.players[1-MYSEAT].grave.length}</h3>${grouped(G.players[1-MYSEAT].grave)}</div>
+    </div>
+    <button class="btn" style="margin-top:14px;" onclick="document.getElementById('overlay').classList.remove('show');document.getElementById('overlay-panel').classList.remove('wide');">Close</button>`;
+  document.getElementById("overlay").classList.add("show");
+}
+document.getElementById("deck-info").addEventListener("click",showDeckOverlay);
+
+G.players[0]=newPlayer(0);
+G.players[1]=newPlayer(1);
+buildBoards();
+renderAll();
+showDeckSelect();
+</script>
+</body>
+</html>
