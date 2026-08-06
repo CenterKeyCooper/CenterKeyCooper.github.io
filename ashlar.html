@@ -341,6 +341,12 @@ body{
 .tile .glyph{color:#383c36; display:flex;}
 .tile .glyph svg{width:23px; height:23px; display:block; filter:drop-shadow(0 1px 0 rgba(255,255,255,.14));}
 .tile.hearth-tile .glyph, .tile.brazier-tile .glyph{color:var(--ember-glow); }
+.tile.bonfire-tile{
+  box-shadow:0 0 14px rgba(232,114,42,.55), inset 0 0 8px rgba(255,154,60,.3);
+}
+/* an ember thief glows with its stolen fire */
+.tile.thief-lit .glyph{color:var(--ember-glow);}
+.tile.thief-lit .glyph svg{filter:drop-shadow(0 0 5px rgba(255,154,60,.8));}
 .tile.hearth-tile .glyph svg, .tile.brazier-tile .glyph svg{filter:drop-shadow(0 0 5px rgba(255,154,60,.8));}
 .tile.facedown .glyph{color:#c4b6dd;}
 .tile.boulder-tile .glyph{color:#2e2a23;}
@@ -2509,6 +2515,8 @@ function renderBoard(pi){
     let cls="tile";
     if(t.defId==="hearth") cls+=" hearth-tile";
     if(t.defId==="brazier") cls+=" brazier-tile";
+    if(t.defId==="bonfire") cls+=" brazier-tile bonfire-tile";
+    if(t.defId==="thief" && !t.bricked) cls+=" thief-lit";
     if(t.defId==="boulder") cls+=" boulder-tile";
     if(showFaceDown) cls+=" facedown";
     if(t.dormant&&!showFaceDown) cls+=" dormant";
