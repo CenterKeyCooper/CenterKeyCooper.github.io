@@ -71,6 +71,11 @@
   }
   .hbtn:hover{border-color:var(--gold); color:var(--gold);}
   #seedTag{font-size:10px; letter-spacing:.14em; color:#5d4a33; font-family:Menlo,monospace;}
+  #timer{
+    font-size:10.5px; letter-spacing:.18em; color:#7a6749;
+    font-family:Menlo,monospace; margin-top:5px; min-height:13px;
+  }
+  body.replaying #timer{visibility:hidden;}
 
   /* ---------- STAGE ---------- */
   #stage{flex:1 1 auto; position:relative; display:flex; align-items:center; justify-content:center; min-height:0;}
@@ -256,13 +261,18 @@
     position:fixed; inset:0; z-index:50;
     background:radial-gradient(900px 600px at 50% 40%, rgba(28,20,12,.88), rgba(12,9,6,.96));
     display:flex; justify-content:center;
-    overflow-y:auto; -webkit-overflow-scrolling:touch;
-    padding:20px 0 calc(20px + env(safe-area-inset-bottom));
+    overflow-y:auto; overflow-x:hidden; -webkit-overflow-scrolling:touch;
+    padding:44px 12px calc(44px + env(safe-area-inset-bottom));
     opacity:0; pointer-events:none; transition:opacity .45s;
   }
   #overlay.show{opacity:1; pointer-events:auto;}
-  /* margin:auto centers the panel when it fits and lets it scroll when it doesn't */
-  #panel{max-width:520px; margin:auto; text-align:center; padding:30px; animation:panelIn .6s cubic-bezier(.2,.9,.3,1.05) both;}
+  /* margin:auto centers the panel when it fits and lets it scroll when it doesn't;
+     width:100% + min-width:0 force it to shrink to the viewport instead of its content */
+  #panel{
+    width:100%; max-width:520px; min-width:0;
+    margin:auto; text-align:center; padding:30px;
+    animation:panelIn .6s cubic-bezier(.2,.9,.3,1.05) both;
+  }
   @keyframes panelIn{from{opacity:0; transform:translateY(22px) scale(.96);}}
   #panel h1{font-size:38px; letter-spacing:.3em; color:var(--gold); padding-left:.3em;
     text-shadow:0 0 30px rgba(224,179,76,.4); margin-bottom:6px;}
@@ -273,7 +283,7 @@
     font-style:normal; color:var(--ink); font-size:13.5px; letter-spacing:.06em;
     border-top:1px solid #3a2c1c; border-bottom:1px solid #3a2c1c; padding:10px 0; margin:16px 0;
   }
-  #panel .rules{font-style:normal; text-align:left; font-size:13.5px; line-height:2; color:var(--ink-dim); margin:18px auto; max-width:400px;}
+  #panel .rules{font-style:normal; text-align:left; font-size:13.5px; line-height:2; color:var(--ink-dim); margin:18px auto; max-width:min(400px,100%);}
   #panel .rules b{color:var(--ink);}
   #panel .bigGlyphs{margin:12px 0; display:flex; justify-content:center; flex-wrap:wrap; gap:6px;}
   #panel .joinLine{color:var(--leaf); font-style:normal; font-size:14px;}
@@ -284,8 +294,9 @@
     padding:13px 30px; border-radius:30px; cursor:pointer; transition:all .25s; text-transform:uppercase;
   }
   #panel button:hover{border-color:var(--gold); box-shadow:0 0 24px rgba(224,179,76,.25); transform:translateY(-2px);}
-  #panel svg{display:block; margin:0 auto 6px;}
-  #panel .bigGlyphs svg,#panel .glyphs svg{display:inline-block; margin:0;}
+  /* only the ring diagram (a direct child) — piece icons elsewhere must keep
+     their natural size and margins or flex auto-margins spread them apart */
+  #panel > svg{display:block; margin:0 auto 6px;}
   #panel textarea{
     width:100%; min-height:110px; margin-top:14px; padding:12px 14px;
     background:#1d150e; border:1px solid #5d4630; border-radius:10px;
@@ -394,7 +405,6 @@
     #tip{max-width:210px; padding:10px 12px;}
     .lbRow{gap:6px; font-size:12px; padding:6px 0;}
     .lbRank{width:14px; font-size:10px;}
-    .lbN{flex:0 0 26%;}
     .lbT{font-size:11px;}
     .lbV{width:20px; font-size:9px;}
     .lbName input{width:130px;}
@@ -411,6 +421,7 @@
     <div class="rn">&nbsp;</div>
     <div class="rs">&nbsp;</div>
     <div id="progress"></div>
+    <div id="timer"></div>
   </div>
   <div id="hbtns">
     <button id="btnFeedback" class="hbtn">✎ feedback</button>
@@ -1406,6 +1417,9 @@ function armyStr(){
 }
 let playerIP='';
 fetch('https://api.ipify.org?format=json').then(r=>r.json()).then(d=>{playerIP=d.ip;}).catch(()=>{});
+function runSeconds(){
+  return game.stats.started? Math.floor((Date.now()-game.stats.started)/1000) : 0;
+}
 function playerName(){ try{ return (localStorage.getItem('endgrainName')||'').trim(); }catch(e){ return ''; } }
 function saveName(v){ try{ localStorage.setItem('endgrainName', v.slice(0,20)); }catch(e){} }
 async function logRun(outcome){
@@ -1418,12 +1432,14 @@ async function logRun(outcome){
     Captures:String(game.stats.captures),
     Recruits:String(game.stats.recruits),
     Moves:String(game.stats.moves),
-    Seconds:String(Math.round((Date.now()-game.stats.started)/1000)),
+    Seconds:String(runSeconds()),
     Army:armyStr(),
     Date:new Date().toISOString().slice(0,10),
     Name:playerName()||'anonymous',
     Version:String(GAME_VERSION),
   };
+  // freeze the on-screen clock at exactly the logged time
+  if(game.stats.started) $('#timer').textContent=fmtTime(fields.Seconds);
   if(game.rec&&game.rec.rings&&game.rec.rings.length){
     try{ fields.Replay=await encodeReplay(game.rec); }catch(e){}
   }
@@ -1735,7 +1751,7 @@ async function renderLeaderboard(){
       const [alive,res]=(f.Army||'').split('+');
       const army=icons(alive)+(res?'<span class="lbPlus">+</span>'+icons(res):'');
       let name=f.Name||'anonymous';
-      if(name.length>10) name=name.slice(0,10)+'..';
+      if(name.length>10) name=name.slice(0,9)+'..';
       return `
       <div class="lbRow">
         <span class="lbRank">${i+1}</span>
@@ -1837,7 +1853,7 @@ function startRun(){
   game.ring=0;
   game.army=START_ARMY.slice();
   game.reserve=[];
-  game.stats={captures:0,recruits:0,moves:0,started:Date.now()};
+  game.stats={captures:0,recruits:0,moves:0,started:0};   // clock starts at first ring entry
   game.rec={seed:seedHex(), rings:[], outcome:null};
   loadLevel();
 }
@@ -1894,6 +1910,7 @@ function intro(){
   `);
 }
 function beginRing(){
+  if(!game.stats.started) game.stats.started=Date.now();
   status('your move');
   preparePlayerTurn();
 }
@@ -2005,6 +2022,12 @@ document.addEventListener('keyup',e=>{
   if(e.key==='Meta'||e.key==='Control') hideTip();
 });
 window.addEventListener('blur',hideTip);
+setInterval(()=>{
+  const el=$('#timer');
+  if(!game.board||replay.on){ el.textContent=''; return; }
+  if(!game.stats.started){ el.textContent='0:00'; return; }
+  if(!game.over) el.textContent=fmtTime(runSeconds());
+},500);
 document.addEventListener('contextmenu',e=>{ if(e.target.closest('#board')) e.preventDefault(); });
 
 /* programmatic interface for automation/assistive tools:
