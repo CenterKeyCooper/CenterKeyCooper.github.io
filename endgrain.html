@@ -305,6 +305,64 @@
   @keyframes ringGlow{50%{opacity:.55;}}
   .ringFuture{stroke:#33261a;}
 
+  /* ---------- LEADERBOARD ---------- */
+  #lb{margin-top:36px; border-top:1px solid #3a2c1c; padding-top:20px; text-align:center;}
+  .lbHead{font-size:13px; letter-spacing:.32em; color:var(--gold); padding-left:.32em;}
+  .lbSub{font-size:9.5px; letter-spacing:.16em; color:#7a6749; margin-top:5px; text-transform:uppercase;}
+  .lbName{font-size:11.5px; color:var(--ink-dim); margin:14px 0 10px; letter-spacing:.08em;}
+  .lbName input{
+    background:#1d150e; border:1px solid #5d4630; border-radius:8px; color:var(--ink);
+    font-family:inherit; font-size:12.5px; padding:5px 10px; margin-left:6px; width:150px;
+    outline:none; text-align:center; letter-spacing:.04em;
+    user-select:text; -webkit-user-select:text;
+  }
+  .lbName input:focus{border-color:var(--gold);}
+  .lbRow{
+    display:flex; align-items:center; gap:10px; padding:6px 4px;
+    font-size:13px; color:var(--ink-dim); border-bottom:1px solid #2a1f14;
+  }
+  .lbRank{width:20px; color:#7a6749; font-size:11px; text-align:right;}
+  .lbN{flex:0 0 10.5ch; text-align:left; color:var(--ink); overflow:hidden; white-space:nowrap;}
+  .lbA{
+    flex:1; min-width:0; display:flex; flex-wrap:nowrap; gap:1px;
+    justify-content:flex-start; align-items:center;
+    overflow:hidden; position:relative;
+  }
+  .lbA svg,.lbA .tg{flex:0 0 auto;}
+  .lbPlus{color:#7a6749; font-size:11px; margin:0 3px; flex:0 0 auto;}
+  .lbA.clip{padding-right:13px;}
+  .lbA.clip::after{content:'..'; position:absolute; right:0; bottom:2px; color:#7a6749; font-size:11px; letter-spacing:1px;}
+  .lbT{font-family:Menlo,monospace; font-size:12.5px;}
+  .lbT.hasR{color:var(--gold); cursor:pointer;}
+  .lbT.hasR:hover{text-decoration:underline;}
+  .lbV{width:28px; font-size:10px; color:#7a6749; text-align:right;}
+  .lbEmpty{font-size:12px; font-style:italic; color:#7a6749; padding:14px 0;}
+  .lbVer{margin-top:12px; font-size:9.5px; color:#5d4a33; letter-spacing:.24em;}
+
+  /* ---------- REPLAY ---------- */
+  #replayBar{
+    display:none; align-items:center; gap:8px; width:100%;
+    justify-content:center; flex-wrap:wrap;
+  }
+  body.replaying #status,body.replaying #seedTag,body.replaying #roster{display:none;}
+  body.replaying #replayBar{display:flex;}
+  .rbtn{
+    background:none; border:1px solid #4a3826; color:var(--ink-dim);
+    font-family:inherit; font-size:11.5px; letter-spacing:.08em;
+    padding:6px 12px; border-radius:16px; cursor:pointer; transition:all .2s;
+  }
+  .rbtn:hover{border-color:var(--gold); color:var(--gold);}
+  .rbtn.primary{color:var(--gold); border-color:#5d4630; min-width:74px;}
+  #rbInfo{font-size:11px; letter-spacing:.1em; color:var(--ink-dim); min-width:150px; text-align:center;}
+  body.replaying #progress .pip{cursor:pointer;}
+  body.rspd2 .piece{transition-duration:.18s;}
+  body.rspd4 .piece{transition-duration:.11s;}
+  #panel button.btn2{
+    font-size:11.5px; padding:9px 20px; margin-top:10px; margin-left:10px;
+    color:var(--ink-dim); letter-spacing:.18em;
+  }
+  #panel button.btn2:hover{color:var(--gold);}
+
   /* ---------- MOBILE ---------- */
   @media (max-width:600px){
     header{padding:8px 12px 4px; flex-wrap:wrap; row-gap:2px;}
@@ -334,6 +392,12 @@
     #panel button{font-size:12.5px; padding:11px 22px; margin-top:12px;}
     #toast{font-size:23px; letter-spacing:.25em;}
     #tip{max-width:210px; padding:10px 12px;}
+    .lbRow{gap:6px; font-size:12px; padding:6px 0;}
+    .lbRank{width:14px; font-size:10px;}
+    .lbN{flex:0 0 26%;}
+    .lbT{font-size:11px;}
+    .lbV{width:20px; font-size:9px;}
+    .lbName input{width:130px;}
   }
 </style>
 </head>
@@ -363,6 +427,17 @@
   <div id="status"></div>
   <div id="seedTag"></div>
   <div id="roster"></div>
+  <div id="replayBar">
+    <button class="rbtn" id="rbPrevRing" title="previous ring">« ring</button>
+    <button class="rbtn" id="rbBack" title="back one move">‹ move</button>
+    <button class="rbtn primary" id="rbPlay">play</button>
+    <button class="rbtn" id="rbStep" title="forward one move">move ›</button>
+    <button class="rbtn" id="rbNextRing" title="next ring">ring »</button>
+    <button class="rbtn" id="rbSpeed" title="playback speed">1×</button>
+    <span id="rbInfo"></span>
+    <button class="rbtn" id="rbCopy" title="copy shareable replay code">copy code</button>
+    <button class="rbtn" id="rbExit">✕ exit</button>
+  </div>
 </footer>
 
 <div id="overlay"><div id="panel"></div></div>
@@ -986,11 +1061,12 @@ function refreshGlyph(pc){
   pc.el.querySelector('.g').innerHTML=pieceMark(pc);
   pc.el.title=`${T.name} — ${T.desc}`;
 }
-function spawnAll(){
+function spawnAll(quick){
   $('#pieces').innerHTML='';
   const list=game.pieces.filter(p=>p.alive);
   list.forEach((pc,i)=>{
     makePieceEl(pc);
+    if(quick) return;
     pc.el.classList.add('spawn');
     pc.el.querySelector('.g').style.animationDelay=(i*45)+'ms';
     setTimeout(()=>pc.el.classList.remove('spawn'), i*45+600);
@@ -1028,6 +1104,9 @@ function updateHUD(){
   for(let i=0;i<LEVELS.length;i++){
     const p=document.createElement('div');
     p.className='pip'+(i<game.ring?' done':i===game.ring?' cur':'');
+    p.addEventListener('click',()=>{
+      if(replay.on&&i<replay.run.rings.length) seekReplay(i,0);
+    });
     prog.appendChild(p);
   }
 }
@@ -1178,14 +1257,14 @@ async function captureFX(pc,attacker){
     setTimeout(()=>g.classList.remove('punch'),260);
   }
   kick();
-  await sleep(470);
+  await rs(470);
   if(pc.el){ pc.el.remove(); pc.el=null; }
 }
 
 /* ---------------- turn flow ---------------- */
 function onTile(x,y){
   hideTip();
-  if(game.busy||game.over||game.turn!=='w') return;
+  if(replay.on||game.busy||game.over||game.turn!=='w') return;
   const pc=at(x,y);
   if(pc&&pc.side==='w'&&pc!==game.sel){ select(pc); return; }
   if(game.sel){
@@ -1223,6 +1302,10 @@ function deselect(){
 }
 async function animateAndApply(m){
   hideTip();
+  if(!replay.on&&game.rec&&game.rec.rings[game.ring]){
+    game.rec.rings[game.ring].moves.push(coordName(m.x1,m.y1)+coordName(m.x2,m.y2));
+    saveRec();
+  }
   apply(m);
   game.stats.moves++;
   game.lastMove=m;
@@ -1230,10 +1313,10 @@ async function animateAndApply(m){
   markLastMove(m);
   if(m.cap){
     game.stats.captures += (m.pc.side==='w')?1:0;
-    await sleep(200);
+    await rs(200);
     await captureFX(m.cap, m.pc);
   } else {
-    await sleep(340);
+    await rs(340);
   }
   if(m.promoted){
     refreshGlyph(m.pc);
@@ -1241,7 +1324,7 @@ async function animateAndApply(m){
     const c=pieceCenter(m.pc);
     particles(c.x,c.y,['#e0b34c','#f6ecd6'],16);
     toast('A SAPLING BLOOMS','gold');
-    await sleep(500);
+    await rs(500);
     m.pc.el.classList.remove('joined');
   }
   refreshChecks();
@@ -1301,6 +1384,7 @@ function preparePlayerTurn(){
 }
 
 /* ---------------- logging (Airtable) ---------------- */
+const GAME_VERSION=2;   // bump when generation logic changes — gates replay codes
 const AT_BASE='appsvu3ApgrBKyAx6';
 const AT_TOKEN='patxeMh9t8lsRlU9l.973e131b2895f6b1e921cb91959264ec16e1a9c5e1d481e7ae18bd2c2e73881b';
 const AT_RUNS_TABLE='Endgrain';
@@ -1322,7 +1406,9 @@ function armyStr(){
 }
 let playerIP='';
 fetch('https://api.ipify.org?format=json').then(r=>r.json()).then(d=>{playerIP=d.ip;}).catch(()=>{});
-function logRun(outcome){
+function playerName(){ try{ return (localStorage.getItem('endgrainName')||'').trim(); }catch(e){ return ''; } }
+function saveName(v){ try{ localStorage.setItem('endgrainName', v.slice(0,20)); }catch(e){} }
+async function logRun(outcome){
   // all values as strings + typecast — robust against field types in the table
   const fields={
     Seed:seedHex(),
@@ -1335,7 +1421,12 @@ function logRun(outcome){
     Seconds:String(Math.round((Date.now()-game.stats.started)/1000)),
     Army:armyStr(),
     Date:new Date().toISOString().slice(0,10),
+    Name:playerName()||'anonymous',
+    Version:String(GAME_VERSION),
   };
+  if(game.rec&&game.rec.rings&&game.rec.rings.length){
+    try{ fields.Replay=await encodeReplay(game.rec); }catch(e){}
+  }
   if(playerIP) fields.IP=playerIP;
   atPost(AT_RUNS_TABLE,fields).catch(()=>{});
 }
@@ -1361,7 +1452,7 @@ function closeFeedback(){
   if(savedPanel!==null){ $('#panel').innerHTML=savedPanel; savedPanel=null; }
   else hideOverlay();
 }
-function sendFeedback(btn){
+async function sendFeedback(btn){
   const txt=$('#fbText').value.trim();
   if(!txt){ $('#fbText').focus(); return; }
   btn.disabled=true; btn.textContent='sending…';
@@ -1374,10 +1465,311 @@ function sendFeedback(btn){
     Foes:game.levelFoes||'',
     Army:armyStr(),
     Date:new Date().toISOString().slice(0,10),
+    Version:String(GAME_VERSION),
+    Name:playerName()||'anonymous',
   };
+  if(game.rec&&game.rec.rings&&game.rec.rings.length){
+    try{ fields.Replay=await encodeReplay(game.rec); }catch(e){}
+  }
   if(playerIP) fields.IP=playerIP;
   atPost(AT_FB_TABLE,fields).then(()=>{ closeFeedback(); toast('FEEDBACK SENT','good'); })
     .catch(()=>{ btn.disabled=false; btn.textContent='send'; toast('COULD NOT SEND','danger'); });
+}
+
+/* ---------------- replay ----------------
+   The record stores only the seed, per-ring army snapshots, and move strings.
+   Boards are regenerated from (seed, ring); seeking = silent re-simulation. */
+const replay={on:false, run:null, ring:0, idx:0, speed:1, playing:false, token:0};
+const SPEEDS=[0.5,1,2,4];
+const rs=ms=>sleep(replay.on? ms/replay.speed : ms);
+function saveRec(){
+  try{ localStorage.setItem('endgrainLastRun', JSON.stringify(game.rec)); }catch(e){}
+}
+function loadRec(){
+  try{
+    const r=JSON.parse(localStorage.getItem('endgrainLastRun'));
+    return (r&&r.seed&&r.rings&&r.rings.length&&r.rings[0].moves.length)? r : null;
+  }catch(e){ return null; }
+}
+/* shareable replay codes: EG<v>.<base64url payload>.<checksum>
+   payload = seed|outcome|army:moves;army:moves…  (moves are fixed 4-char "c2c3")
+   EG2 = deflate-compressed payload, EG1 = plain (fallback for browsers
+   without CompressionStream; still decodable everywhere) */
+function hash32(s){
+  let h=5381;
+  for(let i=0;i<s.length;i++) h=(h*33+s.charCodeAt(i))>>>0;
+  return h.toString(16).padStart(8,'0').slice(0,6);
+}
+function b64FromBytes(u8){
+  let s='';
+  for(let i=0;i<u8.length;i+=0x8000) s+=String.fromCharCode.apply(null,u8.subarray(i,i+0x8000));
+  return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+}
+function bytesFromB64(b){
+  const s=atob(b.replace(/-/g,'+').replace(/_/g,'/'));
+  const u=new Uint8Array(s.length);
+  for(let i=0;i<s.length;i++) u[i]=s.charCodeAt(i);
+  return u;
+}
+async function deflateStr(str){
+  if(typeof CompressionStream==='undefined') return null;
+  const stream=new Blob([str]).stream().pipeThrough(new CompressionStream('deflate'));
+  return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+async function inflateStr(bytes){
+  const stream=new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate'));
+  return new Response(stream).text();
+}
+async function encodeReplay(rec){
+  const raw=GAME_VERSION+'|'+rec.seed+'|'+(rec.outcome||'')+'|'
+    +rec.rings.map(r=>r.army.join('')+':'+r.moves.join('')).join(';');
+  const sum=hash32(raw);
+  const packed=await deflateStr(raw).catch(()=>null);
+  if(packed) return 'EG2.'+b64FromBytes(packed)+'.'+sum;
+  return 'EG1.'+btoa(raw).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')+'.'+sum;
+}
+async function decodeReplay(str){
+  str=String(str||'').trim();
+  const m=str.match(/^EG(\d+)\.([A-Za-z0-9\-_]+)\.([0-9a-f]{6})$/);
+  if(!m) return {error:'invalid'};
+  let raw;
+  try{
+    if(m[1]==='1') raw=atob(m[2].replace(/-/g,'+').replace(/_/g,'/'));
+    else if(m[1]==='2'){
+      if(typeof DecompressionStream==='undefined') return {error:'version'};
+      raw=await inflateStr(bytesFromB64(m[2]));
+    }
+    else return {error:'version'};
+  }catch(e){ return {error:'invalid'}; }
+  if(hash32(raw)!==m[3]) return {error:'invalid'};
+  const parts=raw.split('|');
+  if(parts.length===3) return {error:'version'};   // pre-versioned v1 code
+  if(parts.length!==4) return {error:'invalid'};
+  if(parts[0]!==String(GAME_VERSION)) return {error:'version'};
+  const [,seed,outcome,ringsStr]=parts;
+  if(!/^[0-9a-f]{1,8}$/.test(seed)) return {error:'invalid'};
+  if(!['','victory','checkmated','petrified','abandoned'].includes(outcome)) return {error:'invalid'};
+  const rings=[];
+  for(const rr of ringsStr.split(';')){
+    const ci=rr.indexOf(':');
+    if(ci<1) return {error:'invalid'};
+    const army=rr.slice(0,ci).split(''), mv=rr.slice(ci+1);
+    if(!army.every(t=>TYPES[t])) return {error:'invalid'};
+    if(mv.length%4) return {error:'invalid'};
+    const moves=[];
+    for(let k=0;k<mv.length;k+=4){
+      const s=mv.slice(k,k+4);
+      if(!/^[a-i][1-9][a-i][1-9]$/.test(s)) return {error:'invalid'};
+      moves.push(s);
+    }
+    rings.push({army,moves});
+  }
+  if(!rings.length||rings.length>LEVELS.length) return {error:'invalid'};
+  return {ok:true, run:{seed, outcome:outcome||null, rings}};
+}
+function parseRecMove(s){
+  const a=coordToXY(s.slice(0,2)), b=coordToXY(s.slice(2));
+  if(!a||!b) return null;
+  const pc=at(a.x,a.y);
+  if(!pc) return null;
+  return {pc, x1:a.x, y1:a.y, x2:b.x, y2:b.y};
+}
+function enterReplay(runArg){
+  const run=runArg||loadRec();
+  if(!run) return;
+  hideOverlay(); savedPanel=null;
+  replay.on=true; replay.run=run; replay.playing=false; replay.speed=1; replay.token++;
+  document.body.classList.add('replaying');
+  document.body.classList.remove('rspd2','rspd4');
+  $('#rbSpeed').textContent='1×';
+  seekReplay(0,0);
+}
+function exitReplay(){
+  replay.on=false; replay.playing=false; replay.token++;
+  document.body.classList.remove('replaying','rspd2','rspd4');
+  titleScreen();
+}
+function seekReplay(r,i){
+  const R=replay.run;
+  r=Math.max(0,Math.min(r,R.rings.length-1));
+  i=Math.max(0,Math.min(i,R.rings[r].moves.length));
+  replay.playing=false; replay.token++;
+  replay.ring=r; replay.idx=0;
+  game.seed=parseInt(R.seed,16)>>>0;
+  game.ring=r;
+  game.army=R.rings[r].army.slice();
+  game.over=true; game.busy=true; game.turn='w'; game.sel=null; game.lastMove=null;
+  generateLevel(r); placeArmy(); placeFoes(rollFoes(r, foeZone().length));
+  let last=null;
+  for(let k=0;k<i;k++){
+    const mv=parseRecMove(R.rings[r].moves[k]);
+    if(!mv) break;
+    apply(mv); last=mv; replay.idx=k+1;
+  }
+  $('#seedTag').textContent='seed '+seedHex();
+  updateHUD(); updateRoster();
+  buildBoard(); drawBackdrop(); spawnAll(true);
+  game.lastMove=last; markLastMove(last);
+  refreshChecks();
+  updateReplayBar();
+}
+async function replayStep(){
+  const R=replay.run, moves=R.rings[replay.ring].moves;
+  if(replay.idx>=moves.length){
+    if(replay.ring<R.rings.length-1){
+      toast('RING CLEARED','gold');
+      await rs(700);
+      if(!replay.on) return false;
+      const wasPlaying=replay.playing, tok=replay.token;
+      seekReplay(replay.ring+1,0);
+      if(wasPlaying){ replay.playing=true; replay.token=tok; }
+      return true;
+    }
+    const OUT={victory:['VICTORY','gold'], checkmated:['CHECKMATE','danger'],
+               petrified:['PETRIFIED','danger'], abandoned:['RUN ABANDONED','danger']};
+    const o=OUT[R.outcome]||['RUN ENDS','good'];
+    toast(o[0],o[1]);
+    replay.playing=false; updateReplayBar();
+    return false;
+  }
+  const mv=parseRecMove(moves[replay.idx]);
+  if(!mv){ replay.playing=false; updateReplayBar(); return false; }
+  replay.idx++;
+  await animateAndApply(mv);
+  updateReplayBar();
+  return true;
+}
+async function replayLoop(){
+  const tok=replay.token;
+  while(replay.on&&replay.playing&&replay.token===tok){
+    const more=await replayStep();
+    if(!more||replay.token!==tok) break;
+    await rs(480);
+  }
+}
+function updateReplayBar(){
+  if(!replay.on) return;
+  const R=replay.run;
+  $('#rbInfo').textContent=
+    `ring ${replay.ring+1}/${R.rings.length} · move ${replay.idx}/${R.rings[replay.ring].moves.length}`;
+  $('#rbPlay').textContent=replay.playing?'pause':'play';
+}
+function replayTogglePlay(){
+  if(!replay.on) return;
+  if(replay.playing){ replay.playing=false; replay.token++; }
+  else{ replay.playing=true; replayLoop(); }
+  updateReplayBar();
+}
+function replayStepBtn(){
+  if(!replay.on||replay.playing) return;
+  replayStep();
+}
+function replayBack(){
+  if(!replay.on) return;
+  if(replay.idx>0) seekReplay(replay.ring, replay.idx-1);
+  else if(replay.ring>0) seekReplay(replay.ring-1, replay.run.rings[replay.ring-1].moves.length);
+}
+function replayRing(d){
+  if(!replay.on) return;
+  seekReplay(replay.ring+d, 0);
+}
+function replayCycleSpeed(){
+  if(!replay.on) return;
+  replay.speed=SPEEDS[(SPEEDS.indexOf(replay.speed)+1)%SPEEDS.length];
+  $('#rbSpeed').textContent=replay.speed+'×';
+  document.body.classList.toggle('rspd2', replay.speed===2);
+  document.body.classList.toggle('rspd4', replay.speed===4);
+}
+async function copyReplayCode(){
+  const run=replay.on? replay.run
+    : (game.rec&&game.rec.rings&&game.rec.rings.length? game.rec : loadRec());
+  if(!run){ toast('NO RUN TO SHARE','danger'); return; }
+  const code=await encodeReplay(run);
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(code)
+      .then(()=>toast('REPLAY CODE COPIED','good'))
+      .catch(()=>showCodeScreen(code));
+  } else showCodeScreen(code);
+}
+function showCodeScreen(code){
+  savedPanel=$('#overlay').classList.contains('show')? $('#panel').innerHTML : null;
+  showOverlay(`
+    <h2>REPLAY CODE</h2>
+    <p>copy this and share it — anyone can paste it on the title screen to watch your run</p>
+    <textarea readonly onclick="this.select()" style="min-height:150px">${code}</textarea>
+    <div class="btnRow"><button onclick="closeFeedback()">back</button></div>
+  `);
+}
+function pasteReplayScreen(){
+  savedPanel=$('#overlay').classList.contains('show')? $('#panel').innerHTML : null;
+  showOverlay(`
+    <h2>WATCH A REPLAY</h2>
+    <p>paste a replay code</p>
+    <textarea id="rpText" placeholder="EG1.…"></textarea>
+    <div class="btnRow">
+      <button onclick="watchPasted()">watch</button>
+      <button onclick="closeFeedback()">back</button>
+    </div>
+  `);
+  $('#rpText').focus();
+}
+/* ---------------- leaderboard ---------------- */
+let lbCache=[];
+function fmtTime(s){ s=parseInt(s)||0; return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); }
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+async function renderLeaderboard(){
+  if(!$('#lbList')) return;
+  try{
+    const url=`https://api.airtable.com/v0/${AT_BASE}/${encodeURIComponent(AT_RUNS_TABLE)}`
+      +`?filterByFormula=${encodeURIComponent("{Win}='yes'")}&maxRecords=100`;
+    const d=await fetch(url,{headers:{'Authorization':'Bearer '+AT_TOKEN}}).then(r=>r.json());
+    lbCache=(d.records||[]).map(r=>r.fields)
+      .filter(f=>f.Seconds&&!isNaN(parseInt(f.Seconds)))
+      .sort((a,b)=>parseInt(a.Seconds)-parseInt(b.Seconds))
+      .slice(0,10);
+    const el=$('#lbList');           // re-query: the panel may have changed during the fetch
+    if(!el) return;
+    if(!lbCache.length){ el.innerHTML='<div class="lbEmpty">no one has reached the pith yet</div>'; return; }
+    const icons=s=>(s||'').split('').filter(t=>TYPES[t]).map(t=>iconMark(t,13,'w')).join('');
+    el.innerHTML=lbCache.map((f,i)=>{
+      const [alive,res]=(f.Army||'').split('+');
+      const army=icons(alive)+(res?'<span class="lbPlus">+</span>'+icons(res):'');
+      let name=f.Name||'anonymous';
+      if(name.length>10) name=name.slice(0,10)+'..';
+      return `
+      <div class="lbRow">
+        <span class="lbRank">${i+1}</span>
+        <span class="lbN">${escapeHtml(name)}</span>
+        <span class="lbA">${army}</span>
+        <span class="lbT${f.Replay?' hasR':''}"${f.Replay?` onclick="watchLB(${i})" title="watch this run"`:''}>${fmtTime(f.Seconds)}</span>
+        <span class="lbV">v${escapeHtml(String(f.Version||'1'))}</span>
+      </div>`;
+    }).join('');
+    el.querySelectorAll('.lbA').forEach(a=>{
+      if(a.scrollWidth>a.clientWidth+1) a.classList.add('clip');
+    });
+  }catch(e){
+    const el=$('#lbList');
+    if(el) el.innerHTML='<div class="lbEmpty">the rings are silent</div>';
+  }
+}
+async function watchLB(i){
+  const f=lbCache[i];
+  if(!f||!f.Replay) return;
+  const d=await decodeReplay(f.Replay);
+  if(!d.ok){ toast(d.error==='version'?'REPLAY FROM ANOTHER VERSION':'REPLAY UNAVAILABLE','danger'); return; }
+  savedPanel=null;
+  enterReplay(d.run);
+}
+
+async function watchPasted(){
+  const d=await decodeReplay($('#rpText').value);
+  if(!d.ok){
+    toast(d.error==='version'?'REPLAY FROM ANOTHER VERSION':'INVALID REPLAY CODE','danger');
+    return;
+  }
+  savedPanel=null;
+  enterReplay(d.run);
 }
 
 /* ---------------- level transitions ---------------- */
@@ -1422,6 +1814,7 @@ function loadLevel(){
   game.over=false; game.busy=true; game.turn='w';
   game.sel=null; game.lastMove=null; game.breathShown=false;
   hideTip();
+  if(!replay.on&&game.rec){ game.rec.rings[game.ring]={army:game.army.slice(),moves:[]}; saveRec(); }
   generateLevel(game.ring);
   placeArmy();
   placeFoes(rollFoes(game.ring, foeZone().length));
@@ -1445,10 +1838,12 @@ function startRun(){
   game.army=START_ARMY.slice();
   game.reserve=[];
   game.stats={captures:0,recruits:0,moves:0,started:Date.now()};
+  game.rec={seed:seedHex(), rings:[], outcome:null};
   loadLevel();
 }
 function gameOver(kind){
   game.over=true; game.busy=true;
+  if(game.rec){ game.rec.outcome=kind==='mate'?'checkmated':'petrified'; saveRec(); }
   logRun(kind==='mate'?'checkmated':'petrified');
   const msg= kind==='mate'
     ? 'Your Monarch is cornered.'
@@ -1460,8 +1855,9 @@ function gameOver(kind){
       <div class="sub">${LEVELS[game.ring].sub} · ${LEVELS[game.ring].name}</div>
       <p>${msg}</p>
       <div class="obj">rings survived: ${game.ring} &nbsp;·&nbsp; foes felled: ${game.stats.captures} &nbsp;·&nbsp; recruits sworn: ${game.stats.recruits}</div>
-      <button onclick="hideOverlay();startRun()">begin anew</button>
+      <button onclick="hideOverlay();startRun()">begin anew</button><button class="btn2" onclick="enterReplay()">rewatch run</button>
       <div class="fbLink" onclick="feedbackScreen()">✎ leave feedback on this ring</div>
+      <div class="fbLink" onclick="copyReplayCode()">⧉ copy replay code</div>
     `);
   },700);
   toast(kind==='mate'?'CHECKMATE':'PETRIFIED','danger');
@@ -1521,6 +1917,7 @@ function clearScreen(kind,recruits){
   `);
 }
 function victoryScreen(){
+  if(game.rec){ game.rec.outcome='victory'; saveRec(); }
   logRun('victory');
   showOverlay(`
     ${ringsSVG(LEVELS.length,false)}
@@ -1529,7 +1926,8 @@ function victoryScreen(){
     <p>Eight rings deep. The Elder has fallen, and the tree is quiet.</p>
     <div class="obj">foes felled: ${game.stats.captures} &nbsp;·&nbsp; recruits sworn: ${game.stats.recruits} &nbsp;·&nbsp; final grove: ${game.army.length} pieces</div>
     <div class="bigGlyphs">${game.army.map(t=>iconMark(t,24,'w')).join('')}</div>
-    <button onclick="hideOverlay();startRun()">grow again</button>
+    <button onclick="hideOverlay();startRun()">grow again</button><button class="btn2" onclick="enterReplay()">rewatch run</button>
+    <div class="fbLink" onclick="copyReplayCode()">⧉ copy replay code</div>
   `);
 }
 function titleScreen(){
@@ -1548,17 +1946,42 @@ function titleScreen(){
       <b>Hold ⌘ / Ctrl</b> and hover any piece — or long-press on touch — to see how it moves.
     </div>
     <button onclick="hideOverlay();startRun()">enter the bark</button>
+    ${loadRec()?'<div class="fbLink" onclick="enterReplay()">↺ rewatch last run</div>':''}
+    <div class="fbLink" onclick="pasteReplayScreen()">↳ watch a replay code</div>
+    <div id="lb">
+      <div class="lbHead">LEADERBOARD</div>
+      <div class="lbSub">fastest to the pith · click a time to watch</div>
+      <div class="lbName">you are recorded as
+        <input id="nameInput" maxlength="20" placeholder="anonymous"
+          value="${escapeHtml(playerName())}" oninput="saveName(this.value)">
+      </div>
+      <div id="lbList"><div class="lbEmpty">consulting the rings…</div></div>
+      <div class="lbVer">v${GAME_VERSION}</div>
+    </div>
   `);
+  renderLeaderboard();
 }
 
 /* ---------------- boot ---------------- */
 $('#btnRestart').addEventListener('click',()=>{
+  if(replay.on){ exitReplay(); return; }
   if(confirm('Abandon this run and start over from the bark?')){
-    if(game.board&&!game.over) logRun('abandoned');   // ended runs were already logged
+    if(game.board&&!game.over){
+      if(game.rec){ game.rec.outcome='abandoned'; saveRec(); }
+      logRun('abandoned');   // ended runs were already logged
+    }
     hideOverlay(); startRun();
   }
 });
 $('#btnFeedback').addEventListener('click',()=>{ if(game.board) feedbackScreen(); });
+$('#rbPlay').addEventListener('click',replayTogglePlay);
+$('#rbStep').addEventListener('click',replayStepBtn);
+$('#rbBack').addEventListener('click',replayBack);
+$('#rbPrevRing').addEventListener('click',()=>replayRing(-1));
+$('#rbNextRing').addEventListener('click',()=>replayRing(1));
+$('#rbSpeed').addEventListener('click',replayCycleSpeed);
+$('#rbCopy').addEventListener('click',copyReplayCode);
+$('#rbExit').addEventListener('click',exitReplay);
 window.addEventListener('resize',()=>{
   if(!game.board) return;
   buildBoard();
@@ -1568,6 +1991,13 @@ window.addEventListener('resize',()=>{
   refreshChecks();
 });
 document.addEventListener('keydown',e=>{
+  if(replay.on){
+    if(e.key===' '){ e.preventDefault(); replayTogglePlay(); }
+    else if(e.key==='ArrowRight') replayStepBtn();
+    else if(e.key==='ArrowLeft') replayBack();
+    else if(e.key==='Escape') exitReplay();
+    return;
+  }
   if(e.key==='Escape') deselect();
   if(e.key==='Meta'||e.key==='Control') tryShowTip();
 });
@@ -1602,7 +2032,16 @@ window.endgrain={
   move(from,to){ return this.tap(from)&&this.tap(to); },
 };
 
-titleScreen();
+/* boot: #replay=<code> in the URL opens that replay directly */
+(async function(){
+  const m=location.hash.match(/replay=([A-Za-z0-9\-_.]+)/);
+  if(m){
+    const d=await decodeReplay(m[1]);
+    if(d.ok){ enterReplay(d.run); return; }
+    toast(d.error==='version'?'REPLAY FROM ANOTHER VERSION':'INVALID REPLAY CODE','danger');
+  }
+  titleScreen();
+})();
 </script>
 </body>
 </html>
