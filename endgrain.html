@@ -102,6 +102,11 @@
   .tile.dark {background:linear-gradient(140deg, var(--tile-d1), var(--tile-d2));}
   .tile:hover{filter:brightness(1.08);}
   .tile.lm{box-shadow:inset 0 0 0 2px rgba(224,179,76,.55), inset 0 0 18px rgba(224,179,76,.22);}
+  .tile.goldT{background:linear-gradient(140deg,#e9c25f,#c99a31);}
+  .tile.goldT::before{
+    content:''; position:absolute; inset:0; border-radius:inherit; pointer-events:none;
+    box-shadow:inset 0 0 0 2px rgba(255,235,180,.55), inset 0 0 14px rgba(255,220,140,.5), 0 0 16px rgba(224,179,76,.55);
+  }
   .tile.sel{box-shadow:inset 0 0 0 2.5px rgba(143,191,111,.95), inset 0 0 20px rgba(143,191,111,.3);}
 
   #hl{position:absolute; inset:0; pointer-events:none; z-index:3;}
@@ -731,6 +736,18 @@ function placeFoes(types){
     const pref=front.filter(s=>b.mask.has(key(s.x,s.y+1)));
     placeOne(t,pref.concat(front));
   }
+  // kingless rings (after the first) get a gilded square deep in the foe
+  // zone: the player's King ending a move there wins and the survivors kneel
+  b.gold=null;
+  if(game.ring>0&&!types.some(t=>TYPES[t].royal)){
+    // only the deepest two rows of the foe zone qualify — the King must
+    // cross the whole board to reach it
+    const backmost=Math.min(...zone.map(s=>s.y));
+    const deep=zone.filter(s=>s.y<=backmost+1);
+    const open=deep.filter(s=>!at(s.x,s.y));
+    const pool=open.length?open:deep;
+    if(pool.length){ const g=pool[rint(pool.length)]; b.gold={x:g.x,y:g.y}; }
+  }
 }
 function addPiece(t,side,x,y){
   const pc={id:++idSeq, t, side, x, y, alive:true};
@@ -741,6 +758,7 @@ function at(x,y){ return game.occ.get(key(x,y)) || null; }
 function inMask(x,y){ return game.board.mask.has(key(x,y)); }
 function aliveOf(side){ return game.pieces.filter(p=>p.alive&&p.side===side); }
 function royalOf(side){ return game.pieces.find(p=>p.alive&&p.side===side&&TYPES[p.t].royal)||null; }
+function isGold(x,y){ const g=game.board&&game.board.gold; return !!g&&g.x===x&&g.y===y; }
 
 function placeArmy(){
   const cx=(game.board.w-1)/2;
@@ -840,10 +858,15 @@ function allLegalMoves(side){
     if(!pc.alive||pc.side!==side) continue;
     for(const m of genMoves(pc,false)){
       if(hasRoyal){
-        apply(m);
-        const bad=inCheck(side);
-        undo(m);
-        if(bad) continue;
+        // the King's arrival on the gilded square ends the ring instantly,
+        // before any reply — so it is exempt from the self-check rule
+        const exempt=side==='w'&&TYPES[pc.t].royal&&isGold(m.x2,m.y2);
+        if(!exempt){
+          apply(m);
+          const bad=inCheck(side);
+          undo(m);
+          if(bad) continue;
+        }
       }
       out.push(m);
     }
@@ -855,7 +878,8 @@ function allLegalMoves(side){
 /* ---------------- AI ---------------- */
 function evalB(){
   const cx=(game.board.w-1)/2, cy=(game.board.h-1)/2, maxD=cx+cy||1;
-  let s=0;
+  const g=game.board.gold;
+  let s=0, guards=0;
   for(const pc of game.pieces){
     if(!pc.alive) continue;
     const T=TYPES[pc.t];
@@ -866,11 +890,21 @@ function evalB(){
     }
     if(T.pawn) v+=0.05*(pc.side==='w'? (game.board.h-1-pc.y) : pc.y);
     s+= pc.side==='b'? v : -v;
+    if(g){
+      // small pull to defend the gilded square: keep the player's King away,
+      // keep a few of our own pieces near it
+      const gd=Math.max(Math.abs(pc.x-g.x),Math.abs(pc.y-g.y));
+      if(pc.side==='w'&&T.royal) s+=0.16*Math.min(gd,6);
+      else if(pc.side==='b'&&!T.pawn&&gd<=2&&guards<3){ s+=0.06; guards++; }
+    }
   }
   return s;
 }
 function evalFor(side){ const e=evalB(); return side==='b'?e:-e; }
 function negamax(depth,alpha,beta,side){
+  // the gold-arrival exemption lets search lines capture the player's royal;
+  // treat that as terminal instead of searching nonsense positions
+  if(!royalOf('w')) return (side==='w'?-1:1)*(10000+depth*10);
   const moves=allLegalMoves(side);
   if(!moves.length){
     if(royalOf(side)) return inCheck(side)? -10000-depth*10 : 0;
@@ -984,6 +1018,7 @@ function buildBoard(){
     const bl=(!inMask(x-1,y)&&!inMask(x,y+1)&&!inMask(x-1,y+1))?R:r;
     t.style.borderRadius=`${tl}px ${tr}px ${br}px ${bl}px`;
     t.dataset.x=x; t.dataset.y=y;
+    if(isGold(x,y)) t.classList.add('goldT');
     t.setAttribute('role','button');
     t.addEventListener('click',()=>onTile(x,y));
     t.addEventListener('mouseenter',e=>{
@@ -1023,6 +1058,7 @@ function updateTileA11y(){
     const x=+t.dataset.x, y=+t.dataset.y;
     const pc=at(x,y);
     let label=coordName(x,y);
+    if(isGold(x,y)) label+=' — gilded square';
     if(pc) label+=` — ${pc.side==='w'?'your':'foe'} ${TYPES[pc.t].name}`;
     if(game.sel){
       const m=game.selMoves.find(m=>m.x2===x&&m.y2===y);
@@ -1110,7 +1146,8 @@ function updateRoster(){
 function updateHUD(){
   const L=LEVELS[game.ring];
   $('#ringTitle .rn').textContent=`${L.sub} · ${L.name}`;
-  $('#ringTitle .rs').textContent=royalOf('b')?'checkmate the monarch':'destroy every foe';
+  $('#ringTitle .rs').textContent=royalOf('b')?'checkmate the monarch'
+    :(game.board.gold?'destroy every foe · or claim the gold':'destroy every foe');
   const prog=$('#progress'); prog.innerHTML='';
   for(let i=0;i<LEVELS.length;i++){
     const p=document.createElement('div');
@@ -1362,6 +1399,8 @@ async function commitPlayerMove(m){
 function afterPlayerMove(){
   const foes=aliveOf('b');
   if(!foes.length){ levelClear('wipe'); return 'end'; }
+  const kw=royalOf('w');
+  if(kw&&isGold(kw.x,kw.y)){ levelClear('gold'); return 'end'; }
   const royal=royalOf('b');
   const moves=allLegalMoves('b');
   if(royal&&!moves.length){
@@ -1395,7 +1434,7 @@ function preparePlayerTurn(){
 }
 
 /* ---------------- logging (Airtable) ---------------- */
-const GAME_VERSION=2;   // bump when generation logic changes — gates replay codes
+const GAME_VERSION=3;   // bump when generation logic changes — gates replay codes
 const AT_BASE='appsvu3ApgrBKyAx6';
 const AT_TOKEN='patxeMh9t8lsRlU9l.973e131b2895f6b1e921cb91959264ec16e1a9c5e1d481e7ae18bd2c2e73881b';
 const AT_RUNS_TABLE='Endgrain';
@@ -1794,10 +1833,10 @@ async function levelClear(kind){
   deselect();
   const survivors=aliveOf('b').filter(p=>!TYPES[p.t].royal);
   const royal=royalOf('b');
-  if(kind==='mate'){
-    toast('CHECKMATE','gold');
+  if(kind==='mate'||kind==='gold'){
+    toast(kind==='gold'?'CROWNED':'CHECKMATE','gold');
     await sleep(950);
-    if(royal){ await captureFX(royal); royal.alive=false; }
+    if(kind==='mate'&&royal){ await captureFX(royal); royal.alive=false; }
     for(const pc of survivors){
       pc.el.classList.remove('check');
       pc.el.classList.add('joined');
@@ -1817,7 +1856,7 @@ async function levelClear(kind){
     toast('RING CLEARED','gold');
     await sleep(1000);
   }
-  const recruits=(kind==='mate')? survivors.map(p=>p.t) : [];
+  const recruits=(kind==='mate'||kind==='gold')? survivors.map(p=>p.t) : [];
   game.army=aliveOf('w').map(p=>p.t).concat(game.reserve).concat(recruits);
   clearScreen(kind,recruits);
 }
@@ -1899,7 +1938,9 @@ function intro(){
   const L=LEVELS[game.ring];
   const obj=royalOf('b')
     ? 'Checkmate the enemy monarch — its surviving court will join your grove.'
-    : 'No monarch rules this ring — destroy every hostile piece.';
+    : (game.board.gold
+      ? 'No monarch rules this ring — destroy every hostile piece, or lead your King to the gilded square and its survivors will kneel.'
+      : 'No monarch rules this ring — destroy every hostile piece.');
   showOverlay(`
     ${ringsSVG(game.ring,false)}
     <div class="sub">${L.sub} of ${LEVELS.length}</div>
@@ -1917,7 +1958,8 @@ function beginRing(){
 function clearScreen(kind,recruits){
   const L=LEVELS[game.ring];
   const joined=recruits.length
-    ? `<p class="joinLine">+ ${recruits.length} survivor${recruits.length>1?'s':''} join${recruits.length>1?'':'s'} your grove:
+    ? `<p class="joinLine">+ ${recruits.length} ${kind==='gold'?'masterless survivor':'survivor'}${recruits.length>1?'s':''}
+       ${kind==='gold'?'kneel'+(recruits.length>1?'':'s')+' to the new crown':'join'+(recruits.length>1?'':'s')+' your grove'}:
        <span class="glyphs">${recruits.map(t=>iconMark(t,20,'w')).join('')}</span></p>`
     : (kind==='stale' ? `<p>The survivors scatter. None join you.</p>`
                       : `<p>Nothing remains.</p>`);
@@ -1956,7 +1998,7 @@ function titleScreen(){
       <b>Descend</b> the eight rings of a great tree, outermost bark to pith.<br>
       <b>Click</b> a piece, then a glowing square, to move. Chess rules apply.<br>
       <b>Checkmate</b> a ring's monarch and its surviving court <b>joins you</b>.<br>
-      <b>Kingless rings</b> must be wiped out to the last piece.<br>
+      <b>Kingless rings</b> fall by wiping every foe — or marching your King to the gilded square.<br>
       <b>Your survivors carry on</b> — every piece you lose is lost for good.<br>
       <b>Guard your King.</b> If he is cornered, the run ends.<br>
       <b>Saplings bloom</b> into Dryad Queens at the far end of their file.<br>
@@ -2041,7 +2083,7 @@ window.endgrain={
       turn:game.turn, busy:game.busy, over:game.over,
       board:{w:game.board.w, h:game.board.h, tiles:[...game.board.mask].map(k=>{
         const[x,y]=k.split(',').map(Number); return coordName(x,y);
-      })},
+      }), gold:game.board.gold? coordName(game.board.gold.x,game.board.gold.y):null},
       pieces:game.pieces.filter(p=>p.alive).map(p=>({
         at:coordName(p.x,p.y), side:p.side==='w'?'you':'foe',
         type:TYPES[p.t].name, letter:p.t, royal:!!TYPES[p.t].royal,
