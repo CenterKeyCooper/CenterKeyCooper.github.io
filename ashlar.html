@@ -4,7 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Ashlar</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='4.5' fill='%232c2620'/%3E%3Cpath d='M5.3 12 8.7 9.2V19.4H5.3Z' fill='%23ffb347'/%3E%3Cpath d='M10.3 4.8h3.4v14.6h-3.4Z' fill='%23ff9a3c'/%3E%3Cpath d='M18.7 12 15.3 9.2V19.4h3.4Z' fill='%23ffb347'/%3E%3Cpath d='M4.5 21.3h15' stroke='%237a5230' stroke-width='2.2'/%3E%3C/svg%3E">
+<link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAAAXNSR0IArs4c6QAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAQKADAAQAAAABAAAAQAAAAABlmWCKAAACCUlEQVR4Ae1XPUtCURh+vfean6UWpmg4tLg01ZDZ2lZDEIQV0T8QgigohPboF7TWH4k+qKxdmmqyiIbIJdHbOdZyVRRfWu7Te+DiPe85j5zng+Or56VatUv7u3RzfUmNRoN6jVAoTOubW1Tc3um1zVVr5sf76+HVxTnZtt334PX6Fz2U72h2Lk+pVLrvfjdsMLTz7cNnEeUyPppKetuXWvPHSqVr3Y1Fo1vs4yGTTlbjdLAQ68qpaTe71t1YNNx46L88c4cAi9PDju/Ppnw0mRhy1JAmDgH2lseptJJ08EtELDorZiifDTrqKBOHAGvzUfJ4OqmF/SYtzYx0LgBUHAIA8BmYgggwsGRgAEu3t7XaJ8UCJm0cP5PuB0M+LxVO31R3SNRUT+HoqfVpqvuhoeZ+fwBGBkP39nr4vQZF1GUXVc9Y0Px5V6KM/r5rgQx1Q1qWRTnVCqMMj/oPYN+Xb0m3t/06PO28Jp9KT6Dwp5YAMGwYRORXgCEaFEQSAGUng4wkgCEaFEQSAGUng4wkgCEaFEQSAGUng4wkgCEaFEQSAGUng4wkgCEaFEQSAGUng4wkgCEaFEQSAGUng4wkgCEaFEQSAGUng4wkgCEaFEQSAGUng4wkgCEaFEQSAGUng4wkgCEaFEQSAGUng4wkgCEaFEQSAGUng4wkgCEaFEQSAGUng8y/T8A3nvVVNdY60IIAAAAASUVORK5CYII=">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='4.5' fill='%232c2620'/%3E%3Cpath d='M5.3 12 8.7 9.2V19.4H5.3Z' fill='%23ffb347'/%3E%3Cpath d='M10.3 4.8h3.4v14.6h-3.4Z' fill='%23ff9a3c'/%3E%3Cpath d='M18.7 12 15.3 9.2V19.4h3.4Z' fill='%23ffb347'/%3E%3Cpath d='M4.5 21.3h15' stroke='%237a5230' stroke-width='2.2'/%3E%3C/svg%3E">
 <style>
 :root{
   --parchment:#efe3c8; --parchment-dark:#e2d2ae;
@@ -343,6 +344,15 @@ body{
 .tile.hearth-tile .glyph, .tile.brazier-tile .glyph{color:var(--ember-glow); }
 .tile.bonfire-tile{
   box-shadow:0 0 14px rgba(232,114,42,.55), inset 0 0 8px rgba(255,154,60,.3);
+}
+/* fatigue: frost washes over the hearth before a flame gutters */
+.tile.cold-flash{animation:coldflash 1s ease-in-out;}
+@keyframes coldflash{
+  0%{filter:none;}
+  35%{filter:brightness(1.75) sepia(.85) hue-rotate(165deg) saturate(1.7);
+      box-shadow:0 0 22px rgba(150,200,255,.8), inset 0 0 12px rgba(180,220,255,.5);}
+  70%{filter:brightness(1.2) sepia(.5) hue-rotate(165deg) saturate(1.2);}
+  100%{filter:none;}
 }
 /* an ember thief glows with its stolen fire */
 .tile.thief-lit .glyph{color:var(--ember-glow);}
@@ -1037,7 +1047,7 @@ const MORE = {
   bonfire:"A double Brazier with only two open edges. When destroyed — by anyone, including your own demolition — it deals 1 to every orthogonally adjacent tile. Castles never touch, so the blast hits your own tiles... and enemy Boulders.",
   coalcellar:"At the start of your turn, every spent one-shot siege engine of yours releases its claimed fire — your artillery reloads itself. Claims two fires and is limited to one per deck.",
   earthquake:"Deals 1 to every leaf tile on BOTH castles — hearths excepted, your own leaves included. Build broad and connected, then shake the valley.",
-  caravan:"Both players draw 2 tiles; only you gain the extra play. A symmetrical gift with an asymmetric tempo edge.",
+  caravan:"Both players draw 2 tiles; only you gain the extra play. A symmetrical gift with an asymmetric tempo edge — and once decks run dry, forced draws snuff flames, so a late Caravan is a dagger.",
 };
 
 const DECK_LIST = [
@@ -1979,10 +1989,30 @@ function animateDiscard(takeoff){
   setTimeout(()=>g.remove(), 600);
 }
 async function drawTiles(p,n){
+  if(G.over) return;
   // one card at a time, so every draw gets its animation — and multiple
   // draws sweep in one after another
   for(let i=0;i<n;i++){
-    if(!p.deck.length) break;
+    if(!p.deck.length){
+      // fatigue: when the stores run out, the cold creeps in
+      const hearth=[...p.board.values()].find(t=>t.defId==="hearth");
+      if(hearth && !G.over){
+        log(`${pname(p.i)} stores are empty — the cold creeps in...`,"system");
+        setPrompt("The cold creeps in...");
+        await sleep(750);
+        const el=tileEl(p.i,hearth.x,hearth.y);
+        if(el){ el.classList.add("cold-flash"); setTimeout(()=>el.classList.remove("cold-flash"),1000); }
+        await sleep(350);
+        hearth.hp--;
+        p.flames=Math.max(0,hearth.hp);
+        log(`A flame of ${pname(p.i)} hearth gutters out! (${p.flames} remain)`,"system");
+        renderMeters();
+        setPrompt("");
+        await sleep(600);
+        if(p.flames<=0){ endGame(1-p.i); return; }
+      }
+      continue;
+    }
     p.hand.push(p.deck.pop());
     if(p.i===MYSEAT){ renderHandArea(); await sleep(300); }
     else { renderMeters(); await sleep(140); }
@@ -3469,7 +3499,7 @@ document.getElementById("btn-help").addEventListener("click",()=>{
   • Any tile that cannot trace connected edges back to a fire source <b>crumbles</b>.<br>
   • Attacks declare their target when played, then use <b>the stack</b> — Veiled Wards (face down, needs a free fire) counter them; a Watchtower (from hand, in response) intercepts, but only if placed adjacent or diagonal to the target.<br>
   • Siege engines reward bold shapes: the Trebuchet hits harder at the end of a long straight line, the High Spire when far from your hearth, the Grand Ballista when your castle spans wide.<br>
-  • Snuff the rival hearth's <b>3 flames</b> to win.<br>
+  • Snuff the rival hearth's <b>3 flames</b> to win. When your deck is empty, every draw you cannot make snuffs <b>your own</b> flame — the cold creeps in.<br>
   • <b>The lingo</b> — <b>Raise:</b> when this tile is placed. <b>Flame marks</b> (card corner): the tile claims that many free fires on arrival and holds them while it stands. <b>Kindled:</b> an ongoing effect that works only while its fire stays lit — it goes dormant if supply runs short. <b>Veiled:</b> enters face down. <b>Brick:</b> disable a tile; it releases its fires. <b>Splash:</b> hits the target and its orthogonal neighbors. <b>Blink:</b> a tile leaves and re-enters its cell — fresh stone, Raising anew. <b>Seize:</b> holds one of the rival's fires hostage while the seizing tile stands. <b>Warbands</b> strike at your turn's start — no stack, no counter; Bulwarks still absorb. <b>Leaf:</b> a tile with exactly one connection.<br>
   • Hold <b>⌘</b> while hovering any tile or card for full details and examples.
   </p>
