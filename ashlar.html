@@ -722,6 +722,30 @@ body{
 }
 .deck-opt-name{font-size:14px; font-weight:bold; color:#4c3820; letter-spacing:.5px;}
 .deck-opt-tag{font-size:11px; color:var(--ink-soft); line-height:1.35; margin-top:2px;}
+/* the gallery */
+#rx-toasts{
+  position:fixed; top:52px; left:50%; transform:translateX(-50%);
+  z-index:260; display:flex; flex-direction:column; gap:6px; align-items:center;
+  pointer-events:none;
+}
+.rx-toast{
+  display:flex; align-items:center; gap:7px;
+  background:linear-gradient(165deg,#f2e6cc,#e0d0aa);
+  border:1px solid #9a8055; border-radius:5px;
+  padding:5px 12px; font-size:12.5px; color:var(--ink);
+  box-shadow:0 6px 16px rgba(0,0,0,.45);
+  animation:rxin .3s cubic-bezier(.34,1.4,.64,1);
+  transition:opacity .8s;
+}
+.rx-toast.rx-out{opacity:0;}
+@keyframes rxin{from{transform:translateY(-8px) scale(.8); opacity:0;} to{transform:none; opacity:1;}}
+.rx-toast .rx-ic, .rx-btn .rx-ic{width:16px; height:16px; color:#5c4022; display:inline-flex;}
+.rx-toast .rx-ic svg, .rx-btn .rx-ic svg{width:16px; height:16px;}
+.rx-bar{
+  position:absolute; inset:0;
+  display:flex; gap:10px; align-items:center; justify-content:center;
+}
+.rx-btn{display:inline-flex; align-items:center; gap:7px; text-transform:none; letter-spacing:.5px;}
 .lobby-input{
   font-family:inherit; font-size:14px; letter-spacing:3px; text-transform:uppercase;
   width:76px; padding:5px 8px; text-align:center;
@@ -1128,7 +1152,7 @@ const key = (x,y)=>x+","+y;
 const inBounds = (x,y)=>x>=0&&y>=0&&x<W&&y<H;
 function rotEdges(edges,rot){ const e=edges.slice(); for(let i=0;i<rot;i++) e.unshift(e.pop()); return e; }
 function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(RNG()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
-const sleep = ms=>new Promise(r=>setTimeout(r,ms));
+const sleep = ms=>G.FAST?Promise.resolve():new Promise(r=>setTimeout(r,ms));
 
 /* ---------- state ---------- */
 let uidCounter = 0;
@@ -1142,30 +1166,52 @@ function makeTile(defId, rot=0, faceDown=false){
    V(i): logical seat -> screen side (local player always renders on side 0).
    S(k): screen side -> logical seat.                                    */
 let MYSEAT=0;
+let SPECTATE=false;
 const V=i=> i===MYSEAT?0:1;
 const S=k=> k===0?MYSEAT:1-MYSEAT;
 const who=i=> i===MYSEAT?"you":"foe";
 const NET={
-  mode:"local",        // local | host | join
+  mode:"local",        // local | host | join | spectate
   peer:null, conn:null,
   actQ:[], actWait:null,
   choiceQ:[], choiceWait:null,
+  spectators:[], log:[], gameInit:null,
 };
-function netSend(msg){ if(NET.conn){ try{ NET.conn.send(JSON.stringify(msg)); }catch(e){} } }
+function netSend(msg){
+  const s=JSON.stringify(msg);
+  if(NET.conn){ try{ NET.conn.send(s); }catch(e){} }
+  if(NET.mode==="host"&&(msg.a!==undefined||msg.c!==undefined)){
+    NET.log.push(msg);
+    netToSpectators(s);
+  }
+}
+function netToSpectators(s,except){
+  for(const c of NET.spectators){ if(c!==except){ try{ c.send(s); }catch(e){} } }
+}
 function netAwaitAction(){
   return new Promise(res=>{
-    if(NET.actQ.length) res(NET.actQ.shift());
+    if(NET.actQ.length){ specConsumed(); res(NET.actQ.shift()); }
     else NET.actWait=res;
   });
 }
 function netAwaitChoice(){
   return new Promise(res=>{
-    if(NET.choiceQ.length) res(NET.choiceQ.shift());
+    if(NET.choiceQ.length){ specConsumed(); res(NET.choiceQ.shift()); }
     else NET.choiceWait=res;
   });
 }
 function netReceive(raw){
   let msg; try{ msg=JSON.parse(raw); }catch(e){ return; }
+  if(msg.rx!==undefined){
+    if(NET.mode==="host"){ NET.log.push(msg); netToSpectators(raw); }
+    showReaction(msg.rx);
+    return;
+  }
+  if(msg.a!==undefined||msg.c!==undefined){
+    // the host is the hub: everything the player sends echoes to the gallery
+    if(NET.mode==="host"){ NET.log.push(msg); netToSpectators(raw); }
+    if(SPECTATE && G.FAST!==undefined && G.fastRemaining>0){/* backlog handled via queue */}
+  }
   if(msg.a!==undefined){
     if(NET.actWait){ const w=NET.actWait; NET.actWait=null; w(msg.a); }
     else NET.actQ.push(msg.a);
@@ -1176,9 +1222,20 @@ function netReceive(raw){
     NET.onLobby(msg);
   }
 }
+/* catchup accounting: while fast-forwarding, count consumed backlog */
+function specConsumed(){
+  if(!SPECTATE || !G.FAST) return;
+  G.fastRemaining--;
+  if(G.fastRemaining<=0){
+    G.FAST=false;
+    renderAll(); renderHandArea();
+    setPrompt("");
+    log("You are caught up — watching live.","system");
+  }
+}
 /* three-way chooser: local UI (and broadcast) / remote wire / solo AI */
 async function choose(p, uiFn, aiFn, enc, dec){
-  if(p.i===MYSEAT){
+  if(p.i===MYSEAT && !SPECTATE){
     const v=await uiFn();
     if(NET.mode!=="local") netSend({c: enc?enc(v):(v===undefined?null:v)});
     return v;
@@ -1202,13 +1259,13 @@ const G = {
 let LIB_COUNTS=null; // custom deck composition chosen in the library
 /* the six architects' decks */
 const DECKS={
-  longwall:{name:"The Long Wall", tag:"Lines & artillery.",
+  longwall:{name:"The Long Wall", tag:"Lines.",
     counts:{trebuchet:3,aqueduct:3,ballista:3,outriders:2,coalcellar:1,brazier:4,wall:4,bulwark:2,watchtower:2,hallway:4,gatehouse:2,milestone:3,ward:2,catapult:3,bordershrine:1,ropeplumb:1},
     bias:{trebuchet:1.25,aqueduct:1.3,milestone:1.3,wall:1.15,outriders:1.2,bordershrine:1.25,ropeplumb:1.25}},
-  warren:{name:"The Warren", tag:"Wind.",
+  warren:{name:"The Warren", tag:"Bends.",
     counts:{serpent:3,spiral:3,echo:2,wolfpack:2,guild:2,hallway:4,gatehouse:2,brazier:3,ward:2,bulwark:2,burrows:2,reliquary:2,thief:2,spire:4,catapult:3,vaulters:1,highperch:1},
     bias:{serpent:1.35,spiral:1.3,burrows:1.25,guild:1.2,wolfpack:1.15,vaulters:1.3,highperch:1.25}},
-  cloister:{name:"The Cloister", tag:"Courtyards & turtling.",
+  cloister:{name:"The Cloister", tag:"Courtyards.",
     counts:{courtyard:3,garden:2,keystone:2,mirror:2,tollgate:2,brazier:3,bulwark:3,watchtower:2,ward:2,gatehouse:2,hallway:2,cloisterwalk:3,spire:3,catapult:2,outriders:1,wall:2,boulder:2,gardeners:2},
     bias:{courtyard:1.3,cloisterwalk:1.3,garden:1.25,keystone:1.2,bulwark:1.15,gardeners:1.3}},
   ashes:{name:"The Ashes", tag:"Graveyard.",
@@ -1220,7 +1277,7 @@ const DECKS={
   veil:{name:"The Veil", tag:"Control.",
     counts:{ward:3,watchtower:3,witch:2,thief:2,rats:2,tollgate:2,whisper:2,brazier:4,gatehouse:2,hallway:2,spire:2,ballista:2,catapult:2,wolfpack:1,reliquary:2,bulwark:2,scriptorium:1,boulder:2,scorpion:1,chantry:1},
     bias:{ward:1.3,watchtower:1.25,whisper:1.3,thief:1.2,witch:1.2}},
-  manufactory:{name:"The Manufactory", tag:"Combo, Value",
+  manufactory:{name:"The Manufactory", tag:"Combo.",
     counts:{hallway:4,gatehouse:3,festival:2,caravan:2,echo:2,barracks:1,forge:2,bellows:1,gallery:2,deepcellar:1,milestone:2,brazier:3,bulwark:2,watchtower:2,ward:2,grandworks:2,catapult:3,spire:2,scorpion:2},
     bias:{hallway:1.25,gatehouse:1.2,gallery:1.35,grandworks:1.35,bellows:1.3,deepcellar:1.3,festival:1.25,echo:1.2,scorpion:1.2}},
 };
@@ -1633,6 +1690,7 @@ async function destroyTile(p,tile,silent,attacker){
   p.board.delete(key(tile.x,tile.y));
   p.claimOrder=p.claimOrder.filter(u=>u!==tile.uid);
   p.grave.push(tile.defId);
+  statInc("destroyed",p.i,tile.defId);
   if(!silent) log(`${DEFS[tile.defId].name} in ${pname(p.i)} castle is destroyed.`, who(p.i));
   settleDormancy(p);
   renderAll();
@@ -1667,7 +1725,7 @@ async function resolveStack(){
     const responder=1-top.controller;
     if(!top.noRespond && !top.countered){
       let reacted;
-      if(responder===MYSEAT) reacted=await humanResponseWindow(top);
+      if(responder===MYSEAT && !SPECTATE) reacted=await humanResponseWindow(top);
       else if(NET.mode==="local") reacted=await aiResponseWindow(top);
       else reacted=await remoteResponseWindow(top);
       if(reacted) continue; // a new item was added; loop to offer responses to it
@@ -1679,6 +1737,7 @@ async function resolveStack(){
       // the source never fired: release its fire claim and let it stand dormant
       const sp=G.players[item.controller];
       const src=[...sp.board.values()].find(t=>t.uid===item.sourceUid);
+      statInc("countered",item.controller,src?src.defId:"unknown");
       if(src && src.claims){
         src.claims=0; src.dormant=true;
         sp.claimOrder=sp.claimOrder.filter(u=>u!==src.uid);
@@ -2008,7 +2067,7 @@ async function onEnterAbility(p, tile){
         if(!ep.hand.length){ log("The rats find an empty larder.","system"); return; }
         const idx=Math.floor(RNG()*ep.hand.length);
         const lost=ep.hand[idx];
-        await discardFromHand(ep,idx);
+        await discardFromHand(ep,idx,"rats");
         log(`The rats devour ${ep.i===MYSEAT?"your":"the rival's"} ${DEFS[lost].name}!`,"system");
         renderAll();
       }
@@ -2119,9 +2178,11 @@ async function onEnterAbility(p, tile){
 /* ---------- turn flow ---------- */
 const HAND_LIMIT=7;
 /* discard a card from hand to the graveyard, with its animation */
-async function discardFromHand(p, idx){
+async function discardFromHand(p, idx, reason){
   const id=p.hand[idx];
   if(id===undefined) return null;
+  statInc("discarded",p.i,id);
+  statInc("discardWhy",p.i,reason||"limit");
   if(p.i===MYSEAT){
     const takeoff=handCardTakeoff(idx);
     G._playedIdx=idx;
@@ -2189,6 +2250,7 @@ async function drawTiles(p,n){
       continue;
     }
     p.hand.push(p.deck.pop());
+    statInc("drawn",p.i,p.hand[p.hand.length-1]);
     if(p.i===MYSEAT){ renderHandArea(); await sleep(300); }
     else { renderMeters(); await sleep(140); }
   }
@@ -2199,7 +2261,8 @@ function pname(i){ return i===MYSEAT?"your":"the rival's"; }
 async function startTurn(i){
   if(G.over) return;
   G.active=i; G.playsLeft=1;
-  document.getElementById("turn-banner").textContent = i===MYSEAT?"Your turn":"Rival's turn";
+  if(G.stats) G.stats.plies++;
+  document.getElementById("turn-banner").textContent = SPECTATE&&G.meta&&G.meta.names ? G.meta.names[i]+"'s turn" : (i===MYSEAT?"Your turn":"Rival's turn");
   document.getElementById("turn-banner").classList.toggle("enemy", i===1);
   document.getElementById("panel-"+V(i)).classList.toggle("active-turn", true);
   document.getElementById("panel-"+V(1-i)).classList.toggle("active-turn", false);
@@ -2293,14 +2356,14 @@ async function startTurn(i){
   }
   await drawTiles(p,1);
   renderAll();
-  if(i===MYSEAT){
+  if(i===MYSEAT && !SPECTATE){
     G.mode="idle";
     setPrompt(`Play a tile (${G.playsLeft} play left), demolish one of yours, or end your turn.`,
       [{label:"End Turn", cls:"", fn:()=>endTurn()},
        {label:"Demolish a tile", cls:"danger", fn:()=>beginDemolish()}]);
     maybeAutoEnd();
   }else{
-    setPrompt("The rival architect ponders...");
+    setPrompt(SPECTATE&&G.meta&&G.meta.names ? G.meta.names[i]+" ponders..." : "The rival architect ponders...");
     if(NET.mode==="local") await aiTurn(i);
     else await remoteTurnLoop();
   }
@@ -2326,6 +2389,7 @@ async function applyRemotePlace(a){
   putTile(targetP,tile,a.x,a.y);
   await flyCard(rivalHandRect(),targetP.i,a.x,a.y,null);
   animatePop(targetP.i,a.x,a.y);
+  statInc("played",p.i,id);
   log(isBoulder ? "The rival hurls a Boulder into your grounds!" :
       (a.fd?"The rival lays a tile face down...":`The rival builds a ${DEFS[id].name}.`),"foe");
   renderAll();
@@ -2337,7 +2401,7 @@ async function applyRemotePlace(a){
 }
 async function applyRemoteDemolish(a){
   const p=G.players[G.active];
-  await discardFromHand(p,a.d);
+  await discardFromHand(p,a.d,"fee");
   G.playsLeft--;
   const tile=p.board.get(key(a.x,a.y));
   if(tile){
@@ -2348,7 +2412,7 @@ async function applyRemoteDemolish(a){
 }
 async function endTurn(){
   if(G.over) return;
-  if(NET.mode!=="local" && G.active===MYSEAT) netSend({a:{t:"end"}});
+  if(NET.mode!=="local" && G.active===MYSEAT && !SPECTATE) netSend({a:{t:"end"}});
   clearSelection();
   setPrompt("");
   await structureCheck();
@@ -2356,7 +2420,7 @@ async function endTurn(){
   {
     const tp=G.players[G.active];
     if(tp.hand.length>HAND_LIMIT){
-      if(G.active===MYSEAT) await humanDiscardDown();
+      if(G.active===MYSEAT && !SPECTATE) await humanDiscardDown();
       else if(NET.mode!=="local"){ while(tp.hand.length>HAND_LIMIT){ const di=await netAwaitChoice(); await discardFromHand(tp, di); } }
     }
   }
@@ -2408,7 +2472,7 @@ async function doDemolish(tile){
   const idx=await humanPickDiscardOne(`The masons want payment — discard a tile to demolish the ${DEFS[tile.defId].name}.`);
   if(idx==null){ startIdlePrompt(); return; }
   if(NET.mode!=="local") netSend({a:{t:"demolish", x:tile.x, y:tile.y, d:idx}});
-  const paid=await discardFromHand(G.players[MYSEAT],idx);
+  const paid=await discardFromHand(G.players[MYSEAT],idx,"fee");
   G.playsLeft--;
   log(`You pay the masons a ${DEFS[paid].name} and demolish your ${DEFS[tile.defId].name}${tile.claims?", freeing its fire":""}.`,"you");
   await destroyTile(G.players[MYSEAT],tile,true);
@@ -2432,7 +2496,7 @@ function afterHumanPlay(){
 let autoEndTimer=null;
 function maybeAutoEnd(){
   clearTimeout(autoEndTimer);
-  if(G.over || G.active!==MYSEAT || G.mode!=="idle" || G.stack.length) return;
+  if(G.over || SPECTATE || G.active!==MYSEAT || G.mode!=="idle" || G.stack.length) return;
   const p=G.players[MYSEAT];
   if(G.playsLeft>0 && p.hand.length>0) return;
   autoEndTimer=setTimeout(()=>{
@@ -2503,6 +2567,7 @@ async function humanPlaceAt(x,y){
   log(isBoulder ? "You hurl a Boulder into the rival's grounds!" :
       `You lay a ${faceDown?"face-down tile":DEFS[defId].name}.`, "you");
   renderAll();
+  statInc("played",p.i,defId);
   p.placedCount=(p.placedCount||0)+1;
   if(!isBoulder) await checkBarracks(p,x,y);
   if(!faceDown && !isBoulder) await onEnterAbility(p,tile);
@@ -2593,6 +2658,7 @@ async function remoteResponseWindow(top){
     animatePop(p.i,msg.x,msg.y);
     top.target={p:p.i, uid:tile.uid};
     top.label+=" → Watchtower";
+    statInc("played",p.i,"watchtower");
     log("The rival's Watchtower rises to intercept!","foe");
     renderAll(); renderStack();
     p.placedCount=(p.placedCount||0)+1;
@@ -2676,6 +2742,7 @@ async function placeReactionTower(x,y){
   animatePop(p.i,x,y);
   top.target={p:p.i, uid:tile.uid};
   top.label+=" → Watchtower";
+  statInc("played",p.i,"watchtower");
   log("Your Watchtower rises to take the blow!","you");
   renderAll(); renderStack();
   p.placedCount=(p.placedCount||0)+1;
@@ -2921,6 +2988,7 @@ function layoutHand(){
   spacer.style.width=(left0+total+8)+"px";
 }
 function renderHandArea(){
+  if(SPECTATE) return; // the gallery sees no hand
   const p=G.players[MYSEAT];
   const h=document.getElementById("hand");
   let cards=[...h.children].filter(c=>c.classList&&c.classList.contains("card"));
@@ -3054,6 +3122,7 @@ function animatePop(pi,x,y){
    which fly apart from where they sat, tumble, and fall */
 /* a card sails from a hand and shrinks onto its cell */
 function flyCard(fromRect, pi, x, y, cardNode){
+  if(G.FAST) return Promise.resolve();
   const cell=cellEl(pi,x,y);
   if(!cell||!fromRect) return Promise.resolve();
   const to=cell.getBoundingClientRect();
@@ -3118,6 +3187,7 @@ function handCardTakeoff(idx){
           node: typeof cardEl.cloneNode==="function"?cardEl.cloneNode(true):null};
 }
 function spawnShatter(pi,x,y,tile){
+  if(G.FAST) return;
   const c=cellEl(pi,x,y); if(!c) return;
   const r=c.getBoundingClientRect();
   let light="#90938c", dark="#6d7069";
@@ -3193,6 +3263,7 @@ async function animateHit(pi,x,y){
   if(el){ el.classList.add("hit-flash"); await sleep(430); el.classList.remove("hit-flash"); }
 }
 async function animateProjectile(fromP,fx,fy,toP,tx,ty){
+  if(G.FAST) return;
   const a=cellEl(fromP,fx,fy), b=cellEl(toP,tx,ty);
   if(!a||!b) return;
   const r1=a.getBoundingClientRect(), r2=b.getBoundingClientRect();
@@ -3625,7 +3696,7 @@ async function aiTurn(seat){
         (t.defId==="scriptorium"||t.defId==="garden")&&t.claims>0&&!t.dormant&&!t.bricked);
       if(burner){
         G.playsLeft--;
-        await discardFromHand(p, aiWorstCardIdx(p));
+        await discardFromHand(p, aiWorstCardIdx(p),"fee");
         log("The rival shutters a study before it devours the last stores.","foe");
         await destroyTile(p,burner,true);
         await structureCheck();
@@ -3642,7 +3713,7 @@ async function aiTurn(seat){
             !["outriders","wolfpack","stormaltar"].includes(t.defId));
       if(engine){
         G.playsLeft--;
-        await discardFromHand(p, aiWorstCardIdx(p));
+        await discardFromHand(p, aiWorstCardIdx(p),"fee");
         log("The rival pays the masons and dismantles a spent engine, freeing its fire.","foe");
         await destroyTile(p,engine,true);
         await structureCheck();
@@ -3661,7 +3732,7 @@ async function aiTurn(seat){
                  ||cand.find(t=>t.defId!=="thief")||cand[0];
         if(leaf){
           G.playsLeft--;
-          await discardFromHand(p, aiWorstCardIdx(p));
+          await discardFromHand(p, aiWorstCardIdx(p),"fee");
           log("The rival pays the masons and tears down a blocked wing to open new ground.","foe");
           await destroyTile(p,leaf,true);
           await structureCheck();
@@ -3680,6 +3751,7 @@ async function aiTurn(seat){
       putTile(G.players[0],tile,x,y);
       await flyCard(rivalHandRect(), 0, x, y, null);
       animatePop(0,x,y);
+      statInc("played",p.i,"boulder");
       log("The rival hurls a Boulder into your grounds!","foe");
       renderAll();
       p.placedCount=(p.placedCount||0)+1;
@@ -3689,6 +3761,7 @@ async function aiTurn(seat){
       putTile(p,tile,mv.place.x,mv.place.y);
       await flyCard(rivalHandRect(), 1, mv.place.x, mv.place.y, null);
       animatePop(1,mv.place.x,mv.place.y);
+      statInc("played",p.i,mv.id);
       log(mv.id==="ward"?"The rival lays a tile face down...":`The rival builds a ${DEFS[mv.id].name}.`,"foe");
       renderAll();
       p.placedCount=(p.placedCount||0)+1;
@@ -3743,6 +3816,7 @@ async function aiResponseWindow(top){
       animatePop(p.i,spot.x,spot.y);
       top.target={p:p.i, uid:tile.uid};
       top.label+=" → Watchtower";
+      statInc("played",p.i,"watchtower");
       log("The rival's Watchtower rises to intercept your attack!","foe");
       renderAll(); renderStack();
       p.placedCount=(p.placedCount||0)+1;
@@ -3759,9 +3833,19 @@ async function aiResponseWindow(top){
 ===================================================== */
 function endGame(winner){
   G.over=true; G.mode="gameover";
+  logGame(winner);
   setPrompt("");
   const panel=document.getElementById("overlay-panel");
   panel.classList.remove("wide");
+  if(SPECTATE){
+    const names=(G.meta&&G.meta.names)||["The host","The guest"];
+    panel.innerHTML=`<h2>${String(names[winner]||"The victor").replace(/[<>&]/g,"")} prevails</h2>
+      <p>The rival hearth lies cold. The gallery files out into the night.</p>
+      <button class="btn" onclick="location.reload()">Return to the Valley</button>`;
+    document.getElementById("overlay").classList.add("show");
+    log("The match is decided.","system");
+    return;
+  }
   panel.innerHTML= winner===MYSEAT
     ? `<h2>Victory</h2><p>The rival's hearth lies cold and dark. Your castle stands — crooked, cunning, and warm.</p>
        <button class="btn" onclick="location.reload()">Build Anew</button>`
@@ -3793,6 +3877,105 @@ document.getElementById("btn-help").addEventListener("click",()=>{
    The Library — see every card, forge the decks
 ===================================================== */
 /* =====================================================
+   Telemetry — one Airtable row per finished game
+===================================================== */
+const ASHLAR_VERSION="1.0";
+const AT_BASE="appsvu3ApgrBKyAx6";
+const AT_TOKEN="patxeMh9t8lsRlU9l.973e131b2895f6b1e921cb91959264ec16e1a9c5e1d481e7ae18bd2c2e73881b";
+const AT_TABLE="Ashlar games";
+function atPost(fields){
+  return fetch(`https://api.airtable.com/v0/${AT_BASE}/${encodeURIComponent(AT_TABLE)}`,{
+    method:"POST",
+    headers:{"Authorization":"Bearer "+AT_TOKEN,"Content-Type":"application/json"},
+    body:JSON.stringify({fields, typecast:true}),
+    keepalive:true
+  }).then(r=>r.json()).then(d=>{ if(d.error){ console.error("Airtable:",d.error); throw d.error; } return d; });
+}
+function nowStamp(){
+  const d=new Date(), z=n=>String(n).padStart(2,"0");
+  return `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())} ${z(d.getHours())}:${z(d.getMinutes())}`;
+}
+function myName(){ try{ return (localStorage.getItem("ashlarName")||"").trim(); }catch(e){ return ""; } }
+function saveMyName(v){ try{ localStorage.setItem("ashlarName", String(v||"").slice(0,20)); }catch(e){} }
+function statInc(cat,seat,id){
+  try{
+    if(!G.stats||seat<0||seat>1) return;
+    const m=G.stats[cat][seat];
+    m[id]=(m[id]||0)+1;
+  }catch(e){}
+}
+function newStats(){
+  return {
+    played:[{},{}], drawn:[{},{}], discarded:[{},{}], destroyed:[{},{}],
+    countered:[{},{}], discardWhy:[{},{}], plies:0, started:Date.now(),
+  };
+}
+/* only one client reports an online game: the host */
+function shouldLog(){ return NET.mode!=="join" && NET.mode!=="spectate"; }
+function logGame(winner, cause){
+  if(G.logged || !shouldLog()) return;
+  G.logged=true;
+  const meta=G.meta||{};
+  const names=meta.names||["anonymous","The Rival"];
+  const decks=meta.decks||["?","?"];
+  const s=G.stats||newStats();
+  const fields={
+    Date: nowStamp(),
+    Version: ASHLAR_VERSION,
+    Mode: meta.mode||"ai",
+    GameId: (NET.room||"solo")+"-"+(RNG_SEED>>>0).toString(16),
+    PlayerA: names[0]||"anonymous",
+    PlayerB: names[1]||"anonymous",
+    DeckA: decks[0], DeckB: decks[1],
+    Turns: s.plies,
+    EndCause: cause || G.lastFlameCause || "combat",
+    Seconds: Math.floor((Date.now()-s.started)/1000),
+    Stats: JSON.stringify({
+      v:1, seed:(RNG_SEED>>>0).toString(16),
+      played:s.played, drawn:s.drawn, discarded:s.discarded,
+      destroyed:s.destroyed, countered:s.countered, discardWhy:s.discardWhy,
+    }),
+  };
+  if(winner===0||winner===1){
+    fields.WinnerSeat=winner;
+    fields.WinnerDeck=decks[winner];
+    fields.WinnerName=names[winner]||"anonymous";
+    fields.FlamesLeft=G.players[winner]?G.players[winner].flames:0;
+  }
+  atPost(fields).catch(()=>{});
+}
+
+/* ---- reactions: the gallery may heckle ---- */
+const REACTIONS={
+  cheer:{icon:"festival", txt:"Hear hear!"},
+  flame:{icon:"flame",    txt:"Burn it down!"},
+  gasp:{icon:"veil",      txt:"By the stones!"},
+  doom:{icon:"ossuary",   txt:"Ruin!"},
+};
+function showReaction(rx){
+  if(!rx||!REACTIONS[rx.k]) return;
+  let holder=document.getElementById("rx-toasts");
+  if(!holder){
+    holder=document.createElement("div");
+    holder.id="rx-toasts";
+    document.body.appendChild(holder);
+  }
+  const r=REACTIONS[rx.k];
+  const t=document.createElement("div");
+  t.className="rx-toast";
+  t.innerHTML=`<span class="rx-ic">${icon(r.icon)}</span><b>${String(rx.n||"a watcher").replace(/[<>&]/g,"")}</b>&nbsp;${r.txt}`;
+  holder.appendChild(t);
+  setTimeout(()=>{ t.classList.add("rx-out"); }, 2600);
+  setTimeout(()=>t.remove(), 3400);
+  while(holder.children.length>4) holder.firstChild.remove();
+}
+function sendReaction(k){
+  const rx={n:(myName()||"a watcher").slice(0,14), k};
+  showReaction(rx);
+  netSend({rx});
+}
+
+/* =====================================================
    Online play — PeerJS lockstep (loaded only when used)
 ===================================================== */
 function loadPeerJS(){
@@ -3823,6 +4006,7 @@ function setLobbyStatus(html){
 function netDropped(){
   if(G.over) return;
   G.over=true;
+  logGame(null,"disconnect");
   const panel=document.getElementById("overlay-panel");
   panel.classList.remove("wide");
   panel.innerHTML=`<h2>Severed</h2><p>The connection to your rival was lost.</p>
@@ -3838,6 +4022,7 @@ function wireConn(conn){
 async function hostGame(){
   try{ await loadPeerJS(); }catch(e){ setLobbyStatus(e.message); return; }
   const code=genCode();
+  NET.room=code;
   NET.peer=new Peer("ashlar-"+code);
   setLobbyStatus(`Raising the banner...`);
   NET.peer.on("open",()=>{
@@ -3853,6 +4038,7 @@ async function hostGame(){
   });
   NET.peer.on("error",err=>setLobbyStatus("Connection trouble ("+err.type+") — try hosting again."));
   NET.peer.on("connection",conn=>{
+    if(conn.metadata && conn.metadata.role==="spectate"){ wireSpectator(conn); return; }
     wireConn(conn);
     conn.on("open",()=>{
       const seed=(Math.random()*2**31)|0;
@@ -3860,10 +4046,14 @@ async function hostGame(){
       NET.onLobby=(msg)=>{
         if(msg.l==="deck"){
           NET.onLobby=null;
+          NET.rivalName=(msg.name||"").slice(0,20);
+          G.pendingMeta={mode:"online",
+            decks:[SEL.you==="custom"?"custom":SEL.you, msg.deckName||"?"],
+            names:[myName()||"anonymous", NET.rivalName||"anonymous"]};
           beginMP("host",0,myDeckCounts(),msg.deck);
         }
       };
-      netSend({l:"hello", seed, deck:myDeckCounts()});
+      netSend({l:"hello", seed, deck:myDeckCounts(), deckName:SEL.you==="custom"?"custom":SEL.you, name:myName()});
     });
   });
 }
@@ -3871,6 +4061,7 @@ async function joinGame(code){
   code=(code||"").trim().toUpperCase();
   if(code.length<3){ setLobbyStatus("Enter the room code your rival gave you."); return; }
   try{ await loadPeerJS(); }catch(e){ setLobbyStatus(e.message); return; }
+  NET.room=code;
   NET.peer=new Peer();
   setLobbyStatus("Riding to the host's keep...");
   NET.peer.on("error",err=>setLobbyStatus("Could not reach that room ("+err.type+")."));
@@ -3881,7 +4072,11 @@ async function joinGame(code){
       if(msg.l==="hello"){
         NET.onLobby=null;
         setSeed(msg.seed);
-        netSend({l:"deck", deck:myDeckCounts()});
+        NET.rivalName=(msg.name||"").slice(0,20);
+        G.pendingMeta={mode:"online",
+          decks:[msg.deckName||"?", SEL.you==="custom"?"custom":SEL.you],
+          names:[NET.rivalName||"anonymous", myName()||"anonymous"]};
+        netSend({l:"deck", deck:myDeckCounts(), deckName:SEL.you==="custom"?"custom":SEL.you, name:myName()});
         beginMP("join",1,msg.deck,myDeckCounts());
       }
     };
@@ -3890,8 +4085,81 @@ async function joinGame(code){
 function beginMP(mode, seat, counts0, counts1){
   NET.mode=mode;
   MYSEAT=seat;
+  if(mode==="host"){
+    NET.gameInit={ seed:RNG_SEED>>>0, c0:counts0, c1:counts1,
+      decks:(G.pendingMeta&&G.pendingMeta.decks)||["?","?"],
+      names:(G.pendingMeta&&G.pendingMeta.names)||["anonymous","anonymous"] };
+    NET.log=[];
+    NET.spectators.forEach(sendSpecInit);
+  }
   beginGame(counts0, counts1, null,
     "A living rival faces you across the valley. May the warmer hearth prevail.");
+}
+/* ---- the gallery ---- */
+function wireSpectator(conn){
+  conn.on("open",()=>{
+    NET.spectators.push(conn);
+    conn.on("data",raw=>{
+      let m; try{ m=JSON.parse(raw); }catch(e){ return; }
+      if(m.rx!==undefined){ // relay reactions from the gallery to everyone
+        NET.log.push(m);
+        showReaction(m.rx);
+        netToSpectators(raw,conn);
+        if(NET.conn){ try{ NET.conn.send(raw); }catch(e){} }
+      }
+    });
+    conn.on("close",()=>{ NET.spectators=NET.spectators.filter(c=>c!==conn); });
+    conn.on("error",()=>{ NET.spectators=NET.spectators.filter(c=>c!==conn); });
+    sendSpecInit(conn);
+    log("A watcher arrives in the gallery.","system");
+  });
+}
+function sendSpecInit(conn){
+  try{
+    if(NET.gameInit)
+      conn.send(JSON.stringify({l:"spec-init", ...NET.gameInit, log:NET.log}));
+    else
+      conn.send(JSON.stringify({l:"spec-wait"}));
+  }catch(e){}
+}
+async function joinSpectate(code){
+  code=(code||"").trim().toUpperCase();
+  if(code.length<3){ setLobbyStatus("Enter the room code to watch."); return; }
+  try{ await loadPeerJS(); }catch(e){ setLobbyStatus(e.message); return; }
+  NET.room=code;
+  NET.peer=new Peer();
+  setLobbyStatus("Slipping into the gallery...");
+  NET.peer.on("error",err=>setLobbyStatus("Could not reach that room ("+err.type+")."));
+  NET.peer.on("open",()=>{
+    const conn=NET.peer.connect("ashlar-"+code,{reliable:true, metadata:{role:"spectate"}});
+    wireConn(conn);
+    NET.onLobby=(msg)=>{
+      if(msg.l==="spec-wait"){ setLobbyStatus("Seated in the gallery — the match has not begun. Waiting..."); return; }
+      if(msg.l==="spec-init"){
+        NET.onLobby=(m2)=>{ if(m2.l==="spec-init") startSpectate(m2); };
+        startSpectate(msg);
+      }
+    };
+  });
+}
+function startSpectate(init){
+  NET.mode="spectate";
+  SPECTATE=true;
+  MYSEAT=0;
+  setSeed(init.seed);
+  // prime the backlog before the simulation starts consuming
+  NET.actQ=[]; NET.choiceQ=[];
+  for(const m of (init.log||[])){
+    if(m.a!==undefined) NET.actQ.push(m.a);
+    else if(m.c!==undefined) NET.choiceQ.push(m.c);
+  }
+  const nGame=(init.log||[]).filter(m=>m.a!==undefined||m.c!==undefined).length;
+  G.pendingMeta={mode:"spectate", decks:init.decks, names:init.names};
+  beginGame(init.c0, init.c1, null,
+    `You watch from the gallery: ${init.names[0]} against ${init.names[1]}.`);
+  G.FAST=nGame>0;
+  G.fastRemaining=nGame;
+  if(G.FAST) setPrompt("Catching up on the tale so far...");
 }
 
 /* deck selection: choose the two architects */
@@ -3920,7 +4188,11 @@ function showDeckSelect(){
       <div><h3 class="deck-col-h">Your deck</h3><div id="deck-row-you">${row("you")}</div></div>
       <div><h3 class="deck-col-h">Rival's deck</h3><div id="deck-row-rival">${row("rival")}</div></div>
     </div>
-    <div style="margin-top:14px; display:flex; gap:14px; justify-content:center; align-items:center;">
+    <div style="margin-top:12px; display:flex; gap:10px; justify-content:center; align-items:center;">
+      <span style="font-size:11px; color:#7a5a30; letter-spacing:2px; text-transform:uppercase;">Architect</span>
+      <input id="ds-name" class="lobby-input" style="width:160px; letter-spacing:1px; text-transform:none;" maxlength="20" placeholder="your name" value="${myName().replace(/"/g,"")}" autocomplete="off">
+    </div>
+    <div style="margin-top:12px; display:flex; gap:14px; justify-content:center; align-items:center;">
       <button class="btn ghost" id="ds-library">Open the Library</button>
       <button class="btn" id="ds-begin">Begin vs Rival AI</button>
     </div>
@@ -3929,6 +4201,7 @@ function showDeckSelect(){
       <button class="btn ghost" id="ds-host">Host</button>
       <input id="ds-code" class="lobby-input" maxlength="4" placeholder="CODE" autocomplete="off">
       <button class="btn ghost" id="ds-join">Join</button>
+      <button class="btn ghost" id="ds-watch">Watch</button>
     </div>
     <div id="lobby-status" style="margin-top:8px; font-size:12.5px; color:#5c4a2e; min-height:18px;"></div>`;
   const refresh=()=>{
@@ -3942,13 +4215,17 @@ function showDeckSelect(){
     el.onclick=()=>{ SEL[el.dataset.side]=el.dataset.deck; refresh(); };
   });
   panel.querySelector("#ds-library").onclick=showSetup;
-  panel.querySelector("#ds-host").onclick=hostGame;
-  panel.querySelector("#ds-join").onclick=()=>joinGame(panel.querySelector("#ds-code").value);
+  const grabName=()=>{ const el=panel.querySelector("#ds-name"); if(el) saveMyName(el.value); };
+  panel.querySelector("#ds-host").onclick=()=>{ grabName(); hostGame(); };
+  panel.querySelector("#ds-join").onclick=()=>{ grabName(); joinGame(panel.querySelector("#ds-code").value); };
+  panel.querySelector("#ds-watch").onclick=()=>{ grabName(); joinSpectate(panel.querySelector("#ds-code").value); };
   panel.querySelector("#ds-begin").onclick=()=>{
     if(SEL.you==="custom"){ showSetup(); return; } // custom begins from the library
+    grabName();
     const rivalKey = SEL.rival==="random"
       ? Object.keys(DECKS)[Math.floor(Math.random()*Object.keys(DECKS).length)]
       : SEL.rival;
+    G.pendingMeta={mode:"ai", decks:[SEL.you, rivalKey], names:[myName()||"anonymous","The Rival"]};
     beginGame(DECKS[SEL.you].counts, DECKS[rivalKey].counts, DECKS[rivalKey].bias,
       `You raise ${DECKS[SEL.you].name}; the rival raises ${DECKS[rivalKey].name}.`);
   };
@@ -4000,8 +4277,10 @@ function showSetup(){
     DECK_LIST.forEach(([id,n])=>LIB_COUNTS[id]=n); refresh();
   };
   panel.querySelector("#lib-back").onclick=showDeckSelect;
-  panel.querySelector("#lib-begin").onclick=()=>beginGame(null,null,null,
-    "A mirror match — both architects draw from your forged deck.");
+  panel.querySelector("#lib-begin").onclick=()=>{
+    G.pendingMeta={mode:"mirror", decks:["custom","custom"], names:[myName()||"anonymous","The Rival"]};
+    beginGame(null,null,null,"A mirror match — both architects draw from your forged deck.");
+  };
   panel.querySelectorAll("[data-lib]").forEach(cd=>{
     const pseudo={defId:cd.dataset.lib, faceDown:false, dormant:false, bricked:false, spent:false, claims:0};
     cd.onmouseenter=(e)=>showTooltip(e,pseudo,0);
@@ -4012,6 +4291,9 @@ function showSetup(){
 }
 function beginGame(counts0, counts1, rivalBias, intro){
   document.getElementById("overlay").classList.remove("show");
+  G.stats=newStats(); G.logged=false;
+  G.meta=G.pendingMeta||{mode:"ai",decks:["?","?"],names:[myName()||"anonymous","The Rival"]};
+  G.pendingMeta=null;
   document.getElementById("overlay-panel").classList.remove("wide");
   if(NET.mode==="local") setSeed((Math.random()*2**31)|0);
   G.players[0]=newPlayer(0, counts0);
@@ -4021,6 +4303,22 @@ function beginGame(counts0, counts1, rivalBias, intro){
   document.getElementById("hand").innerHTML="";
   buildBoards();
   renderAll();
+  G.FAST=false;
+  const rl=document.querySelector("#panel-1 .title-label");
+  const ll=document.querySelector("#panel-0 .title-label");
+  if(SPECTATE && G.meta && G.meta.names){
+    if(ll) ll.textContent=(G.meta.names[0]||"Host").slice(0,12);
+    if(rl) rl.textContent=(G.meta.names[1]||"Guest").slice(0,12);
+    const h=document.getElementById("hand");
+    if(h) h.innerHTML=`<div class="rx-bar">${
+      Object.entries(REACTIONS).map(([k,r])=>
+        `<button class="btn ghost rx-btn" data-rx="${k}"><span class="rx-ic">${icon(r.icon)}</span>${r.txt}</button>`).join("")
+    }</div>`;
+    document.querySelectorAll(".rx-btn").forEach(b=>b.onclick=()=>sendReaction(b.dataset.rx));
+  }else{
+    if(ll) ll.textContent="You";
+    if(rl) rl.textContent=(NET.rivalName||"Rival").slice(0,12);
+  }
   log("Two architects. One valley. May the warmer hearth prevail.","system");
   if(intro) log(intro,"system");
   startTurn(0);
