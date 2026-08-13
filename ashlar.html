@@ -885,6 +885,19 @@ const ICONS={
   coalcellar:SVGW('<path d="M4 20V9l8-4.5L20 9v11"/><circle cx="9.5" cy="16.5" r="1.7"/><circle cx="14.5" cy="16.5" r="1.7"/><circle cx="12" cy="13" r="1.7"/>'),
   earthquake:SVGW('<path d="M3.5 8h6l2 3 2.5-5 2 4h4.5"/><path d="M12 11.5 10 15l3 1.5-2 4.5" stroke-linecap="butt"/>'),
   caravan:SVGW('<path d="M4 15h13l3-4h-5V8H4Z"/><circle cx="8" cy="17.8" r="1.9"/><circle cx="15.5" cy="17.8" r="1.9"/>'),
+  deepcellar:SVGW('<path d="M4 5h16"/><path d="M6 5v4h3v4h3v4h3v3h5"/><path d="M6 20h6"/>'),
+  highperch:SVGW('<path d="M12 21V6"/><path d="M5 6h14"/><path d="M8 6V9M16 6V9"/><circle cx="12" cy="4" r="1.4"/>'),
+  bordershrine:SVGW('<path d="M4 3.5v17" stroke-width="2.4" stroke-linecap="butt"/><path d="M10 20v-7l4-3 4 3v7Z"/><path d="M14 13.5v3"/>'),
+  gallery:SVGW('<path d="M3.5 5.5h17M3.5 20h17"/><path d="M4.5 20v-8a2.6 2.6 0 0 1 5.2 0v8M14.3 20v-8a2.6 2.6 0 0 1 5.2 0v8M9.4 20v-8a2.6 2.6 0 0 1 4.9 0v8"/>'),
+  gardeners:SVGW('<path d="M12 3.5v9"/><path d="M8.5 12.5h7l-1 8h-5Z"/><path d="M12 3.5 15 6"/>'),
+  vaulters:SVGW('<path d="M4 20V12C4 7 7.5 4 12 4s8 3 8 8v8"/><path d="M8 20v-7c0-3 1.5-5 4-5s4 2 4 5v7"/>'),
+  ropeplumb:SVGW('<path d="M12 3v11"/><path d="M9.5 14h5l-1.4 5h-2.2Z" fill="currentColor" stroke="none"/><path d="M7 3h10"/>'),
+  bellows:SVGW('<path d="M4 9 15 5.5v11L4 13Z"/><path d="M15 8.5h3.5l2 2.5-2 0h-3.5"/><path d="M4 9v4"/>'),
+  charcoalyard:SVGW('<circle cx="8.5" cy="17" r="2.1"/><circle cx="13.5" cy="18" r="2.1"/><circle cx="11" cy="13.5" r="2.1"/><path d="M11 9.5c-.8-1.6 0-2.8 1.2-3.5-.3 1.3.6 1.8 1.2 2.7.7 1-.1 2.3-1.2 2.6"/>'),
+  trophyhall:SVGW('<path d="M12 5l5 2v4c0 3.5-2.2 5.6-5 6.8-2.8-1.2-5-3.3-5-6.8V7Z"/><path d="M5.5 5C4 6.5 4 9 5.5 10.5M18.5 5c1.5 1.5 1.5 4 0 5.5"/><path d="M8 21h8M12 17.8V21"/>'),
+  chantry:SVGW('<path d="M7 14a5 5 0 0 1 10 0v3H7Z"/><path d="M12 5.5V9M10 5.5h4"/><circle cx="12" cy="19.5" r="1.2"/>'),
+  scorpion:SVGW('<path d="M5 19 12 12M19 19 12 12"/><path d="M5 19v-4M5 19h4M19 19v-4M19 19h-4"/><path d="M12 12V4M12 4l-2.2 2.6M12 4l2.2 2.6"/>'),
+  grandworks:SVGW('<path d="M6 21V4.5l11 4V21"/><path d="M3.5 21h17"/><path d="M17 8.5h3.5M20.5 8.5v4M20.5 12.5l-1.5 1.5M20.5 12.5l1.5 1.5"/><path d="M9 21v-3.5h5V21"/>'),
 };
 const icon=k=>ICONS[k]||"";
 
@@ -919,7 +932,7 @@ const DEFS = {
     text:"<b>Raise:</b> deal 1 — or 2 from 4+ steps out."},
   trebuchet:{ name:"Trebuchet", edges:[0,0,1,0], hp:1, needsFire:2, type:"Siege",
     text:"<b>Raise:</b> deal damage = the line behind it, max 3."},
-  bombard:{ name:"Bombard", edges:[0,0,1,0], hp:1, needsFire:2, type:"Siege",
+  bombard:{ name:"Bombard", edges:[0,0,1,0], hp:1, needsFire:3, type:"Siege",
     text:"<b>Raise:</b> <b>splash</b> 1 — target and its neighbors."},
   ballista:{ name:"Grand Ballista", edges:[0,1,0,0], hp:1, needsFire:1, type:"Siege",
     text:"<b>Raise:</b> deal damage = castle span ÷ 3."},
@@ -965,7 +978,7 @@ const DEFS = {
     text:"<b>Kindled:</b> each turn, deal 1 to the rival's newest tile."},
   /* --- the grave --- */
   necropolis:{ name:"Necropolis", edges:[0,0,1,0], hp:1, needsFire:1, type:"Crypt",
-    text:"<b>Raise:</b> deal 1 per 8 fallen tiles anywhere (max 3)."},
+    text:"<b>Raise:</b> deal 1, plus 1 per 8 fallen anywhere (max 3)."},
   mastermason:{ name:"Master Mason", edges:[0,1,1,0], hp:1, type:"Guild",
     text:"<b>Raise:</b> return a fallen tile from your graveyard to hand."},
   haunt:{ name:"Haunt", edges:[0,0,1,0], hp:1, type:"Arcana",
@@ -995,6 +1008,36 @@ const DEFS = {
     text:"<b>Raise:</b> deal 1 to every leaf tile — yours and theirs."},
   caravan:{ name:"Trade Caravan", edges:[0,1,0,1], hp:1, type:"Trade",
     text:"<b>Raise:</b> both players draw 2; you gain +1 play."},
+  /* --- placement-shape engines --- */
+  deepcellar:{ name:"Deep Cellar", edges:[0,0,1,0], hp:1, maxCopies:2, persistent:true, type:"Grounds",
+    text:"First tile beside your hearth each turn draws a tile."},
+  highperch:{ name:"High Perch", edges:[1,0,1,0], hp:1, maxCopies:2, needsFire:1, persistent:true, type:"Grounds",
+    text:"<b>Kindled:</b> first tile placed 4+ steps out each turn draws a tile."},
+  bordershrine:{ name:"Border Shrine", edges:[1,1,0,0], hp:1, maxCopies:2, needsFire:1, persistent:true, type:"Grounds",
+    text:"<b>Kindled:</b> first tile touching the board's edge each turn draws a tile."},
+  gallery:{ name:"Gallery of Arches", edges:[1,1,0,0], hp:1, maxCopies:2, needsFire:1, persistent:true, type:"Passage",
+    text:"<b>Kindled:</b> first tile connecting on 2+ edges each turn — draw 1, +1 play."},
+  /* --- shape-event engines --- */
+  gardeners:{ name:"Gardeners' Lodge", edges:[0,1,1,0], hp:1, maxCopies:2, needsFire:1, persistent:true, type:"Grounds",
+    text:"<b>Kindled:</b> enclose a new courtyard — draw 2."},
+  vaulters:{ name:"Vaulters' Guild", edges:[1,1,0,0], hp:1, maxCopies:2, needsFire:1, persistent:true, type:"Guild",
+    text:"<b>Kindled:</b> first elbow you create each turn draws a tile."},
+  ropeplumb:{ name:"Rope & Plumb", edges:[0,1,0,1], hp:1, maxCopies:2, needsFire:1, persistent:true, type:"Guild",
+    text:"<b>Kindled:</b> first time your longest line grows each turn, draw a tile."},
+  /* --- conversion engines --- */
+  bellows:{ name:"Bellows", edges:[0,0,1,1], hp:1, maxCopies:2, needsFire:1, persistent:true, type:"Fire",
+    text:"<b>Kindled:</b> the first fire source you place each turn grants +1 play."},
+  charcoalyard:{ name:"Charcoal Yard", edges:[0,0,1,0], hp:1, maxCopies:2, needsFire:1, persistent:true, type:"Fire",
+    text:"<b>Kindled:</b> first fire released each turn grants +1 play."},
+  trophyhall:{ name:"Trophy Hall", edges:[1,0,1,0], hp:1, maxCopies:2, needsFire:1, persistent:true, type:"Guild",
+    text:"<b>Kindled:</b> first rival tile your attacks fell each turn draws a tile."},
+  /* --- counterplay & artillery --- */
+  chantry:{ name:"Chantry", edges:[0,0,1,0], hp:1, maxCopies:2, needsFire:1, persistent:true, type:"Arcana",
+    text:"<b>Kindled:</b> your Raises cannot be countered."},
+  scorpion:{ name:"Scorpion Battery", edges:[0,0,1,0], hp:1, maxCopies:2, needsFire:2, type:"Siege",
+    text:"<b>Raise:</b> two bolts — deal 1 each to two different enemy tiles."},
+  grandworks:{ name:"The Grand Works", edges:[0,0,1,0], hp:1, maxCopies:2, needsFire:2, type:"Siege",
+    text:"<b>Raise:</b> deal 1 per tile placed this turn (max 3)."},
 };
 /* extra detail shown while holding ⌘ over a tile */
 const MORE = {
@@ -1013,7 +1056,7 @@ const MORE = {
   serpent:"On placement, if your castle holds no 2×2 block of tiles (Boulders don't count): draw a tile and gain an extra play this turn. Keep your castle winding — corridors and elbows, never plazas.",
   spire:"Distance is counted in steps (no diagonals) from your hearth. 4+ steps away, its shot deals 2 — reward for a long reaching arm.",
   trebuchet:"Counts the unbroken straight line of your tiles running from its open edge: 3 or more = the full 3 damage. Mount it at the end of a long wall.",
-  bombard:"Claims two fires. The blast deals 1 to the target and 1 to each orthogonal neighbor — aim at the seam between their engine and their hearth.",
+  bombard:"Claims three fires — a full battery crew. The blast deals 1 to the target and 1 to each orthogonal neighbor — aim at the seam between their engine and their hearth.",
   ballista:"Damage = your castle's longest span (width or height) ÷ 3, minimum 1. A castle stretched across all 9 columns deals 3.",
   echo:"Blink: an orthogonally adjacent tile of yours (not the Hearth, a Boulder, or a veiled tile) leaves and re-enters its cell — fresh stone (damage healed), fires released and re-claimed, and its Raise triggers again. Blink a Catapult for a second shot, or a Courtyard for a recount.",
   rats:"Claims a fire on arrival; the rival discards one tile from their hand at random. A tempo jab — best when their hand is fat with answers.",
@@ -1034,11 +1077,11 @@ const MORE = {
   outriders:"At the start of your turn, deals 1 to the rival's non-Hearth tile furthest from their hearth (ties random). Warbands strike directly — no stack, no counter; Bulwarks still absorb. Punishes sprawl.",
   wolfpack:"At the start of your turn, deals 1 to a random rival leaf — a tile with exactly one connection. No stack, no counter; Bulwarks still absorb. Hunts Reliquaries, siege stubs, and dead-ends.",
   stormaltar:"At the start of your turn, deals 1 to the newest tile in the rival's castle. No stack, no counter; Bulwarks still absorb. Taxes their every play.",
-  necropolis:"Damage equals one per 8 fallen tiles across BOTH graveyards, max 3. With fewer than 8 fallen it holds its fire and claims nothing. The longer the war, the harder it hits.",
+  necropolis:"Deals 1, plus 1 more per 8 fallen tiles across BOTH graveyards (max 3). Never a dead card — and the longer the war, the harder it hits.",
   mastermason:"Choose any tile in your graveyard and return it to your hand. The rebuy: a fallen Bombard, a countered Ward, a devoured engine.",
   haunt:"Choose a fallen tile in your graveyard: the Haunt becomes it — same cell, same rotation, and its Raise triggers. The chosen tile leaves the grave. Careful: the new form's edges may no longer connect, and severed tiles crumble.",
   pyre:"Destroy one of your own tiles (not the Hearth) for free — no masons' fee — and draw 2. Feeds the Ossuary, the Necropolis count, and frees any fires the burned tile claimed.",
-  spiral:"An elbow is a tile of yours with exactly two neighbors at a right angle. Draw 1 per 2 elbows. Zigzag castles cash in; straight walls count nothing.",
+  spiral:"An elbow is a tile of yours with exactly two neighbors at a right angle — and the hearth itself always counts as one. Draw 1 per 2 elbows. Zigzag castles cash in; straight walls count nothing.",
   twingates:"If your tiles touch two opposite edges of the board — left and right, or the longer top and bottom — draw 2 and gain +2 plays. The board is 11 tall: the vertical crossing is the epic.",
   cornerstone:"Draw 3 if placed on one of the board's four corner cells. The corners are far from home — the arm you build to reach one is exposed the whole way.",
   milestone:"Draw 1. If its placement extends an unbroken straight line of your tiles to length 3 or more, draw 2 instead. The Long Wall's early fuel.",
@@ -1048,6 +1091,19 @@ const MORE = {
   coalcellar:"At the start of your turn, every spent one-shot siege engine of yours releases its claimed fire — your artillery reloads itself. Claims two fires and is limited to one per deck.",
   earthquake:"Deals 1 to every leaf tile on BOTH castles — hearths excepted, your own leaves included. Build broad and connected, then shake the valley.",
   caravan:"Both players draw 2 tiles; only you gain the extra play. A symmetrical gift with an asymmetric tempo edge — and once decks run dry, forced draws snuff flames, so a late Caravan is a dagger.",
+  deepcellar:"Needs no fire — each turn, the first tile you place orthogonally beside your hearth draws a tile. Rewards a dense core, and fights the Keystone and Courtyard for the same ground.",
+  highperch:"Each turn, the first tile you place 4 or more steps from your hearth draws a tile. The sprawl engine: feeds the High Spire, the Cornerstone Shrine — and the rival's Outriders.",
+  bordershrine:"Each turn, the first tile you place touching any edge of the board draws a tile. Twin Gates and Grand Ballista fuel.",
+  gallery:"Each turn, the first tile you place that connects on 2 or more edges draws a tile AND grants +1 play. The anti-leaf engine — pays you to knit tight. Each engine triggers once per turn.",
+  gardeners:"When a placement of yours encloses a new courtyard, draw 2. The burst twin of the Hidden Garden's steady trickle — once per turn per Lodge.",
+  vaulters:"Each turn, the first placement that creates a new elbow draws a tile. Pays the winding castle as it bends, not just at the Spiral Stair's payoff.",
+  ropeplumb:"Each turn, the first placement that grows your longest straight line draws a tile. The Long Wall gets paid for progress — stalling the line costs income.",
+  bellows:"Each turn, the first fire source you place (Brazier or Great Bonfire) grants +1 play. The Forge's mirror: the Forge pays for spending fire, the Bellows for growing it.",
+  charcoalyard:"On your turn, the first time one of your fires is released — demolition, a felled engine, a counter, the Coal Cellar's reload — gain +1 play. Churn becomes tempo.",
+  trophyhall:"Each turn, the first rival tile your attacks destroy draws a tile (Warband kills count; crumbles from severing don't). The aggressor's card engine.",
+  chantry:"While lit, your Raises cannot be countered — rival Veiled Wards stay face down against you. Watchtowers can still intercept; brick or fell the Chantry to silence it. The answer to ward-heavy castles.",
+  scorpion:"Declare two DIFFERENT enemy tiles; each bolt deals 1, and each resolves separately — a Ward can counter one bolt, a Bulwark can absorb one. Claims two fires.",
+  grandworks:"Damage equals the number of tiles you placed this turn, counting this one (max 3). The factory's furnace: chain Hallways and Gatehouses, then let the Works speak last. Claims two fires.",
 };
 
 const DECK_LIST = [
@@ -1061,6 +1117,10 @@ const DECK_LIST = [
   ["necropolis",2],["mastermason",2],["haunt",2],["pyre",2],
   ["spiral",2],["twingates",1],["cornerstone",1],["milestone",2],["cloisterwalk",2],["burrows",2],
   ["bonfire",2],["coalcellar",1],["earthquake",2],["caravan",2],
+  ["deepcellar",1],["highperch",1],["bordershrine",1],["gallery",1],
+  ["gardeners",1],["vaulters",1],["ropeplumb",1],
+  ["bellows",1],["charcoalyard",1],["trophyhall",1],
+  ["chantry",1],["scorpion",1],["grandworks",1],
 ];
 
 /* ---------- utilities ---------- */
@@ -1143,23 +1203,26 @@ let LIB_COUNTS=null; // custom deck composition chosen in the library
 /* the six architects' decks */
 const DECKS={
   longwall:{name:"The Long Wall", tag:"Lines & artillery.",
-    counts:{trebuchet:3,aqueduct:3,ballista:2,outriders:2,coalcellar:1,brazier:4,wall:4,bulwark:2,watchtower:2,hallway:3,gatehouse:2,milestone:3,ward:2,catapult:2},
-    bias:{trebuchet:1.25,aqueduct:1.3,milestone:1.3,wall:1.15,outriders:1.2}},
-  warren:{name:"The Warren", tag:"Snake & scurry.",
-    counts:{serpent:3,spiral:3,echo:2,wolfpack:2,guild:2,hallway:4,gatehouse:2,brazier:3,ward:2,bulwark:2,burrows:2,reliquary:2,thief:2,spire:2,catapult:2},
-    bias:{serpent:1.35,spiral:1.3,burrows:1.25,guild:1.2,wolfpack:1.15}},
+    counts:{trebuchet:3,aqueduct:3,ballista:3,outriders:2,coalcellar:1,brazier:4,wall:4,bulwark:2,watchtower:2,hallway:4,gatehouse:2,milestone:3,ward:2,catapult:3,bordershrine:1,ropeplumb:1},
+    bias:{trebuchet:1.25,aqueduct:1.3,milestone:1.3,wall:1.15,outriders:1.2,bordershrine:1.25,ropeplumb:1.25}},
+  warren:{name:"The Warren", tag:"Wind.",
+    counts:{serpent:3,spiral:3,echo:2,wolfpack:2,guild:2,hallway:4,gatehouse:2,brazier:3,ward:2,bulwark:2,burrows:2,reliquary:2,thief:2,spire:4,catapult:3,vaulters:1,highperch:1},
+    bias:{serpent:1.35,spiral:1.3,burrows:1.25,guild:1.2,wolfpack:1.15,vaulters:1.3,highperch:1.25}},
   cloister:{name:"The Cloister", tag:"Courtyards & turtling.",
-    counts:{courtyard:3,garden:2,keystone:2,mirror:2,tollgate:2,brazier:3,bulwark:3,watchtower:2,ward:2,gatehouse:2,hallway:2,cloisterwalk:3,spire:2,bombard:1,outriders:1,wall:2,boulder:2},
-    bias:{courtyard:1.3,cloisterwalk:1.3,garden:1.25,keystone:1.2,bulwark:1.15}},
-  ashes:{name:"The Ashes", tag:"Graveyard value.",
-    counts:{necropolis:2,haunt:2,mastermason:2,ossuary:2,rats:2,earthquake:2,brazier:3,bonfire:1,bulwark:2,ward:2,watchtower:1,reliquary:2,pyre:3,catapult:2,wolfpack:1,hallway:2,gatehouse:2,wall:2},
-    bias:{pyre:1.35,haunt:1.3,necropolis:1.25,earthquake:1.2,rats:1.15}},
-  siegecamp:{name:"The Siege Camp", tag:"Aggro. Burn fast.",
-    counts:{catapult:3,bombard:2,spire:2,stormaltar:1,forge:2,brazier:4,bonfire:2,gatehouse:2,hallway:2,scriptorium:1,festival:1,bulwark:2,watchtower:2,wall:2,trebuchet:2,boulder:2},
-    bias:{catapult:1.25,bombard:1.25,forge:1.3,bonfire:1.2,stormaltar:1.2}},
-  veil:{name:"The Veil", tag:"Control. Counter everything.",
-    counts:{ward:3,watchtower:3,witch:2,thief:2,rats:2,tollgate:2,whisper:2,brazier:4,gatehouse:2,hallway:2,spire:2,ballista:1,catapult:2,wolfpack:1,reliquary:2,bulwark:2,scriptorium:1,boulder:2},
+    counts:{courtyard:3,garden:2,keystone:2,mirror:2,tollgate:2,brazier:3,bulwark:3,watchtower:2,ward:2,gatehouse:2,hallway:2,cloisterwalk:3,spire:3,catapult:2,outriders:1,wall:2,boulder:2,gardeners:2},
+    bias:{courtyard:1.3,cloisterwalk:1.3,garden:1.25,keystone:1.2,bulwark:1.15,gardeners:1.3}},
+  ashes:{name:"The Ashes", tag:"Graveyard.",
+    counts:{necropolis:2,haunt:2,mastermason:2,ossuary:2,rats:2,earthquake:2,brazier:3,bonfire:1,bulwark:2,ward:2,watchtower:1,reliquary:2,pyre:3,catapult:4,wolfpack:1,hallway:2,gatehouse:2,wall:2,charcoalyard:1,spire:2},
+    bias:{pyre:1.35,haunt:1.3,necropolis:1.25,earthquake:1.2,rats:1.15,charcoalyard:1.3}},
+  siegecamp:{name:"The Siege Camp", tag:"Aggro.",
+    counts:{catapult:4,bombard:1,spire:3,scorpion:2,stormaltar:1,forge:2,brazier:4,bonfire:1,gatehouse:2,hallway:2,scriptorium:1,festival:1,bulwark:2,watchtower:2,wall:3,trebuchet:2,boulder:2,ward:2,trophyhall:2,chantry:1},
+    bias:{catapult:1.25,scorpion:1.25,forge:1.3,bonfire:1.2,stormaltar:1.2,trophyhall:1.3,chantry:1.2}},
+  veil:{name:"The Veil", tag:"Control.",
+    counts:{ward:3,watchtower:3,witch:2,thief:2,rats:2,tollgate:2,whisper:2,brazier:4,gatehouse:2,hallway:2,spire:2,ballista:2,catapult:2,wolfpack:1,reliquary:2,bulwark:2,scriptorium:1,boulder:2,scorpion:1,chantry:1},
     bias:{ward:1.3,watchtower:1.25,whisper:1.3,thief:1.2,witch:1.2}},
+  manufactory:{name:"The Manufactory", tag:"Combo, Value",
+    counts:{hallway:4,gatehouse:3,festival:2,caravan:2,echo:2,barracks:1,forge:2,bellows:1,gallery:2,deepcellar:1,milestone:2,brazier:3,bulwark:2,watchtower:2,ward:2,grandworks:2,catapult:3,spire:2,scorpion:2},
+    bias:{hallway:1.25,gatehouse:1.2,gallery:1.35,grandworks:1.35,bellows:1.3,deepcellar:1.3,festival:1.25,echo:1.2,scorpion:1.2}},
 };
 function newPlayer(i, counts){
   const deck=[];
@@ -1301,8 +1364,17 @@ function putTile(p, tile, x, y){
   tile.owner=p.i; tile.x=x; tile.y=y;
   p.board.set(key(x,y),tile);
 }
-/* a barracks musters when its owner builds beside it (once per turn) */
+/* placement engines: every genuine placement runs through here.
+   Each engine copy triggers once per turn (t.engineUsed). */
 async function checkBarracks(p,x,y){
+  if(G.over) return;
+  const placed=p.board.get(key(x,y));
+  const fresh=id=>litTiles(p,id).filter(t=>!t.engineUsed);
+  const fire=async(t,msg,n)=>{
+    t.engineUsed=true;
+    log(msg, who(p.i));
+    if(n) await drawTiles(p,n);
+  };
   for(const b of litTiles(p,"barracks")){
     if(b.usedBarracks) continue;
     if(Math.abs(b.x-x)+Math.abs(b.y-y)===1){
@@ -1310,6 +1382,61 @@ async function checkBarracks(p,x,y){
       log(`${pname(p.i)} Barracks musters — draw a tile.`, who(p.i));
       await drawTiles(p,1);
     }
+  }
+  // deep cellar needs no fire — lit means merely unbricked
+  for(const t of [...p.board.values()].filter(t=>t.defId==="deepcellar"&&!t.bricked&&!t.engineUsed)){
+    if(Math.abs(x-CX)+Math.abs(y-CY)===1)
+      await fire(t,`${pname(p.i)} Deep Cellar stocks up — draw a tile.`,1);
+  }
+  for(const t of fresh("highperch")){
+    if(Math.abs(x-CX)+Math.abs(y-CY)>=4)
+      await fire(t,`${pname(p.i)} High Perch signals from afar — draw a tile.`,1);
+  }
+  for(const t of fresh("bordershrine")){
+    if(x===0||x===W-1||y===0||y===H-1)
+      await fire(t,`${pname(p.i)} Border Shrine blesses the frontier — draw a tile.`,1);
+  }
+  for(const t of fresh("bellows")){
+    if(placed && DEFS[placed.defId].fires){
+      await fire(t,`${pname(p.i)} Bellows roar — +1 play.`,0);
+      if(G.active===p.i) G.playsLeft++;
+    }
+  }
+  for(const t of fresh("gallery")){
+    if(placed && connectionCount(p,placed)>=2){
+      await fire(t,`${pname(p.i)} Gallery of Arches rings — draw 1, +1 play.`,1);
+      if(G.active===p.i) G.playsLeft++;
+    }
+  }
+  // delta engines: compare the castle with and without the new tile
+  const needVault=fresh("vaulters").length>0;
+  const needRope=fresh("ropeplumb").length>0;
+  const needGard=fresh("gardeners").length>0;
+  if(placed && (needVault||needRope||needGard)){
+    p.board.delete(key(x,y));
+    const e0=needVault?countElbows(p):0;
+    const r0=needRope?longestRun(p):0;
+    const c0=needGard?countCourtyards(p):0;
+    p.board.set(key(x,y),placed);
+    if(needVault && countElbows(p)>e0)
+      for(const t of fresh("vaulters"))
+        await fire(t,`${pname(p.i)} Vaulters' Guild approves the bend — draw a tile.`,1);
+    if(needRope && longestRun(p)>r0)
+      for(const t of fresh("ropeplumb"))
+        await fire(t,`${pname(p.i)} Rope & Plumb measures true — draw a tile.`,1);
+    if(needGard && countCourtyards(p)>c0)
+      for(const t of fresh("gardeners"))
+        await fire(t,`${pname(p.i)} Gardeners' Lodge celebrates the enclosure — draw 2.`,2);
+  }
+}
+/* charcoal yard: the first fire released on your own turn is tempo */
+async function onFireReleased(p){
+  if(G.over || G.active!==p.i) return;
+  for(const t of litTiles(p,"charcoalyard")){
+    if(t.engineUsed) continue;
+    t.engineUsed=true;
+    G.playsLeft++;
+    log(`${pname(p.i)} Charcoal Yard stokes the works — +1 play.`, who(p.i));
   }
 }
 /* whisper galleries pay out when their owner counters or intercepts */
@@ -1374,6 +1501,7 @@ function countElbows(p){
   let n=0;
   for(const t of p.board.values()){
     if(t.defId==="boulder") continue;
+    if(t.defId==="hearth"){ n++; continue; } // the hearth's chimney bend always counts
     let h=0,v=0;
     DIRS.forEach(([dx,dy])=>{
       const q=p.board.get(key(t.x+dx,t.y+dy));
@@ -1463,13 +1591,14 @@ async function dealDamage(p, tile, dmg, sourceLabel, attacker){
   if(bw && bw.uid!==tile.uid){
     log(`${pname(p.i)} Bulwark hurls itself before the blow!`, who(p.i));
     await animateHit(p.i,bw.x,bw.y);
-    await destroyTile(p,bw);
+    await destroyTile(p,bw,false,attacker);
     return;
   }
   if(bw && bw.uid===tile.uid){ /* bulwark itself targeted: it just dies absorbing */ }
   tile.hp-=dmg;
   if(tile.defId==="hearth"){
     await animateHit(p.i,tile.x,tile.y);
+    G.lastFlameCause="combat";
     p.flames=Math.max(0,tile.hp);
     log(`A flame of ${pname(p.i)} hearth is snuffed! (${p.flames} remain)`,"system");
     renderAll();
@@ -1485,14 +1614,15 @@ async function dealDamage(p, tile, dmg, sourceLabel, attacker){
       return;
     }
     // a killing blow shatters on impact — no flash first
-    await destroyTile(p,tile);
+    await destroyTile(p,tile,false,attacker);
   }else{
     await animateHit(p.i,tile.x,tile.y);
     renderAll();
   }
 }
-async function destroyTile(p,tile,silent){
+async function destroyTile(p,tile,silent,attacker){
   if(tile.defId==="hearth") return;
+  const hadClaims=tile.claims>0;
   const el=tileEl(p.i,tile.x,tile.y);
   if(el){
     // the blow lands: the face cracks and jolts in the same instant
@@ -1506,6 +1636,17 @@ async function destroyTile(p,tile,silent){
   if(!silent) log(`${DEFS[tile.defId].name} in ${pname(p.i)} castle is destroyed.`, who(p.i));
   settleDormancy(p);
   renderAll();
+  if(hadClaims) await onFireReleased(p);
+  // the attacker's trophy hall takes note
+  if(attacker!==undefined && attacker===1-p.i && !G.over){
+    const ap=G.players[attacker];
+    for(const t of litTiles(ap,"trophyhall")){
+      if(t.engineUsed) continue;
+      t.engineUsed=true;
+      log(`${pname(ap.i)} Trophy Hall mounts the kill — draw a tile.`, who(ap.i));
+      await drawTiles(ap,1);
+    }
+  }
   // a falling bonfire erupts over its neighbors
   if(tile.defId==="bonfire" && !G.over){
     log("The Great Bonfire erupts as it falls!","system");
@@ -1542,6 +1683,7 @@ async function resolveStack(){
         src.claims=0; src.dormant=true;
         sp.claimOrder=sp.claimOrder.filter(u=>u!==src.uid);
         settleDormancy(sp);
+        await onFireReleased(sp);
       }
     }else{
       await item.effect();
@@ -1723,6 +1865,40 @@ async function onEnterAbility(p, tile){
     log(`${pname(p.i)} Earthquake rumbles beneath the valley...`, who(p.i));
     await resolveStack();
   }
+  else if(id==="scorpion"){
+    if(freeFires(p)<2){
+      tile.dormant=true;
+      log(`The Scorpion Battery sits uncrewed — it needs 2 free fires.`, who(p.i));
+      return;
+    }
+    const ep=G.players[1-p.i];
+    const t1=await choose(p,
+      ()=>humanPickTarget(1-p.i,false,undefined,"Scorpion — choose the FIRST bolt's target."),
+      ()=>aiPickTarget(1-p.i,false,1,false), encTile, decTileOn(ep));
+    if(!t1){
+      tile.dormant=true;
+      log(`The Scorpion Battery holds its bolts.`, who(p.i));
+      return;
+    }
+    const t2=await choose(p,
+      ()=>humanPickTarget(1-p.i,false,t1.uid,"Scorpion — choose a DIFFERENT target for the second bolt."),
+      ()=>aiPickTarget(1-p.i,false,1,false,t1.uid), encTile, decTileOn(ep));
+    claimFire(p,tile,2);
+    const bolt=(tgt)=>({
+      kind:"attack", label:`Scorpion bolt → ${tgt.faceDown?"a veiled tile":DEFS[tgt.defId].name}`,
+      sourceUid:tile.uid, controller:p.i, target:{p:1-p.i, uid:tgt.uid}, dmg:1,
+      effect:async function(){
+        const cur=[...ep.board.values()].find(t=>t.uid===this.target.uid);
+        if(!cur){ log("The bolt finds only rubble.","system"); return; }
+        await animateProjectile(p.i,tile.x,tile.y,1-p.i,cur.x,cur.y);
+        await dealDamage(ep,cur,1,"Scorpion Battery",p.i);
+      }
+    });
+    if(t2) pushStack(bolt(t2));
+    pushStack(bolt(t1));
+    log(`${pname(p.i)} Scorpion Battery winds both arms...`, who(p.i));
+    await resolveStack();
+  }
   else if(d.persistent && d.needsFire){
     if(freeFires(p)>=d.needsFire){
       claimFire(p,tile,d.needsFire);
@@ -1860,8 +2036,10 @@ async function onEnterAbility(p, tile){
         if(!cur){ log("The echo finds nothing to answer.","system"); return; }
         const {x,y,rot,defId}=cur;
         p.board.delete(key(x,y));
+        const blinkHadClaims=cur.claims>0;
         p.claimOrder=p.claimOrder.filter(u=>u!==cur.uid);
         settleDormancy(p);
+        if(blinkHadClaims) await onFireReleased(p);
         const fresh=makeTile(defId,rot,false);
         putTile(p,fresh,x,y);
         animatePop(p.i,x,y);
@@ -1888,14 +2066,10 @@ async function onEnterAbility(p, tile){
     if(id==="spire") dmg = distFromHearth(p,tile.x,tile.y)>=4?2:1;
     if(id==="trebuchet") dmg = Math.min(3, Math.max(1, lineFromOpenEdge(p,tile.x,tile.y,tile.edges)));
     if(id==="ballista") dmg = Math.max(1, Math.floor(castleSpan(p)/3));
-    if(id==="necropolis"){
-      dmg = Math.min(3, Math.floor((G.players[0].grave.length+G.players[1].grave.length)/8));
-      if(dmg<=0){
-        tile.dormant=true;
-        log(`The Necropolis finds too few dead to answer it.`, who(p.i));
-        return;
-      }
-    }
+    if(id==="necropolis")
+      dmg = Math.min(3, 1+Math.floor((G.players[0].grave.length+G.players[1].grave.length)/8));
+    if(id==="grandworks")
+      dmg = Math.max(1, Math.min(3, p.placedCount||1));
     const target = await choose(p,
       ()=>humanPickTarget(1-p.i, isBrick),
       ()=>aiPickTarget(1-p.i, isBrick, dmg, aoe),
@@ -2004,6 +2178,7 @@ async function drawTiles(p,n){
         if(el){ el.classList.add("cold-flash"); setTimeout(()=>el.classList.remove("cold-flash"),1000); }
         await sleep(350);
         hearth.hp--;
+        G.lastFlameCause="fatigue";
         p.flames=Math.max(0,hearth.hp);
         log(`A flame of ${pname(p.i)} hearth gutters out! (${p.flames} remain)`,"system");
         renderMeters();
@@ -2030,7 +2205,7 @@ async function startTurn(i){
   document.getElementById("panel-"+V(1-i)).classList.toggle("active-turn", false);
   const p=G.players[i];
   p.flags={fireClaimed:false};
-  for(const t of p.board.values()) t.usedBarracks=false;
+  for(const t of p.board.values()){ t.usedBarracks=false; t.engineUsed=false; }
   // festival room: momentum pays out
   if((p.placedCount||0)>=3){
     for(const f of [...p.board.values()].filter(t=>t.defId==="festival"&&!t.bricked)){
@@ -2054,6 +2229,7 @@ async function startTurn(i){
       settleDormancy(p);
       log(`${pname(i)} Coal Cellar reloads the engines — ${freed} fire${freed>1?"s":""} freed.`, who(i));
       renderAll();
+      await onFireReleased(p);
     }
   }
   // relight: kindled tiles that arrived dark claim their fire when it frees
@@ -2125,7 +2301,7 @@ async function startTurn(i){
     maybeAutoEnd();
   }else{
     setPrompt("The rival architect ponders...");
-    if(NET.mode==="local") await aiTurn();
+    if(NET.mode==="local") await aiTurn(i);
     else await remoteTurnLoop();
   }
 }
@@ -2359,11 +2535,11 @@ function humanPickCell(cells, promptText){
 }
 
 /* human picks an enemy tile as an attack/hex target */
-function humanPickTarget(enemyIdx, isBrick){
+function humanPickTarget(enemyIdx, isBrick, excludeUid, promptText){
   return new Promise(res=>{
     G.mode="target";
-    G.pending={enemyIdx, isBrick, resolve:(t)=>{G.mode="idle"; G.pending=null; setPrompt(""); res(t);}};
-    setPrompt(isBrick ? "Choose a rival tile to brick (not the Hearth)." : "Choose a rival tile to strike.",
+    G.pending={enemyIdx, isBrick, excludeUid, resolve:(t)=>{G.mode="idle"; G.pending=null; setPrompt(""); res(t);}};
+    setPrompt(promptText || (isBrick ? "Choose a rival tile to brick (not the Hearth)." : "Choose a rival tile to strike."),
       [{label:"Hold fire", cls:"ghost", fn:()=>G.pending.resolve(null)}]);
     renderAll();
   });
@@ -2372,7 +2548,9 @@ function humanPickTarget(enemyIdx, isBrick){
 /* ---------- response windows ---------- */
 function playerHasResponse(p, top){
   const wards=[...p.board.values()].filter(t=>t.faceDown && !t.bricked);
-  const canWard = wards.length>0 && freeFires(p)>=1;
+  // a lit Chantry consecrates its owner's Raises: wards cannot answer them
+  const canWard = wards.length>0 && freeFires(p)>=1
+    && litTiles(G.players[top.controller],"chantry").length===0;
   const isAttackOnMe = top.kind==="attack" && top.target && top.target.p===p.i;
   const towers = p.hand.map((id,idx)=>({id,idx})).filter(c=>c.id==="watchtower");
   // a tower can only shelter tiles adjacent or diagonal to it: it must land
@@ -2593,6 +2771,7 @@ function markInteractiveCell(pi,x,y,c){
 }
 function isEnemyTargetableNow(t){
   if(G.mode!=="target"||!G.pending||G.pending.ownUids) return false;
+  if(G.pending.excludeUid===t.uid) return false;
   if(G.pending.isBrick && t.defId==="hearth") return false;
   if(t.faceDown) return true; // you may strike unknown tiles
   return true;
@@ -2617,6 +2796,7 @@ function onCellClick(pi,x,y){
   }
   if(G.mode==="target" && G.pending && pi===G.pending.enemyIdx && t){
     if(G.pending.isBrick && t.defId==="hearth") return;
+    if(G.pending.excludeUid===t.uid) return;
     G.pending.resolve(t);
     return;
   }
@@ -3049,7 +3229,10 @@ function tileValue(t, p){
     case "coalcellar": return 62;
     case "bonfire": return 58;
     case "barracks": case "forge": case "whisper": case "tollgate": return 45;
-    case "festival": case "ossuary": case "garden": return 40;
+    case "gallery": case "bellows": case "trophyhall": case "charcoalyard": return 45;
+    case "highperch": case "bordershrine": case "vaulters": case "ropeplumb": return 40;
+    case "chantry": return 60; // felling it re-arms our wards
+    case "festival": case "ossuary": case "garden": case "gardeners": case "deepcellar": return 40;
     case "burrows": return 42;
     case "wall": return 15;
     case "catapult": case "spire": case "trebuchet": case "bombard": case "ballista": case "rats":
@@ -3057,11 +3240,12 @@ function tileValue(t, p){
     default: return 20;
   }
 }
-function aiPickTarget(enemyIdx, isBrick, dmg, aoe){
+function aiPickTarget(enemyIdx, isBrick, dmg, aoe, excludeUid){
   const ep=G.players[enemyIdx];
   let best=null, bestV=-1;
   for(const t of ep.board.values()){
     if(t.defId==="boulder") continue;
+    if(excludeUid!==undefined && t.uid===excludeUid) continue;
     if(isBrick){
       if(t.defId==="hearth"||t.bricked||t.spent) continue;
       let v=0;
@@ -3181,6 +3365,50 @@ function aiPickGuildMove(p,elig){
   }
   return best;
 }
+/* shape planning: while holding a geometry payoff, every placement is
+   scored toward its condition — build symmetric before the Mirror Hall,
+   keep snaking while a Serpent Wall waits, ring holes for the Courtyard */
+function aiShapeSynergy(p, defId, x, y, edges){
+  const hand=p.hand;
+  const holds=id=> id!==defId && hand.includes(id);
+  const wantsCourtyard=holds("courtyard")||holds("garden")||holds("cloisterwalk")||holds("keystone");
+  const wantsMirror=holds("mirror");
+  const wantsSnake=holds("serpent");
+  const wantsElbows=holds("spiral");
+  const wantsLines=holds("aqueduct")||holds("trebuchet")||holds("milestone");
+  const wantsSpan=holds("twingates")||holds("ballista");
+  if(!(wantsCourtyard||wantsMirror||wantsSnake||wantsElbows||wantsLines||wantsSpan)) return 0;
+  let bonus=0;
+  const beforeCourt=wantsCourtyard?countCourtyards(p):0;
+  const beforeElb=wantsElbows?countElbows(p):0;
+  const beforeSpan=wantsSpan?castleSpan(p):0;
+  const blockedBefore=wantsSnake?hasTwoByTwo(p):false;
+  const temp={defId, edges, x, y, owner:p.i, hp:1, claims:0, faceDown:false};
+  p.board.set(key(x,y),temp);
+  if(wantsCourtyard) bonus+=Math.max(0,countCourtyards(p)-beforeCourt)*12;
+  if(wantsMirror && mirrorSymmetric(p)) bonus+=13;
+  if(wantsSnake && !blockedBefore && hasTwoByTwo(p)) bonus-=14;
+  if(wantsElbows) bonus+=Math.max(0,countElbows(p)-beforeElb)*4;
+  if(wantsSpan) bonus+=Math.max(0,castleSpan(p)-beforeSpan)*3;
+  if(wantsLines){
+    let run=1;
+    for(const [dx,dy] of [[1,0],[0,1]]){
+      let n=1;
+      for(const s of [-1,1]){
+        let cx=x+dx*s, cy=y+dy*s;
+        while(inBounds(cx,cy)){
+          const q=p.board.get(key(cx,cy));
+          if(!q||q.defId==="boulder") break;
+          n++; cx+=dx*s; cy+=dy*s;
+        }
+      }
+      run=Math.max(run,n);
+    }
+    if(run>=3) bonus+=6;
+  }
+  p.board.delete(key(x,y));
+  return bonus;
+}
 function aiBestPlacement(p, defId){
   const d=DEFS[defId];
   let best=null, bestScore=-Infinity;
@@ -3249,13 +3477,14 @@ function aiBestPlacement(p, defId){
       else s+= 4-Math.abs(dist-2); // gentle sprawl
       // openness: keep future frontier
       s+=edges.filter(Boolean).length*1.5;
+      s+=aiShapeSynergy(p,defId,x,y,edges);
       if(s>bestScore){bestScore=s; best={x,y,rot,score:s};}
     }
   }
   return best;
 }
-function aiBoulderCell(){
-  const hp=G.players[0]; // human board
+function aiBoulderCell(p){
+  const hp=G.players[1-p.i]; // the foe's board
   let best=null, bestV=-1;
   for(const [x,y] of boulderCells(hp)){
     let v=0;
@@ -3273,7 +3502,7 @@ function aiChooseMove(p, wantAll){
     const d=DEFS[id];
     let score=0, place=null;
     if(id==="boulder"){
-      place=aiBoulderCell();
+      place=aiBoulderCell(p);
       score=place?36:-99;
     }else{
       place=aiBestPlacement(p,id);
@@ -3283,9 +3512,9 @@ function aiChooseMove(p, wantAll){
         case "catapult": score= ff>=1?82:6; break;
         case "spire": score= ff>=1?(place.score>20?85:72):6; break;
         case "trebuchet": score= ff>=1?(place.score>18?88:50):6; break;
-        case "bombard": score= ff>=2?86:5; break;
+        case "bombard": score= ff>=3?86:5; break;
         case "ballista": score= ff>=1?(44+castleSpan(p)*5):6; break;
-        case "witch": score= ff>=1&&aiPickTarget(0,true)?70:5; break;
+        case "witch": score= ff>=1&&aiPickTarget(1-p.i,true)?70:5; break;
         case "brazier": score= ff<=0?88: (fireSources(p)<3?46:24); break;
         case "scriptorium": score= ff>=2?60:8; break;
         case "hallway": score=58; break;
@@ -3297,8 +3526,8 @@ function aiChooseMove(p, wantAll){
         case "watchtower": score=8; break; // hold as a reaction
         case "gatehouse": score=48; break;
         case "reliquary": score=58; break;
-        case "thief": score= freeFires(G.players[0])>0?55:16; break;
-        case "rats": score= ff>=1&&G.players[0].hand.length>0?64:5; break;
+        case "thief": score= freeFires(G.players[1-p.i])>0?55:16; break;
+        case "rats": score= ff>=1&&G.players[1-p.i].hand.length>0?64:5; break;
         case "echo": score= place.score>18?38+place.score:8; break;
         case "keystone": score= place.score>35?72:18; break;
         case "mirror": score= place.score>38?70:14; break;
@@ -3312,9 +3541,9 @@ function aiChooseMove(p, wantAll){
         case "ossuary": score= ff>=1?(G.players[0].grave.length+G.players[1].grave.length>0?48:34):8; break;
         case "whisper": score= ff>=1&&p.hand.some(id2=>id2==="ward"||id2==="watchtower")?46:14; break;
         case "outriders": score= ff>=1?66:8; break;
-        case "wolfpack": score= ff>=1?([...G.players[0].board.values()].some(t=>isLeaf(G.players[0],t))?64:32):8; break;
+        case "wolfpack": score= ff>=1?([...G.players[1-p.i].board.values()].some(t=>isLeaf(G.players[1-p.i],t))?64:32):8; break;
         case "stormaltar": score= ff>=2?60:6; break;
-        case "necropolis": score= ff>=1&&(G.players[0].grave.length+G.players[1].grave.length)>=8?70:6; break;
+        case "necropolis": score= ff>=1?((G.players[0].grave.length+G.players[1].grave.length)>=8?72:50):6; break;
         case "mastermason": score= p.grave.length?46:4; break;
         case "haunt": score= p.grave.length?(38+(GRAVE_VAL[aiPickGrave(p)]||3)*3):4; break;
         case "pyre": score= [...p.board.values()].some(t=>t.claims>0&&!DEFS[t.defId].persistent)?58:20; break;
@@ -3327,20 +3556,50 @@ function aiChooseMove(p, wantAll){
         case "bonfire": score= ff<=0?80:(fireSources(p)<3?42:22); break;
         case "coalcellar": score= ff>=2&&[...p.board.values()].some(t=>t.claims>0&&!DEFS[t.defId].persistent)?56:10; break;
         case "earthquake": {
-          const el0=[...G.players[0].board.values()].filter(t=>isLeaf(G.players[0],t)).length;
+          const el0=[...G.players[1-p.i].board.values()].filter(t=>isLeaf(G.players[1-p.i],t)).length;
           const el1=[...p.board.values()].filter(t=>isLeaf(p,t)).length;
           score= ff>=1&&el0-el1>=2?68:(ff>=1?12:5); break;
         }
-        case "caravan": score=46; break;
+        case "caravan":
+          // with an empty deck a Caravan snuffs your own flames; with the
+          // RIVAL'S deck empty it is a dagger
+          score = p.deck.length===0 ? 2 :
+                  (G.players[1-p.i].deck.length===0 ? 85 : 46);
+          break;
+        case "grandworks": score= ff>=2 ? 30+Math.min(3,(p.placedCount||0)+1)*14 : 6; break;
+        case "deepcellar": score=42; break;
+        case "highperch": score= ff>=1?44:10; break;
+        case "bordershrine": score= ff>=1?42:10; break;
+        case "gallery": score= ff>=1?54:10; break;
+        case "gardeners": score= ff>=1?(p.hand.includes("courtyard")||p.hand.includes("cloisterwalk")?52:26):10; break;
+        case "vaulters": score= ff>=1?40:10; break;
+        case "ropeplumb": score= ff>=1?42:10; break;
+        case "bellows": score= ff>=1?46:10; break;
+        case "charcoalyard": score= ff>=1?40:10; break;
+        case "trophyhall": score= ff>=1?48:10; break;
+        case "chantry": score= ff>=1?([...G.players[1-p.i].board.values()].some(t=>t.faceDown)?58:24):8; break;
+        case "scorpion": score= ff>=2?78:6; break;
       }
+      // a set ward is worthless without a free fire to flip it:
+      // don't let an engine claim the last one
+      if(d.needsFire && ff-d.needsFire<1 &&
+         [...p.board.values()].some(t=>t.faceDown&&!t.bricked)) score-=16;
+      // fatigue awareness: with the deck nearly spent, every draw is a
+      // step toward snuffing our own flames — shelve the draw engines
+      if(p.deck.length<=5 && AI_DRAWY.has(id)) score-=25;
     }
-    if(G.aiBias && G.aiBias[id]) score*=G.aiBias[id];
+    const B=(G.aiBias2&&G.aiBias2[p.i])||(p.i!==MYSEAT?G.aiBias:null);
+    if(B&&B[id]) score*=B[id];
     options.push({idx,id,score,place});
   });
   options.sort((a,b)=>b.score-a.score);
   if(wantAll) return options;
   return options[0]&&options[0].score>0?options[0]:null;
 }
+const AI_DRAWY=new Set(["hallway","reliquary","courtyard","spiral","milestone","aqueduct",
+  "cornerstone","twingates","serpent","keystone","scriptorium","garden","ossuary","festival",
+  "deepcellar","highperch","bordershrine","gallery","vaulters","ropeplumb","barracks",
+  "whisper","tollgate","trophyhall","mastermason"]);
 function aiWorstCardIdx(p){
   const opts=aiChooseMove(p,true);
   if(!opts.length) return p.hand.length-1;
@@ -3351,14 +3610,30 @@ function aiWorstCardIdx(p){
   const keepable=opts.filter(o=>!THREATS.includes(o.id));
   return (keepable.length?keepable:opts)[ (keepable.length?keepable:opts).length-1 ].idx;
 }
-async function aiTurn(){
-  const p=G.players[1];
+async function aiTurn(seat){
+  if(seat===undefined) seat=1;
+  const p=G.players[seat];
   await sleep(900);
   while(G.playsLeft>0 && !G.over){
     const mv=aiChooseMove(p);
     // starved for fire with siege in hand: dismantle a spent engine (they are
     // all single-edge leaves, so this never severs the castle behind them)
     const SPENT=["catapult","spire","trebuchet","bombard","ballista","witch"];
+    // an empty deck turns upkeep-draw engines into slow suicide — tear them down
+    if(p.deck.length===0 && G.playsLeft>0 && p.hand.length>1){
+      const burner=[...p.board.values()].find(t=>
+        (t.defId==="scriptorium"||t.defId==="garden")&&t.claims>0&&!t.dormant&&!t.bricked);
+      if(burner){
+        G.playsLeft--;
+        await discardFromHand(p, aiWorstCardIdx(p));
+        log("The rival shutters a study before it devours the last stores.","foe");
+        await destroyTile(p,burner,true);
+        await structureCheck();
+        if(G.over) return;
+        await sleep(600);
+        continue;
+      }
+    }
     if((!mv||mv.score<20) && freeFires(p)===0 && p.hand.length>1 &&
        p.hand.some(id=>DEFS[id].needsFire) ){
       const engine=[...p.board.values()].find(t=>SPENT.includes(t.defId)&&t.claims>0)
@@ -3432,19 +3707,26 @@ async function aiTurn(){
   }
   setPrompt("");
   await sleep(400);
-  startTurn(0);
+  startTurn(1-seat);
 }
 /* AI deciding whether to respond to the human's stack item */
 async function aiResponseWindow(top){
-  const p=G.players[1];
+  const p=G.players[1-top.controller];
   if(top.countered) return false;
   const r=playerHasResponse(p,top);
   // what is threatened?
   let threat=0, targetTile=null;
-  if(top.target && top.target.p===1){
+  if(top.target && top.target.p===p.i){
     targetTile=[...p.board.values()].find(t=>t.uid===top.target.uid);
     if(targetTile) threat=tileValue(targetTile,p);
-  } else if(top.kind==="ability") threat=45;
+    threat += ((top.dmg||1)-1)*18;   // big shots warrant wards
+  } else if(top.kind==="ability"){
+    if(top.label==="Earthquake") threat=[...p.board.values()].filter(t=>isLeaf(p,t)).length*13;
+    else if(top.label==="Rat Swarm") threat= p.hand.length>=5?50:34;
+    else if(top.label.startsWith("Echo")||top.label.startsWith("Haunt")) threat=52;
+    else if(top.label.startsWith("Pyre")||top.label.startsWith("Masons")||top.label.startsWith("Master")) threat=12;
+    else threat=45;
+  }
   if(r.canWard && threat>=55){
     await sleep(700);
     await flipWard(p, r.wards[0], top);
@@ -3458,8 +3740,8 @@ async function aiResponseWindow(top){
       p.hand.splice(c.idx,1);
       const tile=makeTile("watchtower",spot.rot,false);
       putTile(p,tile,spot.x,spot.y);
-      animatePop(1,spot.x,spot.y);
-      top.target={p:1, uid:tile.uid};
+      animatePop(p.i,spot.x,spot.y);
+      top.target={p:p.i, uid:tile.uid};
       top.label+=" → Watchtower";
       log("The rival's Watchtower rises to intercept your attack!","foe");
       renderAll(); renderStack();
@@ -3618,7 +3900,7 @@ function showDeckSelect(){
   const panel=document.getElementById("overlay-panel");
   panel.classList.add("wide");
   const DECK_ICON={longwall:"trebuchet",warren:"serpent",cloister:"courtyard",
-                   ashes:"pyre",siegecamp:"bombard",veil:"ward"};
+                   ashes:"pyre",siegecamp:"bombard",veil:"ward",manufactory:"bellows"};
   const opt=(side,idKey,name,tag,ic)=>`
     <div class="deck-opt${SEL[side]===idKey?" chosen":""}" data-side="${side}" data-deck="${idKey}">
       <span class="deck-opt-ic">${icon(ic)}</span>
