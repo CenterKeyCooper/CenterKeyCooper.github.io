@@ -10,7 +10,7 @@
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="https://cooperwilk.com/ntris">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='13' fill='%230c0c1a'/%3E%3Cg%3E%3Crect x='25' y='11' width='13' height='13' rx='2' fill='%23ceecca'/%3E%3Crect x='27.5' y='13.5' width='8' height='8' rx='1.5' fill='%2370ce64'/%3E%3Crect x='11' y='25' width='13' height='13' rx='2' fill='%23ceecca'/%3E%3Crect x='13.5' y='27.5' width='8' height='8' rx='1.5' fill='%2370ce64'/%3E%3Crect x='25' y='25' width='13' height='13' rx='2' fill='%23ceecca'/%3E%3Crect x='27.5' y='27.5' width='8' height='8' rx='1.5' fill='%2370ce64'/%3E%3Crect x='39' y='25' width='13' height='13' rx='2' fill='%23ceecca'/%3E%3Crect x='41.5' y='27.5' width='8' height='8' rx='1.5' fill='%2370ce64'/%3E%3Crect x='25' y='39' width='13' height='13' rx='2' fill='%23ceecca'/%3E%3Crect x='27.5' y='41.5' width='8' height='8' rx='1.5' fill='%2370ce64'/%3E%3C/g%3E%3C/svg%3E">
-<meta name="theme-color" content="#08081a">
+<meta name="theme-color" content="#07070e">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="N-TRIS">
 <meta property="og:type" content="website">
@@ -39,21 +39,18 @@
   "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}
 }
 </script>
-<script>try{if(localStorage.getItem('ntris-dark')==='1')document.documentElement.style.background='#08081a'}catch{}</script>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
-html, body { overscroll-behavior: none; }
+html, body { overscroll-behavior: none; background: #07070e; }
 
 body {
-  background: #ccccd6;
   display: flex;
   justify-content: center;
   align-items: center;
   min-height: 100vh;
   min-height: 100dvh;
   overflow: hidden;
-  transition: background 0.3s;
   -webkit-touch-callout: none;
   -webkit-user-select: none;
   user-select: none;
@@ -68,29 +65,35 @@ canvas {
 /* ---------- LEADERBOARD (matches the canvas mode cards; sized in canvas px,
    scaled to the canvas via zoom from the watcher) ---------- */
 :root{
-  --lb-card: rgba(242,242,248,0.97);
-  --lb-bdr: rgba(0,0,0,0.12);
-  --lb-ink: #1a1a1a;
-  --lb-dim: #555;
-  --lb-faint: #999;
-  --lb-accent: #5b4bd4;
-  --lb-badge: rgba(91,75,212,0.10);
+  --lb-card: rgba(15,15,28,0.97);
+  --lb-bdr: rgba(177,155,255,0.16);
+  --lb-ink: #e8e8f4;
+  --lb-dim: #8a8aa8;
+  --lb-faint: #55556f;
+  --lb-accent: #b19bff;
+  --lb-badge: rgba(177,155,255,0.14);
+  --scan: repeating-linear-gradient(rgba(0,0,0,0) 0 2px, rgba(0,0,0,0.05) 2px 3px);
 }
 #lb{
-  display:none; position:fixed; left:50%; top:57%; transform:translate(-50%,-50%);
-  width:478px; max-height:414px; overflow-y:auto;
-  padding:2px 14px; text-align:center; font-family:system-ui, sans-serif;
+  display:none; position:fixed; left:50%; top:0; transform:translateX(-50%);
+  width:478px; max-height:426px; overflow-y:auto;
+  padding:2px 14px; text-align:center; font-family:ui-monospace, Menlo, monospace;
 }
 #lb.show{display:block;}
+/* one scanline sheet over the whole panel, text included — same as the canvas */
+#lb::after{
+  content:''; position:absolute; left:0; top:0; width:100%; height:1200px;
+  pointer-events:none; background:var(--scan);
+}
 .lbSub{font-size:10px; letter-spacing:.1em; color:var(--lb-dim); text-transform:uppercase;}
 .lbTabs{display:flex; flex-wrap:wrap; gap:6px; justify-content:center; margin-top:10px;}
 .lbTab{
-  font-size:11px; font-weight:600; letter-spacing:.05em; padding:5px 12px; border-radius:8px;
+  font-size:11px; font-weight:600; letter-spacing:.05em; padding:5px 12px; border-radius:6px;
   border:1.5px solid var(--lb-bdr); color:var(--lb-dim); cursor:pointer; user-select:none;
   transition:all .15s;
 }
 .lbTab:hover{border-color:var(--lb-accent); color:var(--lb-accent);}
-.lbTab.on{background:var(--lb-accent); color:#fff; border-color:var(--lb-accent);}
+.lbTab.on{background:var(--lb-accent); color:#0a0a14; border-color:var(--lb-accent);}
 .lbName{font-size:11.5px; color:var(--lb-dim); margin:12px 0; letter-spacing:.04em;}
 .lbName input{
   background:var(--lb-card); border:1px solid var(--lb-bdr); border-radius:8px; color:var(--lb-ink);
@@ -106,11 +109,11 @@ canvas {
 }
 .lbRow.top{border-color:var(--lb-accent); border-width:2px; padding:0 15px;}
 .lbRank{
-  width:29px; height:29px; border-radius:50%; flex:0 0 auto;
+  width:29px; height:29px; border-radius:6px; flex:0 0 auto;
   background:var(--lb-badge); color:var(--lb-accent);
   font-weight:700; font-size:13px; display:flex; align-items:center; justify-content:center;
 }
-.lbRow.top .lbRank{background:var(--lb-accent); color:#fff;}
+.lbRow.top .lbRank{background:var(--lb-accent); color:#0a0a14;}
 .lbN{flex:1; min-width:0; text-align:left; color:var(--lb-ink); font-weight:700; font-size:15px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;}
 .lbM{font-size:10px; color:var(--lb-faint); white-space:nowrap; flex:0 0 auto;}
 .lbS{font-weight:700; font-size:15px; color:var(--lb-accent); min-width:72px; text-align:right; flex:0 0 auto;}
@@ -200,56 +203,44 @@ const CLEAR_NAMES = ['', 'SINGLE', 'DOUBLE', 'TRIPLE', 'QUAD', 'QUINT!', 'HEXA!'
 // THEME SYSTEM
 // =====================================================================
 
-function loadDark() { try { return localStorage.getItem('ntris-dark') === '1'; } catch { return false; } }
-
-function makeTheme(d) {
-  return {
-    bg: d ? '#0c0c1a' : '#d5d5de', surface: d ? '#131328' : '#ecedf3',
-    grid: d ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.08)',
-    border: d ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.22)',
-    panelBdr: d ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.12)',
-    label: d ? '#999' : '#555', value: d ? '#eee' : '#1a1a1a',
-    accent: d ? '#b0a0ff' : '#5b4bd4',
-    bHL: d ? [48,86] : [52,88], bSH: d ? [55,28] : [52,46], bFC: d ? [52,60] : [60,66],
-    gS: d ? [48,58,0.40] : [55,42,0.55], gF: d ? [38,62,0.10] : [50,55,0.14],
-    pO: d ? [52,70] : [65,45], pI: d ? [38,90] : [50,80],
-    tr: d ? [[42,52],[48,58],[52,62]] : [[50,58],[55,62],[58,65]],
-    ov: d ? 'rgba(8,8,20,0.92)' : 'rgba(230,230,238,0.94)',
-    ovB: d ? 'rgba(8,8,20,0.85)' : 'rgba(230,230,238,0.90)',
-    card: d ? 'rgba(18,18,38,0.97)' : 'rgba(242,242,248,0.97)',
-    title: d ? '#c8b6ff' : '#5b4bd4',
-    tGlow: d ? 'rgba(180,160,255,0.4)' : 'rgba(91,75,212,0.3)',
-    sub: d ? 'rgba(255,255,255,0.40)' : 'rgba(0,0,0,0.42)',
-    ctrlK: d ? 'rgba(180,160,255,0.65)' : 'rgba(91,75,212,0.7)',
-    ctrlD: d ? 'rgba(255,255,255,0.42)' : 'rgba(0,0,0,0.45)',
-    blink: d ? [230,230,240] : [30,30,40],
-    mTitle: d ? '#ddd' : '#333', mHint: d ? '#888' : '#777',
-    mItem: d ? '#ccc' : '#333',
-    mHov: d ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)',
-    mReb: d ? 'rgba(180,160,255,0.12)' : 'rgba(91,75,212,0.1)',
-    rBdr: d ? '#555' : '#bbb', rTxt: d ? '#999' : '#777',
-    hint: d ? '#555' : '#aaa',
-    cdN: d ? '#eee' : '#333', cdG: d ? '#66ff88' : '#2e8b3e',
-    cdGG: d ? 'rgba(100,255,140,0.5)' : 'rgba(46,139,62,0.4)',
-    cdSh: d ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.18)',
-    err: d ? '#ff6666' : '#c93c3c', errG: d ? 'rgba(255,80,80,0.4)' : 'rgba(201,60,60,0.3)',
-    goSc: d ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.72)',
-    goHi: d ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.45)',
-    clrN: d ? '#ddd' : '#333', clrB: d ? '#ffd700' : '#a07000',
-    combo: d ? '#80deea' : '#0d5ea3', b2b: d ? '#ce93d8' : '#6a1b7a',
-    body: d ? '#08081a' : '#ccccd6',
-  };
-}
-
-let darkMode = loadDark();
-let theme = makeTheme(darkMode);
-
-function toggleTheme() {
-  darkMode = !darkMode; theme = makeTheme(darkMode);
-  document.body.style.background = theme.body;
-  document.documentElement.style.background = theme.body;
-  try { localStorage.setItem('ntris-dark', darkMode ? '1' : '0'); } catch {}
-}
+// Fixed dark retro palette — the game is dark-mode only.
+const darkMode = true;   // legacy flag; a few draw branches still read it
+const theme = {
+  bg: '#07070e', surface: '#0d0d19',
+  grid: 'rgba(150,140,255,0.055)',
+  border: 'rgba(177,155,255,0.45)',
+  panelBdr: 'rgba(177,155,255,0.16)',
+  label: '#66668a', value: '#e8e8f4',
+  accent: '#b19bff',
+  bHL: [48,86], bSH: [55,28], bFC: [52,60],
+  gS: [48,58,0.40], gF: [38,62,0.10],
+  pO: [52,70], pI: [38,90],
+  tr: [[42,52],[48,58],[52,62]],
+  ov: 'rgba(5,5,12,0.92)',
+  ovB: 'rgba(5,5,12,0.86)',
+  card: 'rgba(15,15,28,0.97)',
+  title: '#c9b8ff',
+  tGlow: 'rgba(177,155,255,0.5)',
+  sub: 'rgba(230,230,255,0.42)',
+  ctrlK: 'rgba(177,155,255,0.7)',
+  ctrlD: 'rgba(230,230,255,0.4)',
+  blink: [220,210,255],
+  mTitle: '#e8e8f4', mHint: '#66668a',
+  mItem: '#c9c9dd',
+  mHov: 'rgba(177,155,255,0.08)',
+  mReb: 'rgba(177,155,255,0.14)',
+  rBdr: '#3a3a58', rTxt: '#8a8aa8',
+  hint: '#44445f',
+  cdN: '#e8e8f4', cdG: '#7dff9a',
+  cdGG: 'rgba(125,255,154,0.5)',
+  cdSh: 'rgba(177,155,255,0.25)',
+  err: '#ff5c7a', errG: 'rgba(255,92,122,0.45)',
+  goSc: 'rgba(235,235,250,0.85)',
+  goHi: 'rgba(235,235,250,0.5)',
+  clrN: '#e8e8f4', clrB: '#ffd75e',
+  combo: '#7de8ff', b2b: '#ff9bf0',
+  body: '#07070e',
+};
 
 // =====================================================================
 // KEY BINDINGS
@@ -277,8 +268,7 @@ const BTN_W = 155;
 const BTN_H = 28;
 let BTN_X = MENU_CX - BTN_W / 2;
 const RESET_Y = ITEMS_Y + REBINDABLE.length * ITEM_H + 14;
-const THEME_BTN_Y = RESET_Y + BTN_H + 8;
-const BACK_Y = THEME_BTN_Y + BTN_H + 8;
+const BACK_Y = RESET_Y + BTN_H + 8;
 
 // Gameplay uses the compact layout on narrow or portrait viewports; the title
 // screens always use the desktop layout (render() switches back on idle).
@@ -875,8 +865,14 @@ class Renderer {
   constructor(canvas) {
     this.canvas = canvas; this.ctx = canvas.getContext('2d');
     canvas.width = CANVAS_W; canvas.height = CANVAS_H;
+    // subtle CRT scanlines, tiled over every frame
+    const sc = document.createElement('canvas'); sc.width = 2; sc.height = 3;
+    const sx = sc.getContext('2d');
+    if (sx) { sx.fillStyle = 'rgba(0,0,0,0.05)'; sx.fillRect(0, 2, 2, 1); this.scan = this.ctx.createPattern(sc, 'repeat'); }
     this.resize(); window.addEventListener('resize', () => this.resize());
   }
+
+  drawScan(ctx) { if (this.scan) { ctx.fillStyle = this.scan; ctx.fillRect(0, 0, CANVAS_W, CANVAS_H); } }
 
   resize() {
     const s = Math.min(window.innerWidth / CANVAS_W, window.innerHeight / CANVAS_H) * 0.95;
@@ -890,7 +886,7 @@ class Renderer {
     if (game.state === 'idle' && mobileMode) setLayout(false);   // title screens always use desktop layout
     const ctx = this.ctx;
     ctx.fillStyle = theme.bg; ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
-    if (game.state === 'idle') { this.drawTitle(ctx); return; }
+    if (game.state === 'idle') { this.drawTitle(ctx); this.drawScan(ctx); return; }
     ctx.save(); ctx.translate(game.shakeX, game.shakeY);
     this.drawBoard(ctx, game); this.drawDropTrail(ctx, game);
     if (mobileMode) this.drawMobileHUD(ctx, game);
@@ -901,6 +897,7 @@ class Renderer {
     else if (game.state === 'over') { this.drawCurrent(ctx, game); this.drawParticles(ctx, game); this.drawGameOver(ctx, game); }
     this.drawRestartIndicator(ctx, game);
     ctx.restore();
+    this.drawScan(ctx);
   }
 
   drawBlock(ctx, x, y, size, hue, alpha) {
@@ -917,7 +914,9 @@ class Renderer {
     for (let c = 1; c < COLS; c++) { ctx.beginPath(); ctx.moveTo(BOARD_X + c * CELL, BOARD_Y); ctx.lineTo(BOARD_X + c * CELL, BOARD_Y + BOARD_H); ctx.stroke(); }
     const clr = new Set(game.clearing);
     for (let r = 0; r < ROWS; r++) { if (clr.has(r)) continue; for (let c = 0; c < COLS; c++) if (game.board[r][c]) this.drawBlock(ctx, BOARD_X + c * CELL, BOARD_Y + r * CELL, CELL, PIECES[game.board[r][c] - 1].hue, 1); }
+    ctx.save(); ctx.shadowBlur = 14; ctx.shadowColor = 'rgba(177,155,255,0.35)';
     ctx.strokeStyle = theme.border; ctx.lineWidth = 2; ctx.strokeRect(BOARD_X, BOARD_Y, BOARD_W, BOARD_H);
+    ctx.restore();
   }
 
   drawGhost(ctx, game) {
@@ -993,18 +992,20 @@ class Renderer {
 
   drawHold(ctx, game) {
     const px = PANEL_W / 2;
-    ctx.fillStyle = theme.label; ctx.font = 'bold 12px system-ui, sans-serif'; ctx.textAlign = 'center';
+    ctx.fillStyle = theme.label; ctx.font = 'bold 12px ui-monospace, Menlo, monospace'; ctx.textAlign = 'center';
     ctx.fillText('HOLD', px, 18);
+    ctx.fillStyle = theme.surface; ctx.fillRect(12, 25, PANEL_W - 24, 65);
     ctx.strokeStyle = theme.panelBdr; ctx.lineWidth = 1; ctx.strokeRect(12, 25, PANEL_W - 24, 65);
     if (game.held !== -1) this.drawPreviewPiece(ctx, game.held, px, 58, game.canHold ? 1 : 0.25);
   }
 
   drawNext(ctx, game) {
     const sx = BOARD_X + BOARD_W + GAP + PANEL_W / 2;
-    ctx.fillStyle = theme.label; ctx.font = 'bold 12px system-ui, sans-serif'; ctx.textAlign = 'center';
+    ctx.fillStyle = theme.label; ctx.font = 'bold 12px ui-monospace, Menlo, monospace'; ctx.textAlign = 'center';
     ctx.fillText('NEXT', sx, 18);
     let y = 53;
     for (let i = 0, n = Math.min(NEXT_COUNT, game.queue.length); i < n; i++) {
+      ctx.fillStyle = theme.surface; ctx.fillRect(BOARD_X + BOARD_W + GAP + 12, y - 28, PANEL_W - 24, 56);
       ctx.strokeStyle = theme.panelBdr; ctx.lineWidth = 1;
       ctx.strokeRect(BOARD_X + BOARD_W + GAP + 12, y - 28, PANEL_W - 24, 56);
       this.drawPreviewPiece(ctx, game.queue[i], sx, y, i === 0 ? 1 : 0.5);
@@ -1016,8 +1017,8 @@ class Renderer {
     const px = PANEL_W / 2; ctx.textAlign = 'center';
     let y = 125;
     for (const [label, value] of [['SCORE', game.score.toLocaleString()], ['LEVEL', game.level], ['LINES', game.lines], ['TIME', formatTime(game.gameTime)]]) {
-      ctx.fillStyle = theme.label; ctx.font = '10px system-ui, sans-serif'; ctx.fillText(label, px, y);
-      ctx.fillStyle = theme.value; ctx.font = 'bold 15px system-ui, sans-serif'; ctx.fillText('' + value, px, y + 17); y += 48;
+      ctx.fillStyle = theme.label; ctx.font = '10px ui-monospace, Menlo, monospace'; ctx.fillText(label, px, y);
+      ctx.fillStyle = theme.value; ctx.font = 'bold 15px ui-monospace, Menlo, monospace'; ctx.fillText('' + value, px, y + 17); y += 48;
     }
   }
 
@@ -1025,25 +1026,27 @@ class Renderer {
   drawMobileHUD(ctx, game) {
     const box = 52, boxY = 14;
     ctx.textAlign = 'center'; ctx.lineWidth = 1;
-    ctx.fillStyle = theme.label; ctx.font = 'bold 8px system-ui, sans-serif';
+    ctx.fillStyle = theme.label; ctx.font = 'bold 8px ui-monospace, Menlo, monospace';
     ctx.fillText('HOLD', 6 + box / 2, 10);
+    ctx.fillStyle = theme.surface; ctx.fillRect(6, boxY, box, box);
     ctx.strokeStyle = theme.panelBdr; ctx.strokeRect(6, boxY, box, box);
     if (game.held !== -1) this.drawPreviewPiece(ctx, game.held, 6 + box / 2, boxY + box / 2, game.canHold ? 1 : 0.25, 9, 44, 44);
     const n = Math.min(3, game.queue.length);
     const nx0 = CANVAS_W - 6 - 3 * box - 2 * 4;
-    ctx.fillStyle = theme.label; ctx.font = 'bold 8px system-ui, sans-serif';
+    ctx.fillStyle = theme.label; ctx.font = 'bold 8px ui-monospace, Menlo, monospace';
     ctx.fillText('NEXT', nx0 + box / 2, 10);
     for (let i = 0; i < n; i++) {
       const bx = nx0 + i * (box + 4);
+      ctx.fillStyle = theme.surface; ctx.fillRect(bx, boxY, box, box);
       ctx.strokeStyle = theme.panelBdr; ctx.strokeRect(bx, boxY, box, box);
       this.drawPreviewPiece(ctx, game.queue[i], bx + box / 2, boxY + box / 2, i === 0 ? 1 : 0.5, 9, 44, 44);
     }
     const cx = (6 + box + nx0) / 2;
-    ctx.fillStyle = theme.value; ctx.font = 'bold 15px system-ui, sans-serif';
+    ctx.fillStyle = theme.value; ctx.font = 'bold 15px ui-monospace, Menlo, monospace';
     ctx.fillText(game.score.toLocaleString(), cx, 26);
-    ctx.fillStyle = theme.label; ctx.font = '9px system-ui, sans-serif';
+    ctx.fillStyle = theme.label; ctx.font = '9px ui-monospace, Menlo, monospace';
     ctx.fillText('LV ' + game.level + '  ·  ' + game.lines + ' LN  ·  ' + formatTime(game.gameTime), cx, 42);
-    ctx.fillStyle = theme.label; ctx.font = 'bold 9px system-ui, sans-serif';
+    ctx.fillStyle = theme.label; ctx.font = 'bold 9px ui-monospace, Menlo, monospace';
     ctx.fillText('❚❚  PAUSE', cx, 64);
   }
 
@@ -1051,7 +1054,7 @@ class Renderer {
     let y = BOARD_Y + BOARD_H / 2 - 50; ctx.textAlign = 'center';
     for (const at of game.actionTexts) {
       const a = Math.min(1, at.timer / 500), lift = (1 - at.timer / 1800) * 12;
-      ctx.globalAlpha = a; ctx.fillStyle = theme[at.tk]; ctx.font = 'bold 20px system-ui, sans-serif';
+      ctx.globalAlpha = a; ctx.fillStyle = theme[at.tk]; ctx.font = 'bold 20px ui-monospace, Menlo, monospace';
       ctx.fillText(at.text, BOARD_X + BOARD_W / 2, y - lift); ctx.globalAlpha = 1; y += 26;
     }
   }
@@ -1083,23 +1086,23 @@ class Renderer {
   drawModesScreen(ctx) {
     ctx.save(); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.shadowBlur = 40; ctx.shadowColor = theme.tGlow;
-    ctx.fillStyle = theme.title; ctx.font = 'bold 50px system-ui, sans-serif';
+    ctx.fillStyle = theme.title; ctx.font = 'bold 50px ui-monospace, Menlo, monospace';
     ctx.fillText('N-TRIS', CANVAS_W / 2, 44); ctx.shadowBlur = 0;
-    ctx.fillStyle = theme.sub; ctx.font = '13px system-ui, sans-serif';
-    ctx.fillText('Tetris with polyominoes', CANVAS_W / 2, 80);
-    const tabs = ['SELECT A MODE', 'LEADERBOARD'];
+    ctx.fillStyle = theme.sub; ctx.font = '12px ui-monospace, Menlo, monospace';
+    ctx.fillText('T E T R I S   W I T H   P O L Y O M I N O E S', CANVAS_W / 2, 80);
+    const tabs = ['[ SELECT MODE ]', '[ LEADERBOARD ]'];
     for (let i = 0; i < 2; i++) {
       const tx = i === 0 ? TAB_X0 : TAB_X1;
       const active = (i === 1) === lbView, hov = tabHover === i;
       ctx.fillStyle = active ? theme.accent : hov ? theme.value : theme.label;
-      ctx.font = (active ? 'bold ' : '') + '10px system-ui, sans-serif';
+      ctx.font = (active ? 'bold ' : '') + '10px ui-monospace, Menlo, monospace';
       ctx.fillText(tabs[i], tx + TAB_W / 2, TAB_Y + TAB_H / 2);
       if (active) { ctx.fillStyle = theme.accent; ctx.fillRect(tx + TAB_W / 2 - 26, TAB_Y + TAB_H - 2, 52, 2); }
     }
 
     if (lbView) {   // the DOM leaderboard panel is shown over the canvas
-      ctx.fillStyle = theme.hint; ctx.font = '11px system-ui, sans-serif';
-      ctx.fillText('T — Theme  ·  L / Esc — Back to modes', CANVAS_W / 2, CANVAS_H - 16);
+      ctx.fillStyle = theme.hint; ctx.font = '11px ui-monospace, Menlo, monospace';
+      ctx.fillText('[ L / ESC ] BACK TO MODES', CANVAS_W / 2, CANVAS_H - 16);
       ctx.restore(); return;
     }
 
@@ -1108,25 +1111,25 @@ class Renderer {
       ctx.beginPath(); ctx.roundRect(MODE_X, y, MODE_W, MODE_H, 11);
       ctx.fillStyle = hov ? (darkMode ? 'rgba(176,160,255,0.15)' : 'rgba(91,75,212,0.09)') : theme.card; ctx.fill();
       ctx.strokeStyle = hov ? theme.accent : theme.panelBdr; ctx.lineWidth = hov ? 2 : 1; ctx.stroke();
-      // number badge
+      // number badge (square, retro)
       const bx = MODE_X + 32, by = y + MODE_H / 2;
-      ctx.beginPath(); ctx.arc(bx, by, 16, 0, Math.PI * 2);
-      ctx.fillStyle = hov ? theme.accent : (darkMode ? 'rgba(176,160,255,0.16)' : 'rgba(91,75,212,0.10)'); ctx.fill();
-      ctx.fillStyle = hov ? '#fff' : theme.title; ctx.font = 'bold 16px system-ui, sans-serif'; ctx.textAlign = 'center';
+      ctx.beginPath(); ctx.roundRect(bx - 14, by - 14, 28, 28, 6);
+      ctx.fillStyle = hov ? theme.accent : 'rgba(177,155,255,0.14)'; ctx.fill();
+      ctx.fillStyle = hov ? '#0a0a14' : theme.title; ctx.font = 'bold 16px ui-monospace, Menlo, monospace'; ctx.textAlign = 'center';
       ctx.fillText('' + (i + 1), bx, by + 1);
       // name + description
       ctx.textAlign = 'left';
-      ctx.fillStyle = theme.value; ctx.font = 'bold 18px system-ui, sans-serif'; ctx.fillText(m.name, MODE_X + 60, y + 24);
-      ctx.fillStyle = theme.sub; ctx.font = '11px system-ui, sans-serif'; ctx.fillText(m.desc, MODE_X + 60, y + 44);
+      ctx.fillStyle = theme.value; ctx.font = 'bold 18px ui-monospace, Menlo, monospace'; ctx.fillText(m.name, MODE_X + 60, y + 24);
+      ctx.fillStyle = theme.sub; ctx.font = '11px ui-monospace, Menlo, monospace'; ctx.fillText(m.desc, MODE_X + 60, y + 44);
       this.drawModeGlyphs(ctx, m, MODE_X + MODE_W - 20, by);
     }
 
     const [br, bg, bb] = theme.blink, bl = Math.sin(Date.now() / 500) * 0.18 + 0.5;
     ctx.textAlign = 'center';
-    ctx.fillStyle = `rgba(${br},${bg},${bb},${bl})`; ctx.font = '13px system-ui, sans-serif';
-    ctx.fillText('Click a mode or press 1–' + GAME_MODES.length, CANVAS_W / 2, MODE_Y0 + GAME_MODES.length * (MODE_H + MODE_GAP) + 12);
-    ctx.fillStyle = theme.hint; ctx.font = '11px system-ui, sans-serif';
-    ctx.fillText('T — Theme  ·  L — Leaderboard', CANVAS_W / 2, CANVAS_H - 16);
+    ctx.fillStyle = `rgba(${br},${bg},${bb},${bl})`; ctx.font = '13px ui-monospace, Menlo, monospace';
+    ctx.fillText('▸ CLICK A MODE OR PRESS 1–' + GAME_MODES.length, CANVAS_W / 2, MODE_Y0 + GAME_MODES.length * (MODE_H + MODE_GAP) + 12);
+    ctx.fillStyle = theme.hint; ctx.font = '11px ui-monospace, Menlo, monospace';
+    ctx.fillText('[ L ] LEADERBOARD', CANVAS_W / 2, CANVAS_H - 16);
     ctx.restore();
   }
 
@@ -1136,15 +1139,15 @@ class Renderer {
     const b = BACK_BTN;
     ctx.beginPath(); ctx.roundRect(b.x, b.y, b.w, b.h, 6);
     ctx.strokeStyle = customBackHover ? theme.accent : theme.rBdr; ctx.lineWidth = 1.5; ctx.stroke();
-    ctx.fillStyle = customBackHover ? theme.accent : theme.rTxt; ctx.font = '12px system-ui, sans-serif';
+    ctx.fillStyle = customBackHover ? theme.accent : theme.rTxt; ctx.font = '12px ui-monospace, Menlo, monospace';
     ctx.fillText('‹ Back', b.x + b.w / 2, b.y + b.h / 2 + 1);
     // title
     ctx.shadowBlur = 30; ctx.shadowColor = theme.tGlow;
-    ctx.fillStyle = theme.title; ctx.font = 'bold 42px system-ui, sans-serif';
+    ctx.fillStyle = theme.title; ctx.font = 'bold 42px ui-monospace, Menlo, monospace';
     ctx.fillText('CUSTOM', CANVAS_W / 2, 52); ctx.shadowBlur = 0;
-    ctx.fillStyle = theme.sub; ctx.font = '12px system-ui, sans-serif';
+    ctx.fillStyle = theme.sub; ctx.font = '12px ui-monospace, Menlo, monospace';
     ctx.fillText('Toggle which sizes appear · click ×N to set how many', CANVAS_W / 2, 90);
-    ctx.fillStyle = theme.label; ctx.font = '10px system-ui, sans-serif';
+    ctx.fillStyle = theme.label; ctx.font = '10px ui-monospace, Menlo, monospace';
     ctx.fillText('PIECE SIZES', CANVAS_W / 2, 124);
 
     const numRowY = TGL_Y + TGL_H + 3;
@@ -1162,9 +1165,9 @@ class Renderer {
         if (hov) { ctx.fillStyle = theme.mHov; ctx.fill(); }
         ctx.strokeStyle = theme.rBdr; ctx.lineWidth = 1.5; ctx.stroke();
       }
-      ctx.fillStyle = active ? '#fff' : theme.label; ctx.font = 'bold 15px system-ui, sans-serif'; ctx.textAlign = 'center';
+      ctx.fillStyle = active ? '#fff' : theme.label; ctx.font = 'bold 15px ui-monospace, Menlo, monospace'; ctx.textAlign = 'center';
       ctx.fillText('' + n, tx + TGL_W / 2, TGL_Y + 16);
-      ctx.fillStyle = active ? 'rgba(255,255,255,0.7)' : theme.hint; ctx.font = '10px system-ui, sans-serif';
+      ctx.fillStyle = active ? 'rgba(255,255,255,0.7)' : theme.hint; ctx.font = '10px ui-monospace, Menlo, monospace';
       ctx.fillText(SIZE_COUNTS[n] + 'pc', tx + TGL_W / 2, TGL_Y + 33);
 
       if (active) {
@@ -1172,38 +1175,38 @@ class Renderer {
         const minusHov = titleHover === i && titleHoverSub === 'minus';
         const plusHov = titleHover === i && titleHoverSub === 'plus';
         const numHov = titleHover === i && titleHoverSub === 'number';
-        ctx.fillStyle = minusHov ? theme.accent : theme.label; ctx.font = '13px system-ui, sans-serif';
+        ctx.fillStyle = minusHov ? theme.accent : theme.label; ctx.font = '13px ui-monospace, Menlo, monospace';
         ctx.fillText('−', tx + 7, numRowY + 9);
         ctx.fillStyle = plusHov ? theme.accent : theme.label; ctx.fillText('+', tx + TGL_W - 7, numRowY + 9);
         if (editing) {
-          ctx.fillStyle = theme.accent; ctx.font = 'bold 11px system-ui, sans-serif';
+          ctx.fillStyle = theme.accent; ctx.font = 'bold 11px ui-monospace, Menlo, monospace';
           const display = editingValue + (Math.floor(Date.now() / 500) % 2 ? '|' : '');
           ctx.fillText(display || '|', tx + TGL_W / 2, numRowY + 9);
         } else {
-          ctx.fillStyle = numHov ? theme.accent : theme.value; ctx.font = 'bold 11px system-ui, sans-serif';
+          ctx.fillStyle = numHov ? theme.accent : theme.value; ctx.font = 'bold 11px ui-monospace, Menlo, monospace';
           ctx.fillText('×' + w, tx + TGL_W / 2, numRowY + 9);
         }
       }
     }
 
-    ctx.fillStyle = theme.sub; ctx.font = '12px system-ui, sans-serif'; ctx.textAlign = 'center';
+    ctx.fillStyle = theme.sub; ctx.font = '12px ui-monospace, Menlo, monospace'; ctx.textAlign = 'center';
     ctx.fillText(unique + ' unique · ' + bagTotal + ' per bag', CANVAS_W / 2, TGL_Y + TGL_H + 30);
 
     // START button
     ctx.beginPath(); ctx.roundRect(START_BTN_X, START_BTN_Y, START_BTN_W, START_BTN_H, 7);
     ctx.fillStyle = customStartHover ? theme.accent : (darkMode ? 'rgba(176,160,255,0.72)' : 'rgba(91,75,212,0.78)'); ctx.fill();
-    ctx.fillStyle = '#fff'; ctx.font = 'bold 14px system-ui, sans-serif';
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 14px ui-monospace, Menlo, monospace';
     ctx.fillText('START', CANVAS_W / 2, START_BTN_Y + START_BTN_H / 2 + 1);
 
     // controls
-    ctx.font = '11px system-ui, sans-serif'; ctx.textAlign = 'left';
+    ctx.font = '11px ui-monospace, Menlo, monospace'; ctx.textAlign = 'left';
     const cx = CANVAS_W / 2 - 105;
     const ctrls = [['← →','Move'],['↓','Soft Drop'],['Space','Hard Drop'],['D','Rotate CW'],['A','Rotate CCW'],['W','Rotate 180°'],['S','Hold'],['Esc','Pause'],['Hold R','Restart']];
     let y = START_BTN_Y + START_BTN_H + 26;
     for (const [k, d] of ctrls) { ctx.fillStyle = theme.ctrlK; ctx.fillText(k.padEnd(10), cx, y); ctx.fillStyle = theme.ctrlD; ctx.fillText(d, cx + 95, y); y += 17; }
 
-    ctx.textAlign = 'center'; ctx.fillStyle = theme.hint; ctx.font = '11px system-ui, sans-serif';
-    ctx.fillText('Enter — Start   ·   Esc — Back   ·   T — Theme', CANVAS_W / 2, CANVAS_H - 14);
+    ctx.textAlign = 'center'; ctx.fillStyle = theme.hint; ctx.font = '11px ui-monospace, Menlo, monospace';
+    ctx.fillText('[ ENTER ] START   ·   [ ESC ] BACK', CANVAS_W / 2, CANVAS_H - 14);
     ctx.restore();
   }
 
@@ -1218,7 +1221,7 @@ class Renderer {
     ctx.translate(BOARD_X + BOARD_W / 2, BOARD_Y + BOARD_H / 2); ctx.scale(scale, scale);
     ctx.shadowBlur = 20; ctx.shadowColor = text === 'GO!' ? theme.cdGG : theme.cdSh;
     ctx.fillStyle = text === 'GO!' ? theme.cdG : theme.cdN;
-    ctx.font = 'bold 68px system-ui, sans-serif'; ctx.fillText(text, 0, 0); ctx.restore();
+    ctx.font = 'bold 68px ui-monospace, Menlo, monospace'; ctx.fillText(text, 0, 0); ctx.restore();
   }
 
   drawPauseMenu(ctx, game) {
@@ -1230,34 +1233,33 @@ class Renderer {
     ctx.beginPath(); ctx.roundRect(cardX, cardY, cardW, cardH, 14); ctx.fill();
 
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillStyle = theme.mTitle; ctx.font = 'bold 24px system-ui, sans-serif';
+    ctx.fillStyle = theme.mTitle; ctx.font = 'bold 24px ui-monospace, Menlo, monospace';
     ctx.fillText('PAUSED', MENU_CX, 82);
-    ctx.fillStyle = theme.mHint; ctx.font = '10px system-ui, sans-serif';
+    ctx.fillStyle = theme.mHint; ctx.font = '10px ui-monospace, Menlo, monospace';
     ctx.fillText('CONTROLS — click to rebind', MENU_CX, 132);
 
     for (let i = 0; i < REBINDABLE.length; i++) {
       const { action, label } = REBINDABLE[i], y = ITEMS_Y + i * ITEM_H;
       const hov = game.menuState.hover === i, reb = game.menuState.rebinding === action;
       if (hov || reb) { ctx.fillStyle = reb ? theme.mReb : theme.mHov; ctx.beginPath(); ctx.roundRect(MENU_LEFT, y, MENU_W, ITEM_H, 6); ctx.fill(); }
-      ctx.textAlign = 'left'; ctx.fillStyle = theme.mItem; ctx.font = '13px system-ui, sans-serif';
+      ctx.textAlign = 'left'; ctx.fillStyle = theme.mItem; ctx.font = '13px ui-monospace, Menlo, monospace';
       ctx.fillText(label, MENU_LEFT + 16, y + ITEM_H / 2);
       ctx.textAlign = 'right';
-      if (reb) { ctx.fillStyle = theme.accent; ctx.font = 'italic 13px system-ui, sans-serif'; ctx.fillText('Press a key…', MENU_LEFT + MENU_W - 16, y + ITEM_H / 2); }
-      else { ctx.fillStyle = theme.accent; ctx.font = '13px system-ui, sans-serif'; ctx.fillText((currentBindings[action] || []).map(keyName).join(' · ') || '—', MENU_LEFT + MENU_W - 16, y + ITEM_H / 2); }
+      if (reb) { ctx.fillStyle = theme.accent; ctx.font = 'italic 13px ui-monospace, Menlo, monospace'; ctx.fillText('Press a key…', MENU_LEFT + MENU_W - 16, y + ITEM_H / 2); }
+      else { ctx.fillStyle = theme.accent; ctx.font = '13px ui-monospace, Menlo, monospace'; ctx.fillText((currentBindings[action] || []).map(keyName).join(' · ') || '—', MENU_LEFT + MENU_W - 16, y + ITEM_H / 2); }
     }
 
     const drawBtn = (y, label, hovered) => {
       ctx.beginPath(); ctx.roundRect(BTN_X, y, BTN_W, BTN_H, 5);
       ctx.strokeStyle = hovered ? theme.accent : theme.rBdr; ctx.lineWidth = 1.5; ctx.stroke();
       ctx.textAlign = 'center'; ctx.fillStyle = hovered ? theme.accent : theme.rTxt;
-      ctx.font = '12px system-ui, sans-serif'; ctx.fillText(label, MENU_CX, y + BTN_H / 2);
+      ctx.font = '12px ui-monospace, Menlo, monospace'; ctx.fillText(label, MENU_CX, y + BTN_H / 2);
     };
-    drawBtn(RESET_Y, 'Reset Defaults', game.menuState.hoverReset);
-    drawBtn(THEME_BTN_Y, darkMode ? 'Light Mode' : 'Dark Mode', game.menuState.hoverTheme);
-    drawBtn(BACK_Y, 'Return to Title', game.menuState.hoverBack);
+    drawBtn(RESET_Y, 'RESET DEFAULTS', game.menuState.hoverReset);
+    drawBtn(BACK_Y, 'RETURN TO TITLE', game.menuState.hoverBack);
 
-    ctx.fillStyle = theme.hint; ctx.font = '11px system-ui, sans-serif'; ctx.textAlign = 'center';
-    ctx.fillText('ESC to resume', MENU_CX, BACK_Y + BTN_H + 18);
+    ctx.fillStyle = theme.hint; ctx.font = '11px ui-monospace, Menlo, monospace'; ctx.textAlign = 'center';
+    ctx.fillText('[ ESC ] RESUME', MENU_CX, BACK_Y + BTN_H + 18);
   }
 
   drawRestartIndicator(ctx, game) {
@@ -1270,20 +1272,20 @@ class Renderer {
     ctx.beginPath(); ctx.roundRect(BOARD_X, barY, BOARD_W * progress, barH, 2); ctx.fill();
     ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
     ctx.fillStyle = darkMode ? 'rgba(255,200,40,0.7)' : 'rgba(180,140,0,0.6)';
-    ctx.font = '10px system-ui, sans-serif'; ctx.fillText('RESTARTING', BOARD_X + BOARD_W / 2, barY - 4);
+    ctx.font = '10px ui-monospace, Menlo, monospace'; ctx.fillText('RESTARTING', BOARD_X + BOARD_W / 2, barY - 4);
   }
 
   drawGameOver(ctx, game) {
     ctx.fillStyle = theme.ovB; ctx.fillRect(BOARD_X, BOARD_Y, BOARD_W, BOARD_H);
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.shadowBlur = 20; ctx.shadowColor = theme.errG;
-    ctx.fillStyle = theme.err; ctx.font = 'bold 30px system-ui, sans-serif';
+    ctx.fillStyle = theme.err; ctx.font = 'bold 30px ui-monospace, Menlo, monospace';
     ctx.fillText('GAME OVER', BOARD_X + BOARD_W / 2, BOARD_Y + BOARD_H / 2 - 50); ctx.shadowBlur = 0;
-    ctx.fillStyle = theme.goSc; ctx.font = '14px system-ui, sans-serif';
+    ctx.fillStyle = theme.goSc; ctx.font = '14px ui-monospace, Menlo, monospace';
     ctx.fillText('Score: ' + game.score.toLocaleString(), BOARD_X + BOARD_W / 2, BOARD_Y + BOARD_H / 2 - 8);
     ctx.fillText('Level ' + game.level + '  ·  ' + game.lines + ' lines  ·  ' + formatTime(game.gameTime), BOARD_X + BOARD_W / 2, BOARD_Y + BOARD_H / 2 + 16);
-    ctx.fillStyle = theme.goHi; ctx.font = '12px system-ui, sans-serif';
-    ctx.fillText(mobileMode ? 'Tap anywhere for the title screen' : 'Hold R to restart  ·  ESC for title', BOARD_X + BOARD_W / 2, BOARD_Y + BOARD_H / 2 + 56);
+    ctx.fillStyle = theme.goHi; ctx.font = '12px ui-monospace, Menlo, monospace';
+    ctx.fillText(mobileMode ? 'TAP ANYWHERE FOR TITLE' : 'HOLD [ R ] RESTART  ·  [ ESC ] TITLE', BOARD_X + BOARD_W / 2, BOARD_Y + BOARD_H / 2 + 56);
   }
 }
 
@@ -1355,7 +1357,7 @@ class Input {
     this.touch = {
       id: t.identifier, x0: p.x, y0: p.y, t0: performance.now(),
       pieceRef: this.game.current, startCol: this.game.current ? this.game.current.col : 0,
-      rowsDropped: 0, moved: false, multi: false,
+      rowsDropped: 0, moved: false, multi: false, axis: null,
       lastY: p.y, lastT: performance.now(), vy: 0,
     };
   }
@@ -1374,17 +1376,24 @@ class Input {
     // piece changed mid-gesture (lock/spawn/hold): re-anchor so it doesn't yank
     if (g.current !== tc.pieceRef) {
       tc.pieceRef = g.current; tc.startCol = g.current.col;
-      tc.x0 = p.x; tc.y0 = p.y; tc.rowsDropped = 0;
+      tc.x0 = p.x; tc.y0 = p.y; tc.rowsDropped = 0; tc.axis = null;
     }
     const dx = p.x - tc.x0, dy = p.y - tc.y0;
     if (Math.abs(dx) > CELL * 0.6 || Math.abs(dy) > CELL * 0.6) tc.moved = true;
-    const targetCol = tc.startCol + Math.round(dx / CELL);
-    let guard = COLS;
-    while (g.current.col < targetCol && guard-- > 0) { if (!g.move(1)) break; }
-    guard = COLS;
-    while (g.current.col > targetCol && guard-- > 0) { if (!g.move(-1)) break; }
-    const rows = Math.floor(dy / CELL);
-    while (tc.rowsDropped < rows) { tc.rowsDropped++; if (g.moveDown()) g.score++; else break; }
+    // Lock each gesture to one axis: a downward slam can't also drift sideways,
+    // and a horizontal slide can't accidentally soft drop.
+    if (!tc.axis && (Math.abs(dx) > CELL * 0.75 || Math.abs(dy) > CELL * 0.75))
+      tc.axis = Math.abs(dx) > Math.abs(dy) ? 'h' : 'v';
+    if (tc.axis === 'h') {
+      const targetCol = tc.startCol + Math.round(dx / CELL);
+      let guard = COLS;
+      while (g.current.col < targetCol && guard-- > 0) { if (!g.move(1)) break; }
+      guard = COLS;
+      while (g.current.col > targetCol && guard-- > 0) { if (!g.move(-1)) break; }
+    } else if (tc.axis === 'v') {
+      const rows = Math.floor(dy / CELL);
+      while (tc.rowsDropped < rows) { tc.rowsDropped++; if (g.moveDown()) g.score++; else break; }
+    }
   }
 
   onTouchEnd(e) {
@@ -1402,7 +1411,7 @@ class Input {
     if (performance.now() - tc.lastT > 90) tc.vy = 0;   // finger rested before release: not a flick
     if (tc.multi) { g.rotate(2); return; }
     if (dy < -CELL * 1.5 && Math.abs(dx) < CELL * 2.5) { g.hold(); return; }
-    if ((tc.vy > 0.7 && dy > CELL * 1.2) || (dy > CELL * 3 && dur < 260)) { g.hardDrop(); return; }
+    if (tc.axis !== 'h' && ((tc.vy > 0.7 && dy > CELL * 1.2) || (dy > CELL * 3 && dur < 260))) { g.hardDrop(); return; }
     if (!tc.moved && dur < 350) {
       if (mobileMode && p.y < HUD_H) {   // taps in the HUD strip
         if (p.x < 64) { g.hold(); return; }
@@ -1458,7 +1467,6 @@ class Input {
     for (let i = 0; i < REBINDABLE.length; i++) { const iy = ITEMS_Y + i * ITEM_H; if (x >= MENU_LEFT && x <= MENU_LEFT + MENU_W && y >= iy && y <= iy + ITEM_H) { ms.hover = i; break; } }
     if (x >= BTN_X && x <= BTN_X + BTN_W) {
       if (y >= RESET_Y && y <= RESET_Y + BTN_H) ms.hoverReset = true;
-      if (y >= THEME_BTN_Y && y <= THEME_BTN_Y + BTN_H) ms.hoverTheme = true;
       if (y >= BACK_Y && y <= BACK_Y + BTN_H) ms.hoverBack = true;
     }
     this.canvas.style.cursor = (ms.hover >= 0 || ms.hoverReset || ms.hoverTheme || ms.hoverBack) ? 'pointer' : 'default';
@@ -1503,7 +1511,6 @@ class Input {
     for (let i = 0; i < REBINDABLE.length; i++) { const iy = ITEMS_Y + i * ITEM_H; if (x >= MENU_LEFT && x <= MENU_LEFT + MENU_W && y >= iy && y <= iy + ITEM_H) { this.game.menuState.rebinding = REBINDABLE[i].action; return; } }
     if (x >= BTN_X && x <= BTN_X + BTN_W) {
       if (y >= RESET_Y && y <= RESET_Y + BTN_H) { currentBindings = JSON.parse(JSON.stringify(DEFAULT_BINDINGS)); keyMap = buildKeyMap(currentBindings); saveBindings(); this.game.menuState.rebinding = null; }
-      if (y >= THEME_BTN_Y && y <= THEME_BTN_Y + BTN_H) toggleTheme();
       if (y >= BACK_Y && y <= BACK_Y + BTN_H) { this.clearAll(); this.game.state = 'idle'; titleScreen = 'modes'; this.canvas.style.cursor = 'default'; }
     }
   }
@@ -1528,7 +1535,6 @@ class Input {
     if (this.game.state === 'idle') {
       e.preventDefault();
       if (titleScreen === 'modes') {
-        if (e.code === 'KeyT') { toggleTheme(); return; }
         if (e.code === 'KeyL') { lbView = !lbView; return; }
         if (lbView) { if (e.code === 'Escape') lbView = false; return; }
         let n = NaN;
@@ -1549,13 +1555,10 @@ class Input {
         else { this.confirmEdit(); }
         return;
       }
-      if (e.code === 'KeyT') { toggleTheme(); return; }
       if (e.code === 'Escape') { titleScreen = 'modes'; return; }
       if (e.code === 'Enter' || e.code === 'NumpadEnter' || e.code === 'Space') { this.startCustom(); return; }
       return;
     }
-
-    if (e.code === 'KeyT' && !keyMap['KeyT']) { toggleTheme(); e.preventDefault(); return; }
 
     const action = keyMap[e.code];
     if (!action) return;
@@ -1769,18 +1772,6 @@ function renderRows(rows, mode) {
   }).join('');
 }
 
-/* ---------------- theme sync ---------------- */
-function applyLbTheme() {
-  const r = document.documentElement.style, d = darkMode;
-  r.setProperty('--lb-card', d ? 'rgba(18,18,38,0.97)' : 'rgba(242,242,248,0.97)');
-  r.setProperty('--lb-bdr', d ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.12)');
-  r.setProperty('--lb-ink', d ? '#eee' : '#1a1a1a');
-  r.setProperty('--lb-dim', d ? '#999' : '#555');
-  r.setProperty('--lb-faint', d ? '#666' : '#999');
-  r.setProperty('--lb-accent', d ? '#b0a0ff' : '#5b4bd4');
-  r.setProperty('--lb-badge', d ? 'rgba(176,160,255,0.16)' : 'rgba(91,75,212,0.10)');
-}
-
 /* ---------------- wiring ---------------- */
 nameInput.value = playerName();
 nameInput.addEventListener('input', () => saveName(nameInput.value));
@@ -1789,13 +1780,10 @@ nameInput.addEventListener('keydown', e => e.stopPropagation());
 nameInput.addEventListener('keyup', e => e.stopPropagation());
 
 buildTabs();
-applyLbTheme();
 
-// Watcher: show the panel on the title screen, log the score once per game over,
-// and keep the panel colors in sync with the canvas theme.
-let overLogged = false, lastShow = null, lastDark = darkMode, lastZoom = 0;
+// Watcher: show the panel on the title screen and log the score once per game over.
+let overLogged = false, lastShow = null, lastZoom = 0;
 (function lbTick() {
-  if (lastDark !== darkMode) { lastDark = darkMode; applyLbTheme(); }
   const show = game.state === 'idle' && titleScreen === 'modes' && lbView;
   if (show !== lastShow) {
     lbPanel.classList.toggle('show', show);
@@ -1803,9 +1791,12 @@ let overLogged = false, lastShow = null, lastDark = darkMode, lastZoom = 0;
   }
   lastShow = show;
   if (show) {
-    // the panel is designed in canvas pixels — zoom it to the canvas's current scale
-    const z = (parseFloat(canvas.style.width) || CANVAS_W) / CANVAS_W;
+    // the panel is designed in canvas pixels — zoom it to the canvas's current
+    // scale and pin its top to the mode-card area of the title screen (y=122)
+    const r = canvas.getBoundingClientRect();
+    const z = r.width / CANVAS_W || 1;
     if (z !== lastZoom) { lastZoom = z; lbPanel.style.zoom = z; }
+    lbPanel.style.top = ((r.top + 122 * z) / z) + 'px';
   }
   if (game.state === 'over') {
     if (!overLogged) { overLogged = true; submitScore(); }
