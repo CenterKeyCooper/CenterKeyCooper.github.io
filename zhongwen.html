@@ -2,776 +2,1055 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>汉字 · Chinese Practice</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0b0c10">
+<title>中文 Sprint</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>文</text></svg>">
 <style>
-  :root{
-    --bg:#0f1115; --panel:#181b22; --panel2:#1f232c; --line:#2a2f3a;
-    --txt:#e8eaf0; --muted:#9aa3b2; --accent:#e8553e; --accent2:#f0a04b;
-    --good:#3fbf7f; --bad:#e05a5a; --blue:#5a9ce0;
-  }
-  *{box-sizing:border-box}
-  html,body{margin:0;height:100%}
-  body{
-    background:radial-gradient(1200px 600px at 50% -10%,#1a1d26,#0f1115);
-    color:var(--txt);
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
-    display:flex;flex-direction:column;align-items:center;min-height:100%;
-  }
-  header{width:100%;max-width:900px;padding:18px 16px 6px;text-align:center}
-  h1{margin:0;font-size:22px;letter-spacing:.5px}
-  h1 .cn{color:var(--accent);font-size:26px;margin-right:8px}
-  .sub{color:var(--muted);font-size:13px;margin-top:4px}
-  .wrap{width:100%;max-width:900px;padding:0 16px 60px}
+:root{
+  --bg:#0b0c10; --card:#14161d; --card2:#1a1d26; --line:#252a36; --line2:#333a4a;
+  --txt:#eceef4; --muted:#8b93a5; --dim:#5b6272;
+  --red:#e5484d; --gold:#e0a44a; --good:#46c07a; --bad:#e05656;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  background:var(--bg);
+  background-image:radial-gradient(900px 500px at 50% -15%, rgba(229,72,77,.09), transparent 60%),
+                   radial-gradient(700px 400px at 85% 110%, rgba(224,164,74,.05), transparent 60%);
+  color:var(--txt);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB",sans-serif;
+  display:flex;justify-content:center;min-height:100%;min-height:100dvh;
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;overscroll-behavior-y:contain;
+}
+button{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.spk{display:inline-block;vertical-align:-2px}
+.hz{font-family:"Kaiti SC","STKaiti","KaiTi","PingFang SC",serif}
+#wrap{width:100%;max-width:620px;padding:20px 16px calc(40px + env(safe-area-inset-bottom));position:relative}
+.screen{display:none;animation:fadein .18s ease}
+.screen.on{display:block}
+@keyframes fadein{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+kbd{
+  display:inline-block;min-width:20px;text-align:center;padding:2px 6px;border-radius:6px;
+  background:var(--card2);border:1px solid var(--line2);border-bottom-width:2px;
+  font-family:ui-monospace,Menlo,monospace;font-size:11px;color:var(--muted);
+}
+.hint{color:var(--dim);font-size:12px;text-align:center;margin-top:22px;line-height:2}
+.hint kbd{margin:0 2px}
 
-  /* control bar */
-  .bar{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin:14px 0;display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between}
-  .ctl{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
-  .ctl label{font-weight:600;letter-spacing:.3px}
-  .row{display:flex;gap:8px;align-items:center}
-  select,input[type=range]{accent-color:var(--accent)}
-  select{background:var(--panel2);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:6px 8px;font-size:13px}
-  .chip{background:var(--panel2);border:1px solid var(--line);color:var(--muted);border-radius:20px;padding:5px 12px;font-size:12px;cursor:pointer;user-select:none}
-  .chip:hover{border-color:var(--accent)}
-  .chip.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+/* ---------- menu ---------- */
+#menu h1{
+  text-align:center;font-size:64px;margin-top:26px;letter-spacing:4px;
+  background:linear-gradient(135deg,#f2545b,#e0a44a);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+}
+#menu .tag{text-align:center;color:var(--muted);font-size:13px;letter-spacing:3px;text-transform:uppercase;margin:6px 0 30px}
+.pools{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.pool{
+  background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;
+  cursor:pointer;text-align:left;color:var(--txt);font:inherit;transition:border-color .12s, transform .12s;
+  position:relative;
+}
+.pool:hover,.pool:focus-visible{border-color:var(--red);transform:translateY(-2px);outline:none}
+.pool:nth-child(5){grid-column:1/-1}
+.pool .n{font-size:30px;font-weight:700}
+.pool .n span{font-size:13px;color:var(--muted);font-weight:400;margin-left:4px}
+.pool .best{font-size:12px;color:var(--gold);margin-top:2px;min-height:15px}
+.pool kbd{position:absolute;top:12px;right:12px}
+.mbar{height:4px;background:var(--card2);border-radius:2px;margin-top:12px;overflow:hidden}
+.mbar i{display:block;height:100%;background:linear-gradient(90deg,var(--red),var(--gold));border-radius:2px;transition:width .3s}
+.pool .mtxt{font-size:11px;color:var(--dim);margin-top:5px}
+.toggles{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;justify-content:center}
+.tog{
+  background:var(--card);border:1px solid var(--line);border-radius:20px;padding:7px 14px;
+  font-size:13px;color:var(--muted);cursor:pointer;font:inherit;transition:border-color .12s;
+}
+.tog:hover,.tog:focus-visible{border-color:var(--line2);outline:none}
+.tog b{color:var(--txt);font-weight:600}
+.tog kbd{margin-right:6px}
+.typesPanel{margin-top:14px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+.typesPanel h3{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:2px;margin-bottom:9px;text-align:center}
+.types{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.type{
+  background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:9px 6px;
+  font:inherit;font-size:14px;color:var(--dim);cursor:pointer;text-align:center;transition:all .12s;
+}
+.type kbd{margin-right:6px}
+.type.on{border-color:var(--red);color:var(--txt);background:rgba(229,72,77,.08)}
+.type.na{opacity:.35;cursor:default}
+.type:hover:not(.na),.type:focus-visible{border-color:var(--line2);outline:none}
+.type.on:hover{border-color:var(--red)}
 
-  /* tabs */
-  .tabs{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 4px}
-  .tab{flex:1;min-width:90px;text-align:center;padding:10px;border-radius:10px;background:var(--panel);border:1px solid var(--line);cursor:pointer;font-size:14px;color:var(--muted);font-weight:600}
-  .tab.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+/* ---------- vocab list ---------- */
+.ltabs{display:flex;gap:8px;justify-content:center;margin-top:4px;flex-wrap:wrap}
+.ltabs .tog.on{border-color:var(--red);color:var(--txt)}
+#lwords{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:4px 0;margin-top:14px}
+.lrow{display:flex;align-items:baseline;gap:12px;padding:7px 14px;font-size:15px;border-top:1px solid var(--line);cursor:pointer}
+.lrow:first-child{border-top:none}
+.lrow:hover{background:var(--card2)}
+.lrow .rk{width:32px;color:var(--dim);font-size:11px;font-variant-numeric:tabular-nums;flex-shrink:0}
+.lrow .hz{font-size:22px;min-width:86px}
+.lrow .py{color:var(--gold);min-width:96px;font-size:14px}
+.lrow .en{color:var(--muted);font-size:14px;flex:1}
+.lrow .acc{font-size:12px;color:var(--dim);font-variant-numeric:tabular-nums;flex-shrink:0}
+.lrow .acc.good{color:var(--good)}
+.lrow .acc.bad{color:var(--bad)}
 
-  .view{display:none}
-  .view.on{display:block}
+/* ---------- game ---------- */
+#topbar{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px}
+#score{font-size:26px;font-weight:700;font-variant-numeric:tabular-nums}
+#combo{font-size:15px;color:var(--gold);font-weight:600;min-width:60px;text-align:right}
+#combo.hot{color:var(--red)}
+#quitBtn{
+  background:none;border:1px solid var(--line);border-radius:8px;color:var(--dim);
+  font:inherit;font-size:13px;padding:2px 9px;cursor:pointer;margin-left:12px;line-height:1.4;
+}
+#quitBtn:hover{border-color:var(--bad);color:var(--bad)}
+#clock{font-size:15px;color:var(--muted);font-variant-numeric:tabular-nums}
+#tbar{height:5px;background:var(--card2);border-radius:3px;overflow:hidden;margin-bottom:26px}
+#tbar i{display:block;height:100%;width:100%;background:linear-gradient(90deg,var(--red),var(--gold));border-radius:3px}
+#tbar.low i{background:var(--bad)}
+#prompt{
+  text-align:center;min-height:170px;display:flex;flex-direction:column;justify-content:center;align-items:center;
+  margin-bottom:26px;position:relative;
+}
+#big{font-size:96px;line-height:1.1}
+#big.en{font-size:36px;font-weight:600;line-height:1.3;font-family:inherit}
+#big.pin{font-size:46px;font-weight:600;color:var(--gold);letter-spacing:1px;font-family:inherit}
+#big.au{cursor:pointer;user-select:none;transition:transform .1s;color:var(--gold)}
+#big.au svg{display:block;width:72px;height:72px}
+#big.au:hover{transform:scale(1.08)}
+#reveal{font-size:19px;color:var(--gold);margin-top:10px;min-height:26px;letter-spacing:1px}
+#pop{
+  position:absolute;top:0;right:8%;font-size:20px;font-weight:700;color:var(--good);
+  opacity:0;pointer-events:none;
+}
+#pop.go{animation:pop .7s ease-out}
+@keyframes pop{0%{opacity:0;transform:translateY(8px)}25%{opacity:1}100%{opacity:0;transform:translateY(-26px)}}
+#opts{display:flex;flex-direction:column;gap:9px}
+.opt{
+  display:flex;align-items:center;gap:14px;width:100%;
+  background:var(--card);border:1px solid var(--line);border-radius:12px;padding:13px 16px;
+  font:inherit;font-size:18px;color:var(--txt);cursor:pointer;text-align:left;
+  transition:border-color .1s, background .1s;
+}
+.opt .hz{font-size:26px}
+.opt:hover:not(:disabled),.opt:focus-visible{border-color:var(--line2);background:var(--card2);outline:none}
+.opt:disabled{cursor:default}
+.opt.right{border-color:var(--good);background:rgba(70,192,122,.12)}
+.opt.wrong{border-color:var(--bad);background:rgba(224,86,86,.12);animation:shake .25s}
+.opt.faded{opacity:.4}
+.opt .py{margin-left:auto;font-size:14px;color:var(--gold);opacity:0}
+.opt.right .py,.opt.wrong .py{opacity:1;transition:opacity .15s}
+@keyframes shake{0%,100%{transform:none}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+#waitmsg{text-align:center;color:var(--dim);font-size:12px;margin-top:14px;visibility:hidden}
+#waitmsg.on{visibility:visible}
 
-  /* flashcard */
-  .card{background:linear-gradient(180deg,#20242e,#171a21);border:1px solid var(--line);border-radius:20px;padding:34px 20px;text-align:center;margin:14px 0;min-height:300px;display:flex;flex-direction:column;justify-content:center;align-items:center;cursor:pointer;position:relative}
-  .rank{position:absolute;top:14px;left:16px;font-size:12px;color:var(--muted)}
-  .star{position:absolute;top:12px;right:16px;font-size:20px;cursor:pointer;opacity:.5}
-  .star.on{opacity:1}
-  .hanzi{font-size:120px;line-height:1.1;font-weight:500}
-  .pin{font-size:30px;color:var(--accent2);margin-top:6px;min-height:36px}
-  .mean{font-size:20px;color:var(--txt);margin-top:8px;min-height:26px}
-  .hint{color:var(--muted);font-size:12px;margin-top:14px}
-  .answer{opacity:0;transition:opacity .15s}
-  .card.flip .answer{opacity:1}
+/* ---------- end ---------- */
+#end{text-align:center}
+#end h2{font-size:15px;color:var(--muted);letter-spacing:3px;text-transform:uppercase;margin-top:30px}
+#fscore{font-size:76px;font-weight:700;margin:6px 0 2px;font-variant-numeric:tabular-nums}
+#newbest{color:var(--gold);font-weight:700;font-size:15px;letter-spacing:2px;min-height:22px}
+#newbest.go{animation:glow 1s ease infinite alternate}
+@keyframes glow{from{opacity:.6}to{opacity:1}}
+.statrow{display:flex;justify-content:center;gap:28px;margin:20px 0 26px}
+.statrow div{text-align:center}
+.statrow .v{font-size:24px;font-weight:700;font-variant-numeric:tabular-nums}
+.statrow .k{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-top:3px}
+#missed{max-height:230px;overflow-y:auto;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:6px 0}
+#missed h3{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:2px;padding:8px 16px 6px}
+.miss{display:flex;align-items:baseline;gap:12px;padding:7px 16px;font-size:15px;border-top:1px solid var(--line)}
+.miss .hz{font-size:22px;min-width:70px}
+.miss .py{color:var(--gold);min-width:90px;font-size:14px}
+.miss .en{color:var(--muted);font-size:14px}
 
-  .btns{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin:10px 0}
-  button.act{background:var(--panel2);color:var(--txt);border:1px solid var(--line);border-radius:10px;padding:11px 16px;font-size:14px;cursor:pointer;font-weight:600}
-  button.act:hover{border-color:var(--accent)}
-  button.act.primary{background:var(--accent);border-color:var(--accent);color:#fff}
-  button.act.good{background:var(--good);border-color:var(--good);color:#06281a}
-  button.act.bad{background:var(--bad);border-color:var(--bad);color:#fff}
-  button.act:disabled{opacity:.4;cursor:default}
-  .speak{background:var(--blue);border-color:var(--blue);color:#04203f}
+/* ---------- stats ---------- */
+#stats h2,#list h2{font-size:15px;color:var(--muted);letter-spacing:3px;text-transform:uppercase;text-align:center;margin:16px 0 20px}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:12px}
+.panel h3{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:2px;margin-bottom:10px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;text-align:right;padding:4px 2px;font-weight:600}
+th:first-child{text-align:left}
+td{padding:5px 2px;text-align:right;font-variant-numeric:tabular-nums;border-top:1px solid var(--line)}
+td:first-child{text-align:left;color:var(--muted)}
+td b{color:var(--gold)}
+.mrow{display:flex;align-items:center;gap:10px;margin:7px 0;font-size:13px}
+.mrow .lbl{width:56px;color:var(--muted)}
+.mrow .mbar{flex:1;margin:0;height:6px;border-radius:3px}
+.mrow .pct{width:76px;text-align:right;font-variant-numeric:tabular-nums;color:var(--dim);font-size:12px}
+#confirm{color:var(--bad);font-weight:600}
 
-  .progress{height:6px;background:var(--panel2);border-radius:4px;overflow:hidden;margin:6px 0}
-  .progress>div{height:100%;background:var(--accent);width:0%}
-  .meta{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-top:4px}
-
-  /* quiz */
-  .opts{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px}
-  .opt{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:16px;font-size:16px;cursor:pointer;text-align:center}
-  .opt:hover{border-color:var(--accent)}
-  .opt.correct{background:var(--good);color:#06281a;border-color:var(--good)}
-  .opt.wrong{background:var(--bad);color:#fff;border-color:var(--bad)}
-  .opt.dim{opacity:.45}
-
-  /* lists */
-  .list{display:flex;flex-direction:column;gap:8px;margin-top:12px}
-  .item{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:flex;align-items:center;gap:14px}
-  .item .cn{font-size:26px;min-width:auto}
-  .item .info{flex:1}
-  .item .ipin{color:var(--accent2);font-size:15px}
-  .item .imean{color:var(--muted);font-size:14px;margin-top:2px}
-  .item .play{background:var(--blue);border:none;color:#04203f;border-radius:50%;width:40px;height:40px;font-size:18px;cursor:pointer;flex-shrink:0}
-  .ph .cn{font-size:22px;line-height:1.4}
-
-  .stat{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px}
-  .box{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;text-align:center}
-  .box .n{font-size:30px;font-weight:700;color:var(--accent2)}
-  .box .l{font-size:12px;color:var(--muted);margin-top:4px}
-  .danger{color:var(--bad);cursor:pointer;text-decoration:underline;font-size:12px}
-  .note{color:var(--muted);font-size:12px;text-align:center;margin-top:18px;line-height:1.6}
-  /* practice */
-  .prow{display:flex;align-items:center;gap:10px;margin-top:14px;flex-wrap:wrap}
-  .badge{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:3px 9px;font-size:11px;color:var(--accent2);text-transform:uppercase;letter-spacing:.5px;font-weight:700}
-  .dots{display:flex;gap:4px}
-  .dots i{width:9px;height:9px;border-radius:50%;background:var(--panel2);border:1px solid var(--line);display:inline-block}
-  .dots i.f{background:var(--good);border-color:var(--good)}
-  .pprompt{color:var(--muted);font-size:13px;font-weight:600;margin-left:auto}
-  .pcard .answer{opacity:0;transition:opacity .12s}
-  .pcard.reveal .answer{opacity:1}
-  .opt{position:relative}
-  .optk{position:absolute;left:8px;top:6px;font-size:10px;color:var(--muted);opacity:.55}
-  .prow2{display:flex;gap:16px;flex-wrap:wrap;justify-content:center;margin-top:18px;color:var(--muted);font-size:12px}
-  .prow2 label{display:flex;align-items:center;gap:5px;cursor:pointer}
-  @media(max-width:520px){.hanzi{font-size:90px}.opts{grid-template-columns:1fr}.stat{grid-template-columns:1fr 1fr}.pprompt{margin-left:0;width:100%}}
+/* ---------- mobile ---------- */
+@media (max-width:480px){
+  #wrap{padding:14px 12px calc(28px + env(safe-area-inset-bottom))}
+  #menu h1{font-size:44px;margin-top:10px}
+  #menu .tag{margin:4px 0 18px;font-size:11px}
+  .pool{padding:12px 14px}
+  .pool .n{font-size:22px}
+  .types{grid-template-columns:repeat(2,1fr)}
+  .type{font-size:13px;padding:10px 6px}
+  #prompt{min-height:112px;margin-bottom:16px}
+  #big{font-size:60px}
+  #big.en{font-size:24px}
+  #big.pin{font-size:32px}
+  #big.au svg{width:56px;height:56px}
+  #reveal{font-size:16px}
+  #tbar{margin-bottom:16px}
+  .opt{padding:12px 13px;font-size:16px;gap:11px}
+  .opt .hz{font-size:22px}
+  .hint{margin-top:14px}
+  #fscore{font-size:52px}
+  .statrow{gap:18px;margin:14px 0 18px}
+  .statrow .v{font-size:20px}
+  .lrow .hz{min-width:60px;font-size:20px}
+  .lrow .py{min-width:78px;font-size:13px}
+}
+@media (hover:none){
+  kbd{display:none}
+  .hint{display:none}
+  .pool:hover{transform:none}
+}
 </style>
 </head>
 <body>
-<header>
-  <h1><span class="cn">汉字</span>Chinese Practice</h1>
-  <div class="sub">Frequency-ordered characters · pinyin · voice · words & phrases</div>
-</header>
+<div id="wrap">
 
-<div class="wrap">
-
-  <div class="bar">
-    <div class="ctl">
-      <label>Frequency range (by rank)</label>
-      <div class="row">
-        <span class="chip" data-range="1,150">1–150 (your zone)</span>
-        <span class="chip on" data-range="1,300">1–300</span>
-        <span class="chip" data-range="100,150">focus 100–150</span>
-        <span class="chip" data-range="weak">⭐ weak only</span>
-      </div>
+  <!-- ============ MENU ============ -->
+  <div id="menu" class="screen on">
+    <h1 class="hz">中文</h1>
+    <div class="tag">vocab sprint</div>
+    <div class="pools" id="pools"></div>
+    <div class="typesPanel">
+      <h3>quiz types — mix &amp; match</h3>
+      <div class="types" id="types"></div>
     </div>
-    <div class="ctl">
-      <label>Voice</label>
-      <div class="row">
-        <select id="voiceSel"></select>
-        <label style="display:flex;align-items:center;gap:4px;font-size:11px">speed
-          <input id="rate" type="range" min="0.5" max="1.2" step="0.1" value="0.85" style="width:70px">
-        </label>
-      </div>
+    <div class="toggles">
+      <button class="tog" id="togMode"></button>
+      <button class="tog" id="togPin"></button>
+      <button class="tog" id="togSpk"></button>
+      <button class="tog" id="togVoice"></button>
+      <button class="tog" id="togSnd"></button>
+      <button class="tog" id="togList"><kbd>L</kbd>word list</button>
+      <button class="tog" id="togStats"><kbd>S</kbd>stats</button>
     </div>
-    <div class="ctl">
-      <label>Options</label>
-      <div class="row">
-        <span class="chip on" id="autoplay">🔊 auto-play</span>
-      </div>
+    <div class="hint">
+      <kbd>1</kbd>–<kbd>5</kbd> pick a pool &amp; go &nbsp;·&nbsp; <kbd>Q</kbd>–<kbd>Y</kbd> toggle quiz types
     </div>
   </div>
 
-  <div class="tabs">
-    <div class="tab on" data-view="practice">⚡ Practice</div>
-    <div class="tab" data-view="flash">Flashcards</div>
-    <div class="tab" data-view="quiz">Quiz</div>
-    <div class="tab" data-view="words">Words</div>
-    <div class="tab" data-view="phrases">Phrases</div>
-    <div class="tab" data-view="stats">Stats</div>
+  <!-- ============ GAME ============ -->
+  <div id="game" class="screen">
+    <div id="topbar">
+      <div id="score">0</div>
+      <div id="clock"></div>
+      <div style="display:flex;align-items:baseline"><div id="combo"></div><button id="quitBtn" aria-label="end game">&#10005;</button></div>
+    </div>
+    <div id="tbar"><i></i></div>
+    <div id="prompt">
+      <div id="big" class="hz" lang="zh-Hans"></div>
+      <div id="reveal"></div>
+      <div id="pop"></div>
+    </div>
+    <div id="opts"></div>
+    <div id="waitmsg">tap or press any key to continue</div>
+    <div class="hint"><kbd>1</kbd>–<kbd>4</kbd> answer · <kbd>space</kbd> replay audio · <kbd>esc</kbd> end</div>
   </div>
 
-  <!-- PRACTICE (adaptive rapid-fire) -->
-  <div class="view on" id="view-practice">
-    <div class="prow">
-      <span class="badge" id="pType">char</span>
-      <span class="dots" id="pDots"></span>
-      <span class="pprompt" id="pPrompt"></span>
+  <!-- ============ END ============ -->
+  <div id="end" class="screen">
+    <h2 id="endtitle">time's up</h2>
+    <div id="fscore">0</div>
+    <div id="newbest"></div>
+    <div class="statrow">
+      <div><div class="v" id="eAns">0</div><div class="k">answered</div></div>
+      <div><div class="v" id="eAcc">0%</div><div class="k">accuracy</div></div>
+      <div><div class="v" id="eCombo">0</div><div class="k">best combo</div></div>
+      <div><div class="v" id="eSpeed">–</div><div class="k">avg speed</div></div>
     </div>
-    <div class="card pcard" id="pCard" style="min-height:230px">
-      <div class="hanzi" id="pBig">字</div>
-      <div class="pin" id="pBigPin" style="opacity:0"></div>
-      <div class="answer" id="pReveal"></div>
-      <div class="hint" id="pHint" style="display:none"></div>
+    <div id="missed"></div>
+    <div class="toggles">
+      <button class="tog" id="btnAgain"><b>play again</b></button>
+      <button class="tog" id="btnEndMenu">menu</button>
+      <button class="tog" id="btnEndStats">stats</button>
     </div>
-    <div class="row" style="justify-content:center;margin:8px 0;gap:8px">
-      <button class="act speak" id="pReplay">🔊 replay</button>
-      <button class="act" id="pSkip">skip ›</button>
-    </div>
-    <div class="opts" id="pOpts" style="display:none"></div>
-    <div class="btns" id="pGrade" style="display:none">
-      <button class="act bad" id="pMiss">❌ Missed (1)</button>
-      <button class="act good" id="pGot">✅ Got it (2)</button>
-    </div>
-    <div class="meta" style="margin-top:12px"><span id="pStats"></span><span id="pStreak"></span></div>
-    <div class="prow2" id="pToggles"></div>
+    <div class="hint"><kbd>enter</kbd> again · <kbd>esc</kbd> menu · <kbd>S</kbd> stats</div>
   </div>
 
-  <!-- FLASHCARDS -->
-  <div class="view" id="view-flash">
-    <div class="card" id="card">
-      <span class="rank" id="fRank"></span>
-      <span class="star" id="fStar" title="mark as weak / favorite">★</span>
-      <div class="hanzi" id="fHanzi">字</div>
-      <div class="answer">
-        <div class="pin" id="fPin"></div>
-        <div class="mean" id="fMean"></div>
-      </div>
-      <div class="hint" id="fHint">tap card to reveal</div>
-    </div>
-    <div class="btns">
-      <button class="act speak" id="fSpeak">🔊 Say it</button>
-      <button class="act" id="fPrev">‹ Prev</button>
-      <button class="act bad" id="fAgain">Again</button>
-      <button class="act good" id="fGot">Got it ›</button>
-      <button class="act" id="fShuffle">🔀 Shuffle</button>
-    </div>
-    <div class="progress"><div id="fBar"></div></div>
-    <div class="meta"><span id="fPos"></span><span id="fKnown"></span></div>
+  <!-- ============ VOCAB LIST ============ -->
+  <div id="list" class="screen">
+    <h2>vocab list</h2>
+    <div class="ltabs" id="ltabs"></div>
+    <div class="toggles" style="margin-top:10px"><button class="tog" id="btnListBack">back to menu</button></div>
+    <div id="lwords"></div>
+    <div class="hint"><kbd>1</kbd>–<kbd>5</kbd> pool · click a word to hear it · <kbd>esc</kbd> back</div>
   </div>
 
-  <!-- QUIZ -->
-  <div class="view" id="view-quiz">
-    <div class="card" style="min-height:170px;cursor:default;padding:24px">
-      <span class="rank" id="qRank"></span>
-      <div class="hanzi" id="qHanzi" style="font-size:88px">字</div>
-      <div class="pin" id="qPin" style="opacity:0"></div>
+  <!-- ============ STATS ============ -->
+  <div id="stats" class="screen">
+    <h2>stats</h2>
+    <div class="statrow">
+      <div><div class="v" id="sGames">0</div><div class="k">games</div></div>
+      <div><div class="v" id="sAns">0</div><div class="k">answers</div></div>
+      <div><div class="v" id="sAcc">–</div><div class="k">accuracy</div></div>
+      <div><div class="v" id="sSpeed">–</div><div class="k">avg speed</div></div>
     </div>
-    <div class="row" style="justify-content:center;margin:6px 0">
-      <button class="act speak" id="qSpeak">🔊 hear</button>
-      <span style="color:var(--muted);font-size:13px;align-self:center" id="qPrompt">Pick the meaning:</span>
+    <div class="panel"><h3>best sprints</h3>
+      <table id="bestTbl"></table>
     </div>
-    <div class="opts" id="qOpts"></div>
-    <div class="meta" style="margin-top:14px"><span id="qScore">Score: 0 / 0</span><span id="qStreak"></span></div>
-  </div>
-
-  <!-- WORDS -->
-  <div class="view" id="view-words">
-    <div class="list" id="wordList"></div>
-  </div>
-
-  <!-- PHRASES -->
-  <div class="view" id="view-phrases">
-    <div class="list ph" id="phraseList"></div>
-  </div>
-
-  <!-- STATS -->
-  <div class="view" id="view-stats">
-    <div class="stat">
-      <div class="box"><div class="n" id="sKnown">0</div><div class="l">characters learned</div></div>
-      <div class="box"><div class="n" id="sWeak">0</div><div class="l">marked weak ⭐</div></div>
-      <div class="box"><div class="n" id="sQuiz">0%</div><div class="l">quiz accuracy</div></div>
+    <div class="panel"><h3>mastery <span style="color:var(--dim);text-transform:none;letter-spacing:0">— a word is mastered at 3+ answers, 80%+ correct</span></h3>
+      <div id="mastery"></div>
     </div>
-    <p class="note">
-      Progress is saved in your browser (localStorage). “Got it” marks a character learned;
-      “Again” / the ★ marks it weak so you can drill it with the <b>⭐ weak only</b> range.<br>
-      <span class="danger" id="reset">Reset all progress</span>
-    </p>
+    <div class="panel"><h3>weakest words</h3>
+      <div id="weak" style="font-size:15px"></div>
+    </div>
+    <div class="toggles">
+      <button class="tog" id="btnStatsBack">back to menu</button>
+      <button class="tog" id="btnReset">reset stats</button>
+    </div>
+    <div class="hint"><kbd>esc</kbd> back · <kbd>R</kbd> <span id="confirmWrap">reset stats <span id="confirm"></span></span></div>
   </div>
 
-  <p class="note">
-    Tip: you're ~rank 100–150 in your Refold deck — use <b>1–150</b> to consolidate, then push the range out.
-    Voice uses your device's built-in Mandarin (zh-CN) speech. If no Chinese voice shows up, install one in your OS settings.
-  </p>
 </div>
-
 <script>
-/* ============ DATA: top characters by frequency (rank order) ============ */
-const CHARS = [
-["的","de","(possessive particle)"],["一","yī","one"],["是","shì","to be"],["不","bù","not / no"],["了","le","(completed-action particle)"],
-["在","zài","at / in / -ing"],["人","rén","person"],["有","yǒu","to have"],["我","wǒ","I / me"],["他","tā","he / him"],
-["这","zhè","this"],["个","gè","(generic measure word)"],["们","men","(plural marker)"],["中","zhōng","middle / China"],["来","lái","to come"],
-["上","shàng","up / on / previous"],["大","dà","big"],["为","wèi/wéi","for / to be"],["和","hé","and / with"],["国","guó","country"],
-["地","dì/de","earth / (adverb particle)"],["到","dào","to arrive / to"],["以","yǐ","with / by / so as to"],["说","shuō","to speak / say"],["时","shí","time / hour"],
-["要","yào","to want / will / need"],["就","jiù","then / at once / just"],["出","chū","to go out / produce"],["会","huì","can / meeting"],["可","kě","can / may"],
-["也","yě","also / too"],["你","nǐ","you"],["对","duì","correct / toward / pair"],["生","shēng","to be born / life / raw"],["能","néng","can / be able"],
-["而","ér","and / but / yet"],["子","zǐ","child / seed"],["那","nà","that"],["得","de/dé","(structural particle) / to get"],["于","yú","at / in / than"],
-["着","zhe","(continuous-aspect particle)"],["下","xià","down / below / next"],["自","zì","self / from"],["之","zhī","(literary possessive)"],["年","nián","year"],
-["过","guò","to pass / (experienced particle)"],["发","fā","to send / develop / hair"],["后","hòu","after / behind"],["作","zuò","to do / make / work"],["里","lǐ","inside / li (½ km)"],
-["用","yòng","to use"],["道","dào","way / road / to say"],["行","xíng/háng","to walk / OK / row"],["所","suǒ","place / (nominalizer)"],["然","rán","so / thus / -ly"],
-["家","jiā","home / family / -ist"],["种","zhǒng/zhòng","kind / to plant"],["事","shì","matter / affair"],["成","chéng","to become / succeed"],["方","fāng","square / direction / method"],
-["多","duō","many / much / more"],["经","jīng","to pass through / scripture"],["么","me","(question/word suffix)"],["去","qù","to go"],["法","fǎ","law / method"],
-["学","xué","to study / learn"],["如","rú","like / as / if"],["都","dōu/dū","all / capital"],["同","tóng","same / together"],["现","xiàn","now / to appear"],
-["当","dāng/dàng","when / to serve as / proper"],["没","méi/mò","not have / sink"],["动","dòng","to move"],["面","miàn","face / surface / noodles"],["起","qǐ","to rise / get up"],
-["看","kàn","to look / watch / read"],["定","dìng","to fix / decide / settle"],["天","tiān","sky / day / heaven"],["分","fēn/fèn","to divide / minute / part"],["还","hái/huán","still / also / to return"],
-["进","jìn","to enter / advance"],["好","hǎo/hào","good / to like"],["小","xiǎo","small / young"],["部","bù","part / department / (measure word)"],["其","qí","its / his / that"],
-["些","xiē","some / a few"],["主","zhǔ","main / host / lord"],["样","yàng","kind / manner / appearance"],["理","lǐ","reason / to manage"],["心","xīn","heart / mind"],
-["她","tā","she / her"],["本","běn","root / origin / (measure word: books)"],["前","qián","front / before"],["开","kāi","to open / start / drive"],["但","dàn","but / only"],
-["因","yīn","because / cause"],["只","zhǐ/zhī","only / (measure word: animals)"],["从","cóng","from / to follow"],["想","xiǎng","to think / want / miss"],["实","shí","real / solid / fruit"],
-["日","rì","sun / day / Japan"],["军","jūn","army / military"],["者","zhě","(one who…)"],["意","yì","meaning / idea / intention"],["无","wú","without / none"],
-["力","lì","strength / power"],["它","tā","it"],["与","yǔ","and / with / to give"],["长","cháng/zhǎng","long / to grow / chief"],["把","bǎ","to hold / (disposal particle)"],
-["机","jī","machine / opportunity"],["十","shí","ten"],["民","mín","people / civilian"],["第","dì","(ordinal prefix: -th)"],["公","gōng","public / male / duke"],
-["此","cǐ","this / here"],["已","yǐ","already"],["工","gōng","work / labor"],["使","shǐ","to make / use / send"],["情","qíng","feeling / situation / love"],
-["明","míng","bright / clear / next (day)"],["性","xìng","nature / -ness / sex"],["知","zhī","to know"],["全","quán","whole / complete"],["三","sān","three"],
-["又","yòu","again / also"],["关","guān","to close / relation / pass"],["点","diǎn","point / dot / o'clock / a bit"],["正","zhèng","correct / just / upright"],["业","yè","industry / profession"],
-["外","wài","outside / foreign"],["将","jiāng/jiàng","will / shall / general"],["两","liǎng","two (of) / a couple"],["高","gāo","tall / high"],["间","jiān/jiàn","between / room / gap"],
-["由","yóu","from / by / cause"],["问","wèn","to ask"],["很","hěn","very"],["最","zuì","most / -est"],["重","zhòng/chóng","heavy / important / again"],
-["并","bìng","and / moreover / actually"],["物","wù","thing / matter"],["手","shǒu","hand"],["应","yīng/yìng","should / to respond"],["战","zhàn","war / to fight"],
-["向","xiàng","toward / direction"],["头","tóu","head / top / (measure word)"],["文","wén","writing / culture / language"],["体","tǐ","body / form"],["政","zhèng","politics / government"],
-["美","měi","beautiful / America"],["相","xiāng/xiàng","mutual / appearance"],["见","jiàn","to see / meet"],["被","bèi","(passive marker) / quilt"],["利","lì","benefit / sharp / profit"],
-["什","shén","what (in 什么)"],["二","èr","two"],["等","děng","to wait / rank / etc."],["产","chǎn","to produce / give birth"],["或","huò","or / maybe"],
-["新","xīn","new"],["己","jǐ","self / oneself"],["制","zhì","to make / system / control"],["身","shēn","body / oneself"],["果","guǒ","fruit / result"],
-["加","jiā","to add / plus"],["西","xī","west"],["斯","sī","(phonetic 'si') / this"],["月","yuè","moon / month"],["话","huà","speech / words / language"],
-["合","hé","to combine / suit / close"],["回","huí","to return / (measure word: times)"],["特","tè","special"],["代","dài","to replace / era / generation"],["内","nèi","inside / inner"],
-["信","xìn","letter / to believe / trust"],["表","biǎo","surface / to express / watch / form"],["化","huà","to transform / -ize"],["老","lǎo","old / venerable"],["给","gěi/jǐ","to give / for"],
-["世","shì","world / generation / era"],["位","wèi","position / (measure word: people)"],["次","cì","time (occurrence) / order"],["度","dù","degree / extent"],["门","mén","door / gate"],
-["任","rèn","to appoint / duty / let"],["常","cháng","often / common / ordinary"],["先","xiān","first / earlier"],["海","hǎi","sea / ocean"],["通","tōng","to go through / connect"],
-["教","jiào/jiāo","to teach / religion"],["儿","ér","child / son / (suffix)"],["原","yuán","origin / former / plain"],["东","dōng","east"],["声","shēng","sound / voice / tone"],
-["提","tí","to lift / raise / mention"],["立","lì","to stand / establish"],["及","jí","and / to reach"],["比","bǐ","to compare / than"],["员","yuán","member / personnel"],
-["解","jiě","to untie / solve / explain"],["水","shuǐ","water"],["名","míng","name / fame / (measure word: people)"],["真","zhēn","real / true / really"],["论","lùn","to discuss / theory"],
-["处","chù/chǔ","place / to handle"],["走","zǒu","to walk / leave / go"],["义","yì","meaning / righteousness"],["各","gè","each / every"],["入","rù","to enter"],
-["几","jǐ/jī","how many / several / almost"],["口","kǒu","mouth / (measure word) / opening"],["认","rèn","to recognize / admit"],["条","tiáo","strip / (measure word) / item"],["平","píng","flat / level / peace"],
-["系","xì/jì","system / to relate / tie"],["气","qì","air / gas / energy / anger"],["题","tí","topic / question / problem"],["活","huó","to live / alive / work"],["尔","ěr","you (literary) / (phonetic)"],
-["更","gèng/gēng","more / to change"],["别","bié","don't / other / to part"],["打","dǎ","to hit / play / make"],["女","nǚ","woman / female"],["变","biàn","to change / become"],
-["四","sì","four"],["神","shén","god / spirit / expression"],["总","zǒng","total / always / chief"],["何","hé","what / how / why"],["电","diàn","electricity"],
-["数","shù/shǔ","number / to count"],["安","ān","peace / safe / quiet"],["少","shǎo/shào","few / less / young"],["报","bào","to report / newspaper"],["才","cái","talent / only then / just"],
-["结","jié/jiē","to tie / knot / bear (fruit)"],["反","fǎn","opposite / to oppose / anti-"],["受","shòu","to receive / endure / suffer"],["目","mù","eye / item / list"],["太","tài","too / very / highest"],
-["量","liàng/liáng","quantity / to measure"],["再","zài","again / then"],["感","gǎn","to feel / sense / move"],["建","jiàn","to build / establish"],["务","wù","affair / must / business"],
-["做","zuò","to do / make"],["接","jiē","to connect / receive / meet"],["必","bì","must / surely"],["场","chǎng","field / place / (measure word)"],["件","jiàn","(measure word: items/matters)"],
-["计","jì","to count / plan / calculate"],["管","guǎn","to manage / tube / care about"],["期","qī","period / phase / to expect"],["市","shì","city / market"],["直","zhí","straight / direct / just"],
-["德","dé","virtue / morality / Germany"],["资","zī","resources / capital / funds"],["命","mìng","life / fate / order"],["山","shān","mountain"],["金","jīn","gold / metal / money"],
-["指","zhǐ","finger / to point / indicate"],["克","kè","gram / to overcome"],["许","xǔ","to allow / perhaps"],["统","tǒng","to unify / system"],["区","qū","area / district / to distinguish"],
-["保","bǎo","to protect / keep / guarantee"],["至","zhì","to / until / utmost"],["队","duì","team / line / queue"],["形","xíng","form / shape"],["社","shè","society / agency"],
-["便","biàn/pián","convenient / then / cheap"],["空","kōng/kòng","empty / sky / free time"],["决","jué","to decide / definitely"],["治","zhì","to govern / cure / order"],["展","zhǎn","to unfold / exhibit"],
-["马","mǎ","horse"],["科","kē","science / branch / department"],["司","sī","to manage / department"],["五","wǔ","five"],["基","jī","base / foundation"],
-["眼","yǎn","eye"],["书","shū","book / to write"],["非","fēi","not / non- / wrong"],["则","zé","rule / then / standard"],["听","tīng","to listen / hear"],
-["白","bái","white / clear / in vain"],["却","què","but / yet / however"],["界","jiè","boundary / world / field"],["达","dá","to reach / express"],["光","guāng","light / bright / only"],
-["放","fàng","to put / release / let go"],["强","qiáng/qiǎng","strong / to force"],["即","jí","namely / immediately / even if"],["像","xiàng","to resemble / image / like"],["难","nán/nàn","difficult / disaster"],
-["且","qiě","moreover / for now"],["权","quán","power / right / authority"],["思","sī","to think / thought"],["王","wáng","king"],["完","wán","to finish / complete / whole"]
+"use strict";
+const SPK='<svg class="spk" viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-label="audio"><path d="M11 5 6 9H2v6h4l5 4z" fill="currentColor" stroke="none"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>';
+/* ============================================================
+   WORDS — Refold Mandarin 1k Simplified, in the deck's teaching order
+   (sourced from the Refold 1k community list on Hack Chinese).
+   [simplified, pinyin, english] — slices: top 100 / 200 / 300 / 500 / 1000.
+============================================================ */
+const WORDS=[
+/* 1–50 */
+["我","wǒ","I; me"],["你","nǐ","you"],["是","shì","is; are"],["不","bù","(negative prefix)"],["在","zài","(located) at; (to be) in"],
+["他","tā","he or him"],["我们","wǒ men","we; us"],["有","yǒu","to have; there is"],["这","zhè","this; these"],["什么","shén me","what?; something"],
+["她","tā","she"],["想","xiǎng","to think; to believe"],["一","yī","one; single"],["很","hěn","(adverb of degree)"],["人","rén","man; person"],
+["来","lái","to come; to arrive"],["个","gè","individual; this"],["能","néng","can; to be able to"],["去","qù","to go; to go to (a place)"],["做","zuò","to do; to make"],
+["没有","méi yǒu","haven't; hasn't"],["怎么","zěn me","how?; what?"],["现在","xiàn zài","now; at present"],["点","diǎn","point; dot"],["太","tài","highest; greatest"],
+["谁","shéi","who"],["多","duō","many; much"],["时候","shí hou","time; length of time"],["下","xià","down; downwards"],["谢谢","xiè xie","to thank; thanks"],
+["先生","xiān sheng","Mister (Mr.); teacher"],["喜欢","xǐ huan","to like; to be fond of"],["小","xiǎo","small; tiny"],["叫","jiào","to shout; to call"],["爱","ài","to love; to be fond of"],
+["年","nián","year"],["请","qǐng","to ask; to invite"],["回","huí","to circle; to go back"],["工作","gōng zuò","to work; (of a machine) to operate"],["钱","qián","coin; money"],
+["吃","chī","to eat; to consume"],["开","kāi","to open; to start"],["家","jiā","home; family"],["朋友","péng you","friend"],["妈妈","mā ma","mama; mommy"],
+["今天","jīn tiān","today; at the present"],["爸爸","bà ba","(informal) father"],["些","xiē","some; few"],["怎么样","zěn me yàng","how?; how about?"],["对不起","duì bu qǐ","I'm sorry; to let down"],
+/* 51–100 */
+["住","zhù","to live; to dwell"],["三","sān","three"],["高兴","gāo xìng","happy; glad"],["买","mǎi","to buy; to purchase"],["医生","yī shēng","doctor"],
+["哪儿","nǎ r","where?; wherever"],["字","zì","letter; symbol"],["名字","míng zi","name (of a person or thing)"],["认识","rèn shi","to know; to recognize"],["坐","zuò","to sit; to take a seat"],
+["写","xiě","to write"],["月","yuè","moon; month"],["狗","gǒu","dog"],["岁","suì","classifier for years (of age)"],["看见","kàn jiàn","to see; to catch sight of"],
+["打电话","dǎ diàn huà","to make a telephone call"],["儿子","ér zi","son"],["漂亮","piào liang","pretty; beautiful"],["分钟","fēn zhōng","minute"],["再见","zài jiàn","goodbye; see you again later"],
+["本","běn","root; stem"],["明天","míng tiān","tomorrow"],["块","kuài","piece; yuan (money)"],["女儿","nǚ ér","daughter"],["小姐","xiǎo jie","young lady; miss"],
+["衣服","yī fu","clothes"],["水","shuǐ","water; river"],["学校","xué xiào","school"],["电影","diàn yǐng","movie; film"],["书","shū","book; letter"],
+["四","sì","four"],["五","wǔ","five"],["医院","yī yuàn","hospital"],["没关系","méi guān xi","it doesn't matter"],["飞机","fēi jī","airplane"],
+["二","èr","two; (Beijing dialect) stupid"],["电视","diàn shì","television; TV"],["后面","hòu miàn","rear; back"],["昨天","zuó tiān","yesterday"],["睡觉","shuì jiào","to go to bed; to sleep"],
+["六","liù","six"],["老师","lǎo shī","teacher"],["星期","xīng qī","week; day of the week"],["十","shí","ten"],["猫","māo","cat; (dialect) to hide oneself"],
+["电脑","diàn nǎo","computer"],["热","rè","to warm up; to heat up"],["学生","xué sheng","student; schoolchild"],["下午","xià wǔ","afternoon; p.m."],["学习","xué xí","to learn; to study"],
+/* 101–150 */
+["冷","lěng","cold"],["不客气","bù kè qi","you're welcome"],["前面","qián miàn","ahead; in front"],["八","bā","eight"],["中国","zhōng guó","?"],
+["七","qī","seven"],["菜","cài","dish (type of food)"],["桌子","zhuō zi","table; desk"],["出租车","chū zū chē","taxi; (Taiwan) rental car"],["天气","tiān qì","weather"],
+["茶","chá","tea; tea plant"],["九","jiǔ","nine"],["商店","shāng diàn","store; shop"],["椅子","yǐ zi","chair"],["同学","tóng xué","to study at the same school"],
+["苹果","píng guǒ","apple"],["饭店","fàn diàn","restaurant; hotel"],["中午","zhōng wǔ","noon; midday"],["上午","shàng wǔ","morning"],["水果","shuǐ guǒ","fruit"],
+["杯子","bēi zi","cup; glass"],["下雨","xià yǔ","to rain"],["米饭","mǐ fàn","(cooked) rice"],["北京","běi jīng","? (Běi jīng)"],["汉语","hàn yǔ","? (Hàn yǔ)"],
+["就","jiù","at once; right away"],["知道","zhī dào","to know; to become aware of"],["到","dào","to (a place); until (a time)"],["对","duì","right; correct"],["也","yě","also; too"],
+["让","ràng","to yield; to permit"],["真","zhēn","really; truly"],["可以","kě yǐ","can; may"],["走","zǒu","to walk; to go"],["因为","yīn wèi","because; owing to"],
+["再","zài","again; once more"],["快","kuài","rapid; quick"],["但是","dàn shì","but; however"],["已经","yǐ jīng","already"],["为什么","wèi shén me","why?; for what reason?"],
+["觉得","jué de","to think; to feel"],["它","tā","it"],["从","cóng","from; through"],["找","zhǎo","to try to find"],["最","zuì","most; the most"],
+["可能","kě néng","might (happen)"],["次","cì","next in sequence"],["出","chū","to go out; to come out"],["孩子","hái zi","child"],["所以","suǒ yǐ","therefore; as a result"],
+/* 151–200 */
+["两","liǎng","two; both"],["错","cuò","mistake; wrong"],["等","děng","to await for; to wait"],["题","tí","topic; problem for discussion"],["问","wèn","to ask"],
+["问题","wèn tí","question; problem"],["一起","yī qǐ","in the same place"],["开始","kāi shǐ","to begin; beginning"],["时间","shí jiān","time; period"],["事情","shì qing","affair; matter"],
+["一下","yī xià","(used after a verb) give it a go"],["非常","fēi cháng","very; very much"],["希望","xī wàng","to wish for; to desire"],["准备","zhǔn bèi","preparation; to prepare"],["件","jiàn","item; component"],
+["意思","yì si","idea; opinion"],["第一","dì yī","first; number one"],["进","jìn","to go forward; to advance"],["大家","dà jiā","everyone; influential family"],["新","xīn","new; newly"],
+["您","nín","you (nín)"],["穿","chuān","to wear; to put on"],["送","sòng","to deliver; to carry"],["玩","wán","to play; to have fun"],["小时","xiǎo shí","hour"],
+["完","wán","to finish; to be over"],["每","měi","each; every"],["公司","gōng sī","(business) company"],["帮助","bāng zhù","assistance; aid"],["晚上","wǎn shang","evening; night"],
+["说话","shuō huà","to speak; to say"],["门","mén","gate; door"],["女","nǚ","female; woman"],["忙","máng","busy; hurriedly"],["卖","mài","to sell; to betray"],
+["高","gāo","high; tall"],["房间","fáng jiān","room"],["路","lù","road; journey"],["懂","dǒng","to understand; to comprehend"],["正在","zhèng zài","just at (that time)"],
+["笑","xiào","laugh; smile"],["丈夫","zhàng fu","husband"],["往","wǎng","to go (in a direction)"],["男","nán","male"],["眼睛","yǎn jing","eye"],
+["快乐","kuài lè","happy; merry"],["虽然","suī rán","although; even though"],["早上","zǎo shang","early morning"],["药","yào","medicine; drug"],["身体","shēn tǐ","the body; one's health"],
+/* 201–250 */
+["黑","hēi","black; dark"],["咖啡","kā fēi","coffee (loanword)"],["日","rì","sun; day"],["休息","xiū xi","rest; to rest"],["外","wài","outside; in addition"],
+["生日","shēng rì","birthday"],["哥哥","gē ge","older brother"],["票","piào","ticket; ballot"],["手机","shǒu jī","cell phone; mobile phone"],["洗","xǐ","to wash; to bathe"],
+["跳舞","tiào wǔ","to dance"],["弟弟","dì di","younger brother"],["妹妹","mèi mei","younger sister"],["红","hóng","red; popular"],["慢","màn","slow"],
+["近","jìn","near; close to"],["白","bái","white; snowy"],["姐姐","jiě jie","older sister"],["介绍","jiè shào","to introduce (sb to sb)"],["鱼","yú","fish"],
+["课","kè","subject; course"],["上班","shàng bān","to go to work; to be on duty"],["旁边","páng biān","lateral; side"],["运动","yùn dòng","to move; to exercise"],["去年","qù nián","last year"],
+["报纸","bào zhǐ","newspaper; newsprint"],["颜色","yán sè","color; countenance"],["机场","jī chǎng","airport; airfield"],["唱歌","chàng gē","to sing a song"],["千","qiān","thousand"],
+["考试","kǎo shì","to take an exam"],["左边","zuǒ bian","left; the left side"],["姓","xìng","family name"],["百","bǎi","hundred; numerous"],["雪","xuě","snow; snowfall"],
+["贵","guì","expensive; noble"],["生病","shēng bìng","to fall ill"],["游泳","yóu yǒng","swimming; to swim"],["牛奶","niú nǎi","cow's milk"],["右边","yòu bian","right side; right, to the right"],
+["公共汽车","gōng gòng qì chē","bus"],["起床","qǐ chuáng","to get out of bed"],["打篮球","dǎ lán qiú","play basketball"],["鸡蛋","jī dàn","(chicken) egg; hen's egg"],["踢足球","tī zú qiú","play soccer (football)"],
+["零","líng","zero; nought"],["手表","shǒu biǎo","wrist watch"],["旅游","lǚ yóu","trip; journey"],["服务员","fú wù yuán","waiter; waitress"],["宾馆","bīn guǎn","guesthouse; lodge"],
+/* 251–300 */
+["教室","jiào shì","classroom"],["跑步","pǎo bù","to run; to jog"],["阴","yīn","overcast (weather)"],["面条","miàn tiáo","noodles"],["铅笔","qiān bǐ","(lead) pencil"],
+["火车站","huǒ chē zhàn","train station"],["西瓜","xī guā","watermelon"],["羊肉","yáng ròu","mutton; goat meat"],["晴","qíng","clear; fine (weather)"],["如果","rú guǒ","if; in case"],
+["被","bèi","quilt; by"],["跟","gēn","heel; to follow closely"],["自己","zì jǐ","oneself; one's own"],["用","yòng","to use; to employ"],["像","xiàng","to resemble; to be like"],
+["需要","xū yào","to need; to want"],["应该","yīng gāi","ought to; should"],["才","cái","a moment ago; just now"],["又","yòu","(once) again; also"],["拿","ná","to hold; to seize"],
+["带","dài","to take along; to bring"],["然后","rán hòu","after; then (afterwards)"],["一样","yī yàng","same; like"],["当然","dāng rán","only natural; as it should be"],["相信","xiāng xìn","to be convinced (that sth is true)"],
+["认为","rèn wéi","to believe; to think"],["明白","míng bai","clear; obvious"],["一直","yī zhí","straight (in a straight line)"],["离开","lí kāi","to depart; to leave"],["一定","yī dìng","surely; certainly"],
+["还是","hái shi","or; still"],["发现","fā xiàn","to find; to discover"],["而且","ér qiě","(not only ...) but also"],["必须","bì xū","to have to; must"],["放","fàng","to put; to place"],
+["为了","wèi le","in order to; for the purpose of"],["向","xiàng","towards; to face"],["老","lǎo","old (of people)"],["位","wèi","position; location"],["先","xiān","first; early"],
+["最后","zuì hòu","final; last"],["其他","qí tā","other; (sth or sb) else"],["记得","jì de","to remember"],["或者","huò zhě","or; possibly"],["担心","dān xīn","anxious; worried"],
+["条","tiáo","strip; item"],["以前","yǐ qián","before; formerly"],["世界","shì jiè","world"],["重要","zhòng yào","important; significant"],["别人","bié ren","other people; others"],
+/* 301–350 */
+["机会","jī huì","opportunity; chance"],["张","zhāng","to open up; to spread"],["接","jiē","to receive; to answer (the phone)"],["比赛","bǐ sài","competition (sports etc)"],["关","guān","to close; to shut"],
+["关系","guān xi","relation; relationship"],["马","mǎ","horse"],["马上","mǎ shàng","right away"],["决定","jué dìng","to decide (to do something)"],["关于","guān yú","pertaining to; concerning"],
+["了解","liǎo jiě","to understand; to realize"],["站","zhàn","station; to stand"],["结束","jié shù","termination; to finish"],["清楚","qīng chu","clear; distinct"],["愿意","yuàn yì","to wish; to want"],
+["花","huā","flower; blossom"],["照片","zhào piàn","photograph; picture"],["欢迎","huān yíng","to welcome; welcome"],["总是","zǒng shì","always"],["嘴","zuǐ","mouth; beak"],
+["参加","cān jiā","to participate"],["办法","bàn fǎ","means; method"],["选择","xuǎn zé","to select; to pick"],["坏","huài","bad; spoiled"],["打算","dǎ suàn","to plan; to intend"],
+["试","shì","to test; to try"],["特别","tè bié","especially; special"],["注意","zhù yì","to take note of"],["其实","qí shí","actually; in fact"],["小心","xiǎo xīn","to be careful; to take care"],
+["久","jiǔ","(long) time; (long) duration of time"],["只有","zhǐ yǒu","only"],["讲","jiǎng","to speak; to explain"],["换","huàn","to exchange; to change (clothes etc)"],["结婚","jié hūn","to marry; to get married"],
+["段","duàn","paragraph; section"],["努力","nǔ lì","great effort; to strive"],["害怕","hài pà","to be afraid; to be scared"],["刚才","gāng cái","just now; a moment ago"],["节目","jié mù","program; item (on a program)"],
+["辆","liàng","classifier for vehicles"],["解决","jiě jué","to settle (a dispute)"],["办公室","bàn gōng shì","office; business premises"],["奇怪","qí guài","strange; odd"],["同意","tóng yì","to agree; to consent"],
+["游戏","yóu xì","game; to play"],["帮忙","bāng máng","to help; to lend a hand"],["国家","guó jiā","country; nation"],["最近","zuì jìn","recent; recently"],["声音","shēng yīn","voice; sound"],
+/* 351–400 */
+["可爱","kě ài","adorable; cute"],["完成","wán chéng","to complete; to accomplish"],["半","bàn","half; semi-"],["要求","yāo qiú","to request; to require"],["除了","chú le","besides; apart from (... also...)"],
+["容易","róng yì","easy; likely"],["脸","liǎn","face"],["简单","jiǎn dān","simple; not complicated"],["检查","jiǎn chá","inspection; to examine"],["音乐","yīn yuè","music"],
+["越","yuè","to exceed; the more…"],["照顾","zhào gu","to take care of"],["聪明","cōng ming","intelligent; clever"],["甜","tián","sweet"],["突然","tū rán","sudden; abrupt"],
+["终于","zhōng yú","at last; in the end"],["船","chuán","boat; vessel"],["口","kǒu","mouth; classifier for things with mouths"],["回答","huí dá","to reply; to answer"],["礼物","lǐ wù","gift; present"],
+["头发","tóu fa","hair (on the head)"],["关心","guān xīn","to be concerned about"],["脚","jiǎo","foot; leg (of an animal or an object)"],["生气","shēng qì","to get angry; to take offense"],["哭","kū","to cry; to weep"],
+["画","huà","to draw; picture"],["年轻","nián qīng","young"],["包","bāo","bag; to cover"],["腿","tuǐ","leg"],["忘记","wàng jì","to forget"],
+["搬","bān","to move (i.e. relocate oneself)"],["楼","lóu","house with more than 1 story"],["遇到","yù dào","to meet; to run into"],["新闻","xīn wén","news"],["比较","bǐ jiào","to compare; to contrast"],
+["双","shuāng","two; double"],["见面","jiàn miàn","to meet; to see each other"],["经常","jīng cháng","frequently; constantly"],["城市","chéng shì","city; town"],["一会儿","yī huì r","a moment; a while"],
+["附近","fù jìn","(in the) vicinity"],["借","jiè","to lend; to borrow"],["影响","yǐng xiǎng","influence; effect"],["认真","rèn zhēn","conscientious; earnest"],["米","mǐ","rice; meter (classifier)"],
+["银行","yín háng","bank"],["安静","ān jìng","quiet; peaceful"],["多么","duō me","how (wonderful etc)"],["饿","è","to be hungry; hungry"],["根据","gēn jù","according to; based on"],
+/* 401–450 */
+["几乎","jī hū","almost; nearly"],["后来","hòu lái","afterwards; later"],["动物","dòng wù","animal"],["西","xī","west"],["一边","yī biān","one side; either side"],
+["舒服","shū fu","comfortable; feeling well"],["一般","yī bān","same; ordinary"],["叔叔","shū shu","father's younger brother"],["疼","téng","(it) hurts; sore"],["迟到","chí dào","to arrive late"],
+["历史","lì shǐ","history"],["啤酒","pí jiǔ","beer (loanword)"],["短","duǎn","short; brief"],["经过","jīng guò","to pass; to go through"],["周末","zhōu mò","weekend"],
+["班","bān","team; class"],["习惯","xí guàn","habit; custom"],["公园","gōng yuán","park (for public recreation)"],["干净","gān jìng","clean; neat"],["鸟","niǎo","bird; (dialect) to pay attention to"],
+["健康","jiàn kāng","health; healthy"],["树","shù","tree; to cultivate"],["蛋糕","dàn gāo","cake"],["元","yuán","currency unit (esp. Chinese yuan)"],["客人","kè rén","visitor; guest"],
+["会议","huì yì","meeting; conference"],["奶奶","nǎi nai","grandma; (respectful) mistress of the house"],["裤子","kù zi","trousers; pants"],["邻居","lín jū","neighbor; next door"],["经理","jīng lǐ","manager; director"],
+["层","céng","layer; stratum"],["灯","dēng","lamp; light"],["练习","liàn xí","to practice; exercise"],["爷爷","yé ye","(coll.) father's father"],["蓝","lán","blue; indigo plant"],
+["难过","nán guò","to feel sad; to feel unwell"],["中间","zhōng jiān","between; intermediate"],["帽子","mào zi","hat; cap"],["的","de","of; ~'s (possessive particle)"],["了","le","; (completed action marker)"],
+["好","hǎo","good; well"],["会","huì","can; to be possible"],["吗","ma",""],["说","shuō","to say"],["那","nà","that; those"],
+["都","dōu","all; both"],["和","hé","and; together with"],["上","shàng","on top; upon"],["看","kàn","to see; to look at"],["呢","ne","particle indicating that a previously asked…"],
+/* 451–500 */
+["里","lǐ","inside; lining"],["听","tīng","to listen; to hear"],["大","dà","big; huge"],["东西","dōng xi","thing; stuff"],["哪","nǎ","how; which"],
+["几","jǐ","how much; how many"],["喝","hē","to drink; My goodness!"],["号","hào","ordinal number"],["喂","wéi","hello (when answering the phone)"],["少","shǎo","few; less"],
+["多少","duō shǎo","number; amount"],["读","dú","to read; to study"],["要","yào","important; vital"],["吧","ba","; ...right?"],["还","hái","still; still in progress"],
+["给","gěi","to; for"],["过","guo","(experienced action marker)"],["得","de","structural particle: used after a verb, linking it…"],["着","zhe","aspect particle indicating action in progress"],["别","bié","don't...!; to leave"],
+["告诉","gào su","to tell; to inform"],["比","bǐ","; to compare"],["长","cháng","length; long"],["远","yuǎn","far; distant"],["妻子","qī zi","wife"],
+["离","lí","to leave; to part from"],["累","lèi","tired; weary"],["好吃","hǎo chī","tasty; delicious"],["便宜","pián yi","cheap; inexpensive"],["啊","a","modal particle ending sentence, showing…"],
+["还","huán","to pay back; to return"],["把","bǎ","to hold; to contain"],["过","guò","to cross; to go over"],["只","zhǐ","only; merely"],["为","wèi","because of; for"],
+["起来","qǐ lái","indicating the beginning and continuation of an…"],["更","gèng","more; even more"],["地","dì","earth; ground"],["地方","dì fang","area; place"],["发","fā","to send out; to show (one's feeling)"],
+["种","zhǒng","seed; species"],["过去","guò qù","(in the) past; former"],["长","zhǎng","chief; head"],["难","nán","difficult (to...)"],["故事","gù shi","narrative; story"],
+["万","wàn","ten thousand; a great number"],["分","fēn","to divide; to separate"],["教","jiāo","to teach"],["差","chà","to differ from"],["一点","yī diǎn","a bit; a little"],
+/* 501–550 */
+["一点儿","yī diǎn r","a little"],["司机","sī jī","chauffeur; driver"],["旧","jiù","old; opposite: new 新"],["满意","mǎn yì","satisfied; pleased"],["太阳","tài yang","sun"],
+["极","jí","extremely; pole (geography, physics)"],["主要","zhǔ yào","main; principal"],["同事","tóng shì","colleague; co-worker"],["鼻子","bí zi","nose"],["变化","biàn huà","change; variation"],
+["东","dōng","east; host"],["年级","nián jí","grade; year (in school, college etc)"],["环境","huán jìng","environment; circumstances"],["地图","dì tú","map"],["面包","miàn bāo","bread"],
+["电子邮件","diàn zǐ yóu jiàn","email"],["耳朵","ěr duo","ear; handle (on a cup)"],["裙子","qún zi","skirt"],["新鲜","xīn xiān","fresh (experience, food etc)"],["放心","fàng xīn","to feel relieved"],
+["聊天","liáo tiān","to chat; to gossip"],["南","nán","south"],["热情","rè qíng","cordial; enthusiastic"],["信用卡","xìn yòng kǎ","credit card"],["电梯","diàn tī","elevator; escalator"],
+["方便","fāng biàn","convenient; suitable"],["洗手间","xǐ shǒu jiān","toilet; lavatory"],["洗澡","xǐ zǎo","to bathe; to take a shower"],["饮料","yǐn liào","drink; beverage"],["校长","xiào zhǎng","(college, university) president"],
+["水平","shuǐ píng","level (of achievement etc)"],["作业","zuò yè","school assignment"],["衬衫","chèn shān","shirt; blouse"],["成绩","chéng jì","achievement; performance records"],["碗","wǎn","bowl; cup"],
+["阿姨","ā yí","maternal aunt; step-mother"],["图书馆","tú shū guǎn","library"],["文化","wén huà","culture; civilization"],["绿","lǜ","green"],["打扫","dǎ sǎo","to clean; to sweep"],
+["草","cǎo","grass; straw"],["冰箱","bīng xiāng","icebox; freezer cabinet"],["数学","shù xué","mathematics; mathematical"],["自行车","zì xíng chē","bicycle; bike"],["着急","zháo jí","to worry; to feel anxious"],
+["瘦","shòu","thin; to lose weight"],["提高","tí gāo","to raise; to increase"],["起飞","qǐ fēi","(of an aircraft) to take off"],["矮","ǎi","low; short (in length)"],["地铁","dì tiě","subway; metro"],
+/* 551–600 */
+["体育","tǐ yù","sports; physical education"],["刻","kè","quarter (hour)"],["护照","hù zhào","passport"],["节日","jié rì","holiday; festival"],["盘子","pán zi","tray; plate"],
+["一共","yī gòng","altogether"],["瓶子","píng zi","bottle"],["街道","jiē dào","street; subdistrict"],["锻炼","duàn liàn","to toughen; to temper"],["感冒","gǎn mào","to catch cold; (common) cold"],
+["爱好","ài hào","to like; to take pleasure in"],["超市","chāo shì","supermarket; abbr. for 超級市場|超级市场"],["月亮","yuè liang","the moon"],["饱","bǎo","to eat till full"],["有名","yǒu míng","famous; well-known"],
+["香蕉","xiāng jiāo","banana"],["笔记本","bǐ jì běn","notebook (stationery)"],["夏","xià","summer"],["菜单","cài dān","menu"],["北方","běi fāng","north; the northern part a country"],
+["上网","shàng wǎng","to go online; to connect to the Internet"],["季节","jì jié","time; season"],["渴","kě","thirsty"],["发烧","fā shāo","to have a high temperature"],["不但","bù dàn","not only (... but also...)"],
+["空调","kōng tiáo","air conditioning"],["照相机","zhào xiàng jī","camera"],["春","chūn","spring (season)"],["伞","sǎn","umbrella; parasol"],["公斤","gōng jīn","kilogram (kg)"],
+["个子","gè zi","height; stature"],["熊猫","xióng māo","panda"],["刷牙","shuā yá","to brush one's teeth"],["复习","fù xí","to review; revision"],["请假","qǐng jià","to request leave of absence"],
+["中文","zhōng wén","? (Zhōng wén)"],["秋","qiū","autumn; fall"],["句子","jù zi","sentence"],["行李箱","xíng li xiāng","suitcase; baggage compartment"],["筷子","kuài zi","chopsticks"],
+["皮鞋","pí xié","leather shoes"],["爬山","pá shān","to climb a mountain"],["黑板","hēi bǎn","blackboard"],["感兴趣","gǎn xìng qù","to be interested"],["词典","cí diǎn","dictionary (of Chinese compound words)"],
+["留学","liú xué","to study abroad"],["刮风","guā fēng","to be windy"],["黄河","huáng hé","? (Huáng Hé)"],["死","sǐ","to die; impassable"],["而","ér","and; as well as"],
+/* 601–650 */
+["所有","suǒ yǒu","all; to have"],["也许","yě xǔ","perhaps; maybe"],["不过","bù guò","merely"],["发生","fā shēng","to happen; to occur"],["一切","yī qiè","everything; every"],
+["抱","bào","to hold; to carry (in one's arms)"],["抱歉","bào qiàn","to be sorry; to feel apologetic"],["感觉","gǎn jué","to feel; to become aware of"],["肯定","kěn dìng","to be certain; to be positive"],["棒","bàng","awesome; stick"],
+["以","yǐ","to use; by means of"],["以为","yǐ wéi","to think"],["掉","diào","to fall; to drop"],["生活","shēng huó","life; activity"],["之","zhī","him; her"],
+["任何","rèn hé","any; whatever"],["却","què","but; yet"],["继续","jì xù","to continue; to proceed with"],["够","gòu","enough (sufficient)"],["父亲","fù qīn","father"],
+["完全","wán quán","complete; whole"],["可是","kě shì","however"],["谈","tán","to speak; to talk"],["好像","hǎo xiàng","as if; to seem like"],["警察","jǐng chá","police; police officer"],
+["刚","gāng","just now; hard"],["呀","ya","(ya)"],["情况","qíng kuàng","circumstances; state of affairs"],["只要","zhǐ yào","if only; so long as"],["份","fèn","part; share"],
+["到底","dào dǐ","finally; in the end"],["成为","chéng wéi","to become; to turn into"],["永远","yǒng yuǎn","forever; eternal"],["安全","ān quán","safe; secure"],["留","liú","to leave (a message etc)"],
+["计划","jì huà","plan; project"],["俩","liǎ","two (colloquial equivalent of 兩個|两个)"],["停","tíng","to stop; to halt"],["感谢","gǎn xiè","(express) thanks"],["敢","gǎn","to dare; daring"],
+["从来","cóng lái","always; at all times"],["赢","yíng","to beat; to win"],["消息","xiāo xi","news; information"],["拉","lā","to pull; to play (a bowed instrument)"],["原因","yuán yīn","cause; origin"],
+["连","lián","to link; to join"],["确实","què shí","indeed; really"],["挺","tǐng","straight; erect"],["保证","bǎo zhèng","guarantee; to guarantee"],["接受","jiē shòu","to accept; to receive"],
+/* 651–700 */
+["改变","gǎi biàn","to change; to alter"],["麻烦","má fan","inconvenient; troublesome"],["出现","chū xiàn","to appear; to arise"],["不管","bù guǎn","not to be concerned"],["甚至","shèn zhì","even; so much so that"],
+["保护","bǎo hù","to protect; to defend"],["真正","zhēn zhèng","genuine; real"],["至少","zhì shǎo","at least; (to say the) least"],["律师","lǜ shī","lawyer"],["表演","biǎo yǎn","play; show"],
+["无","wú","not to have; no"],["猜","cāi","to guess"],["咱们","zán men","we or us spoken to)"],["进行","jìn xíng","to advance; to conduct"],["内","nèi","inside; inner"],
+["是否","shì fǒu","whether (or not)"],["调查","diào chá","investigation; inquiry"],["成功","chéng gōng","success; to succeed"],["考虑","kǎo lǜ","to think over; to consider"],["约会","yuē huì","appointment; engagement"],
+["通过","tōng guò","by means of; through"],["开心","kāi xīn","to feel happy; to rejoice"],["母亲","mǔ qīn","mother"],["主意","zhǔ yi","plan; idea"],["解释","jiě shì","explanation; to explain"],
+["联系","lián xì","connection; contact"],["证明","zhèng míng","proof; certificate"],["生命","shēng mìng","life; living being"],["难道","nán dào","don't tell me ..."],["由","yóu","to follow; from"],
+["指","zhǐ","finger; to point at or to"],["危险","wēi xiǎn","danger; dangerous"],["讨厌","tǎo yàn","to dislike; to loathe"],["醒","xǐng","to wake up; to be awake"],["样子","yàng zi","appearance; manner"],
+["有趣","yǒu qù","interesting; fascinating"],["提","tí","to carry (hanging down from the hand)"],["部分","bù fen","share"],["理解","lǐ jiě","to comprehend; to understand"],["任务","rèn wu","mission; assignment"],
+["使","shǐ","to make; to cause"],["博士","bó shì","doctor; court academician (in feudal China)"],["紧张","jǐn zhāng","nervous; keyed up"],["放弃","fàng qì","to renounce; to abandon"],["大概","dà gài","roughly; probably"],
+["重新","chóng xīn","once more"],["其中","qí zhōng","among; in"],["来自","lái zì","to come from (a place)"],["本来","běn lái","original; originally"],["并且","bìng qiě","and; besides"],
+/* 701–750 */
+["直接","zhí jiē","direct; opposite: indirect 間接|间接"],["对于","duì yú","regarding; as far as sth is concerned"],["正常","zhèng cháng","regular; normal"],["遍","biàn","everywhere; all over"],["冷静","lěng jìng","calm; cool-headed"],
+["方法","fāng fǎ","method; way"],["扔","rēng","to throw; to throw away"],["能力","néng lì","capability; ability"],["另外","lìng wài","additional; in addition"],["放松","fàng sōng","to loosen; to relax"],
+["丢","diū","to lose; to put aside"],["负责","fù zé","to be in charge of"],["梦","mèng","dream"],["戴","dài","to put on or wear"],["错误","cuò wù","error; mistake"],
+["随便","suí biàn","as one wishes; it's up to you"],["经历","jīng lì","experience; to experience"],["支持","zhī chí","to be in favor of"],["建议","jiàn yì","to propose; to suggest"],["否则","fǒu zé","if not; otherwise"],
+["光","guāng","light; ray"],["安排","ān pái","to arrange; to plan"],["钥匙","yào shi","key"],["信息","xìn xī","information"],["全部","quán bù","whole; entire"],
+["首先","shǒu xiān","first (of all)"],["照","zhào","according to; in accordance with"],["交","jiāo","to hand over; to deliver"],["坚持","jiān chí","to persevere with"],["火","huǒ","fire; urgent"],
+["即使","jí shǐ","even if; even though"],["到处","dào chù","everywhere"],["挂","guà","to hang or suspend (from a hook etc)"],["道歉","dào qiàn","to apologize"],["可怜","kě lián","pitiful; pathetic"],
+["实在","shí zài","really; actually"],["骗","piàn","to cheat; to swindle"],["原谅","yuán liàng","to excuse; to forgive"],["乱","luàn","in confusion or disorder"],["差不多","chà bu duō","nearly"],
+["满","mǎn","to fill; full"],["研究","yán jiū","research; a study"],["打扰","dǎ rǎo","to disturb; to bother"],["正确","zhèng què","correct; proper"],["收","shōu","to receive; to accept"],
+["秒","miǎo","second (unit of time)"],["同时","tóng shí","at the same time"],["提供","tí gōng","to offer; to supply"],["输","shū","to lose; to transport"],["号码","hào mǎ","number"],
+/* 751–800 */
+["座","zuò","seat; base"],["比如","bǐ rú","for example; for instance"],["严重","yán zhòng","grave; serious"],["脱","tuō","to shed; to take off"],["陪","péi","to accompany; to keep sb company"],
+["法律","fǎ lǜ","law"],["值得","zhí de","to be worth; to deserve"],["使用","shǐ yòng","to employ"],["方面","fāng miàn","respect; aspect"],["原来","yuán lái","original; former"],
+["讨论","tǎo lùn","to discuss; to talk over"],["说明","shuō míng","to explain; to illustrate"],["仍然","réng rán","still; yet"],["动作","dòng zuò","movement; motion"],["受到","shòu dào","to receive; to be ...ed"],
+["赶","gǎn","to overtake; to catch up with"],["怀疑","huái yí","to doubt (sth)"],["拒绝","jù jué","to refuse; to decline"],["演员","yǎn yuán","actor or actress"],["破","pò","broken; damaged"],
+["因此","yīn cǐ","thus; consequently"],["答案","dá àn","answer; solution"],["活动","huó dòng","to exercise; to move about"],["既然","jì rán","since; as"],["通知","tōng zhī","to notify; to inform"],
+["不得不","bù dé bù","have no choice or option but to"],["无论","wú lùn","no matter what or how"],["刀","dāo","knife; blade"],["适合","shì hé","to fit; to suit"],["失望","shī wàng","disappointed; to lose hope"],
+["允许","yǔn xǔ","to permit; to allow"],["意见","yì jiàn","opinion"],["获得","huò dé","to obtain; to receive"],["要是","yào shi","if"],["邀请","yāo qǐng","to invite; invitation"],
+["尽管","jǐn guǎn","despite; although"],["浪费","làng fèi","to waste; to squander"],["失败","shī bài","to be defeated"],["责任","zé rèn","responsibility"],["美丽","měi lì","beautiful"],
+["压力","yā lì","pressure"],["味道","wèi dao","flavor; smell"],["厉害","lì hai","difficult to deal with"],["出发","chū fā","to set off; to start (on a journey)"],["兴奋","xīng fèn","excited; excitement"],
+["观众","guān zhòng","spectators; audience"],["反对","fǎn duì","to fight against"],["精彩","jīng cǎi","wonderful; marvelous"],["感情","gǎn qíng","emotion; sentiment"],["演出","yǎn chū","to act (in a play)"],
+/* 801–850 */
+["愉快","yú kuài","cheerful; cheerily"],["开玩笑","kāi wán xiào","to play a joke"],["杂志","zá zhì","magazine"],["合适","hé shì","suitable; fitting"],["广告","guǎng gào","to advertise; a commercial"],
+["自然","zì rán","nature; natural"],["深","shēn","deep; depth"],["取","qǔ","to take; to get"],["短信","duǎn xìn","text message; SMS"],["地球","dì qiú","the earth"],
+["帅","shuài","handsome; graceful"],["推","tuī","to push; to cut"],["关键","guān jiàn","crucial point; crux"],["究竟","jiū jìng","to go to the bottom of a matter"],["恐怕","kǒng pà","fear; to dread"],
+["躺","tǎng","to recline; to lie down"],["聚会","jù huì","party; gathering"],["方向","fāng xiàng","direction; orientation"],["幸福","xìng fú","happiness; happy"],["接着","jiē zhe","to catch and hold on"],
+["技术","jì shù","technology; technique"],["困","kùn","sleepy; tired"],["困难","kùn nan","difficult; challenging"],["正好","zhèng hǎo","just (in time)"],["提醒","tí xǐng","to remind; to call attention to"],
+["旅行","lǚ xíng","to travel; journey"],["激动","jī dòng","to move emotionally"],["骄傲","jiāo ào","pride; arrogance"],["毛","máo","fur; hair"],["许多","xǔ duō","many; a lot of"],
+["顺利","shùn lì","smoothly; without a hitch"],["职业","zhí yè","occupation; profession"],["地址","dì zhǐ","address"],["于是","yú shì","thereupon; as a result"],["收拾","shōu shi","to put in order"],
+["周围","zhōu wéi","surroundings; environment"],["爱情","ài qíng","romance; love (romantic)"],["尊重","zūn zhòng","to esteem; to respect"],["十分","shí fēn","very; completely"],["教授","jiào shòu","professor; to instruct"],
+["超过","chāo guò","to surpass; to exceed"],["寄","jì","to send; to mail"],["顺便","shùn biàn","conveniently; in passing"],["无聊","wú liáo","bored; boring"],["目的","mù dì","purpose; aim"],
+["低","dī","low; beneath"],["剩","shèng","to remain; to be left"],["复杂","fù zá","complicated; complex"],["社会","shè huì","society"],["故意","gù yì","deliberately; on purpose"],
+/* 851–900 */
+["好处","hǎo chu","benefit; advantage"],["竟然","jìng rán","unexpectedly; to one's surprise"],["表示","biǎo shì","to express; to show"],["印象","yìn xiàng","impression"],["出生","chū shēng","to be born"],
+["估计","gū jì","to estimate; to reckon"],["地点","dì diǎn","place; site"],["轻","qīng","light; easy"],["轻松","qīng sōng","light; gentle"],["作用","zuò yòng","to act on; to affect"],
+["举","jǔ","to lift; to hold up"],["小伙子","xiǎo huǒ zi","young man; young guy"],["著名","zhù míng","famous; noted"],["免费","miǎn fèi","free (of charge)"],["伤心","shāng xīn","to grieve; to be broken-hearted"],
+["记者","jì zhě","reporter; journalist"],["仔细","zǐ xì","careful; attentive"],["巧克力","qiǎo kè lì","chocolate (loanword)"],["辣","là","hot (spicy); pungent"],["互相","hù xiāng","each other; mutually"],
+["厕所","cè suǒ","lavatory"],["过程","guò chéng","course of events"],["申请","shēn qǐng","to apply for sth"],["引起","yǐn qǐ","to give rise to"],["发展","fā zhǎn","development; growth"],
+["毕业","bì yè","graduation; to graduate"],["正式","zhèng shì","formal; official"],["厨房","chú fáng","kitchen"],["专业","zhuān yè","specialty; specialized field"],["吸引","xī yǐn","to attract (interest, investment etc)"],
+["心情","xīn qíng","mood; frame of mind"],["祝贺","zhù hè","to congratulate"],["条件","tiáo jiàn","condition; circumstances"],["千万","qiān wàn","ten million; countless"],["糖","táng","sugar; sweets"],
+["由于","yóu yú","due to; as a result of"],["密码","mì mǎ","secret code; ciphertext"],["倍","bèi","(two, three etc) -fold"],["擦","cā","to wipe; to erase"],["尤其","yóu qí","especially; particularly"],
+["经验","jīng yàn","to experience"],["盒子","hé zi","box; case"],["干杯","gān bēi","to drink a toast"],["看法","kàn fǎ","way of looking at a thing"],["艺术","yì shù","art"],
+["速度","sù dù","speed; rate"],["勇敢","yǒng gǎn","brave; courageous"],["数字","shù zì","numeral; digit"],["暂时","zàn shí","temporary; provisional"],["优秀","yōu xiù","outstanding; excellent"],
+/* 901–950 */
+["笑话","xiào huà","joke; jest"],["可惜","kě xī","it is a pity; what a pity"],["响","xiǎng","echo; sound"],["笨","bèn","stupid; foolish"],["科学","kē xué","science; scientific knowledge"],
+["餐厅","cān tīng","dining hall; dining room"],["各","gè","every"],["距离","jù lí","distance; to be apart from"],["窗户","chuāng hu","window"],["空气","kōng qì","air; atmosphere"],
+["护士","hù shi","nurse"],["后悔","hòu huǐ","to regret; to repent"],["大约","dà yuē","approximately; probably"],["内容","nèi róng","content; substance"],["规定","guī dìng","provision; to fix"],
+["效果","xiào guǒ","result; effect"],["现金","xiàn jīn","cash"],["儿童","ér tóng","child (ér tóng)"],["租","zū","to hire; to rent"],["篇","piān","sheet; piece of writing"],
+["浪漫","làng màn","romantic"],["态度","tài du","manner; bearing"],["自信","zì xìn","to have confidence in oneself"],["吃惊","chī jīng","to be startled"],["熟悉","shú xī","to be familiar with"],
+["按照","àn zhào","in accordance with"],["世纪","shì jì","century"],["回忆","huí yì","to recall; memories"],["相同","xiāng tóng","identical; same"],["教育","jiào yù","to educate"],
+["受不了","shòu bù liǎo","unbearable; unable to endure"],["皮肤","pí fū","skin"],["区别","qū bié","difference; to distinguish"],["左右","zuǒ yòu","around (a number)"],["阳光","yáng guāng","sunshine"],
+["页","yè","page; leaf"],["文章","wén zhāng","article; essay"],["语言","yǔ yán","language"],["标准","biāo zhǔn","(an official) standard"],["管理","guǎn lǐ","to supervise; to manage"],
+["误会","wù huì","to misunderstand"],["桥","qiáo","bridge"],["举行","jǔ xíng","to hold (a meeting, ceremony etc)"],["肚子","dù zi","belly; abdomen"],["不仅","bù jǐn","not only (this one)"],
+["饼干","bǐng gān","biscuit; cracker"],["国际","guó jì","international"],["信心","xìn xīn","confidence; faith (in sb or sth)"],["抬","tái","to lift; to raise"],["竞争","jìng zhēng","to compete; competition"],
+/* 951–1000 */
+["作家","zuò jiā","author; writer"],["诚实","chéng shí","honest; honesty"],["顾客","gù kè","client; customer"],["存","cún","to exist; to deposit"],["香","xiāng","fragrant; sweet smelling"],
+["打扮","dǎ ban","to decorate; to dress"],["交流","jiāo liú","to exchange; exchange"],["年龄","nián líng","(a person's) age"],["小说","xiǎo shuō","novel; fiction"],["符合","fú hé","in keeping with"],
+["交通","jiāo tōng","to be connected"],["共同","gòng tóng","common; joint"],["稍微","shāo wēi","a little bit"],["增加","zēng jiā","to increase"],["敲","qiāo","to hit; to strike"],
+["适应","shì yìng","to adapt; to fit"],["苦","kǔ","bitter; hardship"],["辛苦","xīn kǔ","exhausting; hard"],["然而","rán ér","however; yet"],["耐心","nài xīn","to be patient; patience"],
+["将来","jiāng lái","in the future; future"],["沙发","shā fā","sofa (loanword)"],["骑","qí","to ride (an animal or bike)"],["角","jiǎo","angle; corner"],["胖","pàng","fat; plump"],
+["冬","dōng","winter"],["得","dé","to obtain; to get"],["干","gàn","to do; to work"],["当","dāng","to be; to act as"],["行","xíng","to walk; \"that's fine\""],
+["与","yǔ","and; to give"],["弄","nòng","to make"],["场","chǎng","large place used for a specific purpose"],["底","dǐ","background; bottom"],["结果","jié guǒ","outcome; result"],
+["当时","dāng shí","then; at that time"],["倒","dǎo","to fall; to collapse"],["重","zhòng","heavy; serious"],["转","zhuǎn","to turn; to change direction"],["台","tái","desk; table"],
+["生意","shēng yi","business"],["假","jiǎ","fake; false"],["空","kōng","empty; air"],["节","jié","festival; holiday"],["赚","zhuàn","to earn; to make a profit"],
+["趟","tàng","classifier for times, round trips or rows"],["脏","zāng","dirty; filthy"],["省","shěng","to save; to economize"],["重点","zhòng diǎn","important point"],["汤","tāng","soup; hot or boiling water"]
+];//ENDWORDS
+
+/* ============================================================ */
+const SIZES=[100,200,300,500,1000];
+const SPRINT_MS=60000;
+const $=id=>document.getElementById(id);
+
+/* ---------- persistence ---------- */
+const S=Object.assign({size:100,dir:0,mode:0,pin:true,snd:true,spk:true,types:null,voice:null},
+  JSON.parse(localStorage.getItem("zhongwen-settings")||"{}"));
+const ST=Object.assign({games:0,best:{},words:{},recent:[]},
+  JSON.parse(localStorage.getItem("zhongwen-stats")||"{}"));
+const saveS=()=>localStorage.setItem("zhongwen-settings",JSON.stringify(S));
+const saveST=()=>localStorage.setItem("zhongwen-stats",JSON.stringify(ST));
+// migrate from the earlier single-direction version
+if(!S.types)S.types={he:S.dir!==1,eh:S.dir===1,hp:false,ph:false,ah:false,ae:false};
+for(const sz of SIZES){
+  const a=ST.best["s"+sz+"-0"]||0,b=ST.best["s"+sz+"-1"]||0;
+  if(a||b){ST.best["s"+sz]=Math.max(ST.best["s"+sz]||0,a,b);delete ST.best["s"+sz+"-0"];delete ST.best["s"+sz+"-1"]}
+}
+
+/* ---------- quiz types (prompt facet → answer facet) ---------- */
+const TYPES=[
+  {id:"he",p:"hz", a:"en", k:"q",label:"汉 → EN"},
+  {id:"eh",p:"en", a:"hz", k:"w",label:"EN → 汉"},
+  {id:"hp",p:"hz", a:"pin",k:"e",label:"汉 → PĪN"},
+  {id:"ph",p:"pin",a:"hz", k:"r",label:"PĪN → 汉"},
+  {id:"ah",p:"au", a:"hz", k:"t",label:SPK+" → 汉"},
+  {id:"ae",p:"au", a:"en", k:"y",label:SPK+" → EN"},
 ];
 
-/* common 2-syllable words */
-const WORDS = [
-["你好","nǐ hǎo","hello"],["谢谢","xiè xie","thank you"],["再见","zài jiàn","goodbye"],["对不起","duì bu qǐ","sorry"],["没关系","méi guān xi","it's okay / no problem"],
-["我们","wǒ men","we / us"],["他们","tā men","they / them"],["什么","shén me","what"],["怎么","zěn me","how"],["为什么","wèi shén me","why"],
-["现在","xiàn zài","now"],["今天","jīn tiān","today"],["明天","míng tiān","tomorrow"],["昨天","zuó tiān","yesterday"],["时候","shí hou","time / moment"],
-["知道","zhī dào","to know"],["觉得","jué de","to feel / think"],["喜欢","xǐ huan","to like"],["可以","kě yǐ","can / may"],["因为","yīn wèi","because"],
-["所以","suǒ yǐ","so / therefore"],["但是","dàn shì","but"],["还是","hái shì","still / or"],["如果","rú guǒ","if"],["中国","zhōng guó","China"],
-["朋友","péng you","friend"],["工作","gōng zuò","work / job"],["学生","xué sheng","student"],["老师","lǎo shī","teacher"],["时间","shí jiān","time"],
-["东西","dōng xi","thing / stuff"],["地方","dì fang","place"],["问题","wèn tí","problem / question"],["事情","shì qing","matter / affair"],["生活","shēng huó","life / to live"],
-["开始","kāi shǐ","to start"],["孩子","hái zi","child"],["名字","míng zi","name"],["介绍","jiè shào","to introduce"],["大家","dà jiā","everyone"],
-["一起","yì qǐ","together"],["一点","yì diǎn","a little"],["这样","zhè yàng","like this / so"],["认识","rèn shi","to know (a person)"],["帮助","bāng zhù","to help"]
-];
-
-/* practical phrases & responses */
-const PHRASES = [
-["你好吗？","nǐ hǎo ma?","How are you?"],
-["我很好，谢谢。","wǒ hěn hǎo, xiè xie.","I'm fine, thanks."],
-["你叫什么名字？","nǐ jiào shén me míng zi?","What's your name?"],
-["我叫…","wǒ jiào…","My name is…"],
-["认识你很高兴。","rèn shi nǐ hěn gāo xìng.","Nice to meet you."],
-["你是哪国人？","nǐ shì nǎ guó rén?","What country are you from?"],
-["我是美国人。","wǒ shì měi guó rén.","I'm American."],
-["这是什么？","zhè shì shén me?","What is this?"],
-["这个多少钱？","zhè ge duō shǎo qián?","How much is this?"],
-["我不知道。","wǒ bù zhī dào.","I don't know."],
-["我听不懂。","wǒ tīng bu dǒng.","I don't understand (hearing)."],
-["请再说一遍。","qǐng zài shuō yí biàn.","Please say it again."],
-["请说慢一点。","qǐng shuō màn yì diǎn.","Please speak slower."],
-["你会说英语吗？","nǐ huì shuō yīng yǔ ma?","Do you speak English?"],
-["这个用中文怎么说？","zhè ge yòng zhōng wén zěn me shuō?","How do you say this in Chinese?"],
-["我饿了。","wǒ è le.","I'm hungry."],
-["我想喝水。","wǒ xiǎng hē shuǐ.","I want to drink water."],
-["现在几点？","xiàn zài jǐ diǎn?","What time is it now?"],
-["厕所在哪里？","cè suǒ zài nǎ lǐ?","Where is the toilet?"],
-["我可以坐这里吗？","wǒ kě yǐ zuò zhè lǐ ma?","Can I sit here?"],
-["没问题。","méi wèn tí.","No problem."],
-["太好了！","tài hǎo le!","Great! / Awesome!"],
-["我也是。","wǒ yě shì.","Me too."],
-["真的吗？","zhēn de ma?","Really?"],
-["当然可以。","dāng rán kě yǐ.","Of course."],
-["对不起，我来晚了。","duì bu qǐ, wǒ lái wǎn le.","Sorry, I'm late."],
-["你今天怎么样？","nǐ jīn tiān zěn me yàng?","How's your day?"],
-["我们走吧。","wǒ men zǒu ba.","Let's go."],
-["请帮我一下。","qǐng bāng wǒ yí xià.","Please help me a moment."],
-["慢走。","màn zǒu.","Take care (when seeing off)."]
-];
-
-/* ============ STATE / STORAGE ============ */
-const LS = "cn-practice-v1";
-let store = JSON.parse(localStorage.getItem(LS) || "{}");
-store.known = store.known || {};   // char -> true
-store.weak  = store.weak  || {};   // char -> true
-store.quiz  = store.quiz  || {right:0,total:0};
-function save(){ localStorage.setItem(LS, JSON.stringify(store)); }
-
-let range = [1,300];      // 1-indexed rank inclusive, or "weak"
-let deck = [];            // current array of [char,pin,mean,rank]
-let idx = 0;
-
-function buildDeck(){
-  const all = CHARS.map((c,i)=>[c[0],c[1],c[2],i+1]);
-  if(range==="weak"){ deck = all.filter(c=>store.weak[c[0]]); }
-  else { deck = all.filter(c=> c[3]>=range[0] && c[3]<=range[1]); }
-  if(deck.length===0) deck = all.slice(0,1);
-  idx = 0;
+/* ---------- speech (chinese TTS) ---------- */
+let zhVoices=[],zhVoice=null;
+function rankVoice(v){
+  const n=v.name.toLowerCase();
+  let s=0;
+  if(/premium/.test(n))s+=50;
+  if(/enhanced/.test(n))s+=40;
+  if(/siri/.test(n))s+=45;
+  if(/google|普通话/.test(n))s+=25;                 // Chrome's network voice, decent quality
+  if(/tingting|ting-ting|婷婷/.test(n))s+=10;
+  if(/eddy|flo|grandma|grandpa|reed|rocko|sandy|shelley/.test(n))s-=50; // novelty voices
+  if(/^zh[-_](CN|Hans)/i.test(v.lang))s+=5;         // prefer mainland mandarin
+  return s;
+}
+function findZh(){
+  if(!window.speechSynthesis)return;
+  zhVoices=speechSynthesis.getVoices().filter(v=>/^zh/i.test(v.lang))
+    .sort((a,b)=>rankVoice(b)-rankVoice(a));
+  zhVoice=zhVoices.find(v=>v.name===S.voice)||zhVoices[0]||null;
+}
+function cycleVoice(){
+  if(zhVoices.length<2){if(zhVoice)speak("你好");return}
+  const i=zhVoices.indexOf(zhVoice);
+  zhVoice=zhVoices[(i+1)%zhVoices.length];
+  S.voice=zhVoice.name;saveS();renderMenu();
+  speak("你好，我们开始吧");
+}
+if(window.speechSynthesis){
+  findZh();
+  speechSynthesis.onvoiceschanged=()=>{findZh();if(screen==="menu")renderMenu()};
+}
+function speak(t){
+  if(!zhVoice)return;
+  speechSynthesis.cancel();
+  const u=new SpeechSynthesisUtterance(t);
+  u.voice=zhVoice;u.lang=zhVoice.lang;u.rate=.85;
+  speechSynthesis.speak(u);
 }
 
-/* ============ SPEECH ============ */
-let voices = [], chosenVoice = null;
-function loadVoices(){
-  voices = speechSynthesis.getVoices().filter(v=>/zh|cmn|chinese|普通话|中文/i.test(v.lang+ " " + v.name));
-  const sel = document.getElementById("voiceSel");
-  sel.innerHTML = "";
-  if(voices.length===0){
-    const o=document.createElement("option"); o.textContent="(no Chinese voice found)"; sel.appendChild(o);
-  } else {
-    voices.forEach((v,i)=>{ const o=document.createElement("option"); o.value=i; o.textContent=v.name+" ("+v.lang+")"; sel.appendChild(o);});
-    chosenVoice = voices[0];
+/* ---------- sound ---------- */
+let AC=null;
+function tone(f,t0,dur,type,vol){
+  const o=AC.createOscillator(),g=AC.createGain();
+  o.type=type||"sine";o.frequency.value=f;
+  g.gain.setValueAtTime(vol||.1,AC.currentTime+t0);
+  g.gain.exponentialRampToValueAtTime(.001,AC.currentTime+t0+dur);
+  o.connect(g).connect(AC.destination);
+  o.start(AC.currentTime+t0);o.stop(AC.currentTime+t0+dur+.02);
+}
+function snd(kind){
+  if(!S.snd)return;
+  if(!AC)try{AC=new (window.AudioContext||window.webkitAudioContext)()}catch(e){return}
+  if(AC.state==="suspended")AC.resume();
+  if(kind==="right"){tone(660,0,.08);tone(880,.07,.1)}
+  else if(kind==="wrong"){tone(160,0,.18,"sawtooth",.07)}
+  else if(kind==="end"){tone(523,0,.12);tone(659,.11,.12);tone(784,.22,.2)}
+  else if(kind==="best"){[523,659,784,1047].forEach((f,i)=>tone(f,i*.1,.16))}
+}
+
+/* ---------- gloss overlap filter (keeps synonym distractors out) ---------- */
+const STOP=new Set(["to","a","the","of","an"]);
+const SYN={speak:"say",talk:"say",chat:"say",watch:"see",look:"see",glad:"happy",joyful:"happy",pleased:"happy",large:"big"};
+function glossWords(g){
+  const out=new Set();
+  for(let w of g.toLowerCase().replace(/[^a-z']+/g," ").split(" ")){
+    if(!w||STOP.has(w))continue;
+    out.add(SYN[w]||w);
   }
+  return out;
 }
-loadVoices();
-if(speechSynthesis.onvoiceschanged !== undefined) speechSynthesis.onvoiceschanged = loadVoices;
-document.getElementById("voiceSel").addEventListener("change",e=>{ chosenVoice = voices[+e.target.value]||null; });
+function overlaps(a,b){for(const x of a)if(b.has(x))return true;return false}
 
-function speak(text){
-  if(!text) return;
-  try{
-    speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = "zh-CN";
-    if(chosenVoice) u.voice = chosenVoice;
-    u.rate = parseFloat(document.getElementById("rate").value);
-    speechSynthesis.speak(u);
-  }catch(e){}
-}
-let autoplayOn = true;
-document.getElementById("autoplay").addEventListener("click",function(){
-  autoplayOn = !autoplayOn; this.classList.toggle("on",autoplayOn);
-});
+/* ---------- helpers ---------- */
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+const wkey=w=>w[0]+"|"+w[1];
+const wordStat=w=>ST.words[wkey(w)]||{s:0,c:0,ms:0};
+const npin=s=>s.toLowerCase().replace(/['\s]/g,"");
 
-/* ============ FLASHCARDS ============ */
-const card = document.getElementById("card");
-let flipped = false;
-function renderFlash(){
-  const c = deck[idx];
-  document.getElementById("fHanzi").textContent = c[0];
-  document.getElementById("fPin").textContent = c[1];
-  document.getElementById("fMean").textContent = c[2];
-  document.getElementById("fRank").textContent = (range==="weak"?"⭐ weak":"#"+c[3]);
-  document.getElementById("fStar").classList.toggle("on", !!store.weak[c[0]]);
-  document.getElementById("fPos").textContent = (idx+1)+" / "+deck.length;
-  document.getElementById("fBar").style.width = ((idx+1)/deck.length*100)+"%";
-  const knownCount = deck.filter(d=>store.known[d[0]]).length;
-  document.getElementById("fKnown").textContent = knownCount+" learned in range";
-  flipped=false; card.classList.remove("flip");
-  document.getElementById("fHint").style.display="block";
-  if(autoplayOn) speak(c[0]);
-}
-function flip(){
-  flipped=!flipped; card.classList.toggle("flip",flipped);
-  document.getElementById("fHint").style.display = flipped?"none":"block";
-}
-card.addEventListener("click",flip);
-document.getElementById("fSpeak").addEventListener("click",e=>{e.stopPropagation();speak(deck[idx][0]);});
-document.getElementById("fStar").addEventListener("click",e=>{
-  e.stopPropagation();
-  const ch=deck[idx][0];
-  store.weak[ch]=!store.weak[ch]; if(!store.weak[ch]) delete store.weak[ch];
-  save(); document.getElementById("fStar").classList.toggle("on",!!store.weak[ch]); renderStats();
-});
-function next(){ idx=(idx+1)%deck.length; renderFlash(); }
-function prev(){ idx=(idx-1+deck.length)%deck.length; renderFlash(); }
-document.getElementById("fPrev").addEventListener("click",prev);
-document.getElementById("fGot").addEventListener("click",()=>{
-  const ch=deck[idx][0]; store.known[ch]=true; if(store.weak[ch]) delete store.weak[ch];
-  save(); renderStats(); next();
-});
-document.getElementById("fAgain").addEventListener("click",()=>{
-  const ch=deck[idx][0]; store.weak[ch]=true; save(); renderStats(); next();
-});
-document.getElementById("fShuffle").addEventListener("click",()=>{
-  for(let i=deck.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[deck[i],deck[j]]=[deck[j],deck[i]];}
-  idx=0; renderFlash();
-});
+/* multi-reading hanzi (two entries) — ambiguous as audio prompts */
+const DUPH=(()=>{const c={};for(const w of WORDS)c[w[0]]=(c[w[0]]||0)+1;return new Set(Object.keys(c).filter(h=>c[h]>1))})();
 
-/* ============ QUIZ ============ */
-let qCur=null, qStreak=0;
-function newQuiz(){
-  document.getElementById("qPin").style.opacity=0;
-  qCur = deck[Math.floor(Math.random()*deck.length)];
-  document.getElementById("qHanzi").textContent=qCur[0];
-  document.getElementById("qPin").textContent=qCur[1];
-  document.getElementById("qRank").textContent = (range==="weak"?"⭐":"#"+qCur[3]);
-  // build 4 options of meanings
-  const pool = CHARS.slice();
-  const opts=[qCur[2]]; let guard=0;
-  while(opts.length<4 && guard++<200){
-    const r=pool[Math.floor(Math.random()*pool.length)][2];
-    if(!opts.includes(r)) opts.push(r);
+/* ---------- game state ---------- */
+let screen="menu";
+let G=null;      // current game
+let rafId=0, advTimer=0, confirmReset=false, confirmTimer=0;
+
+function show(name){
+  screen=name;
+  for(const s of["menu","game","end","stats","list"])$(s).classList.toggle("on",s===name);
+  if(name==="menu")renderMenu();
+  if(name==="stats")renderStats();
+  if(name==="list")renderList();
+}
+
+/* ============================================================
+   MENU
+============================================================ */
+function masteryOf(size){
+  let m=0;
+  for(let i=0;i<size;i++){
+    const st=wordStat(WORDS[i]);
+    if(st.s>=3&&st.c/st.s>=0.8)m++;
   }
-  for(let i=opts.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[opts[i],opts[j]]=[opts[j],opts[i]];}
-  const box=document.getElementById("qOpts"); box.innerHTML="";
-  opts.forEach(o=>{
-    const d=document.createElement("div"); d.className="opt"; d.textContent=o;
-    d.addEventListener("click",()=>answer(d,o)); box.appendChild(d);
-  });
-  if(autoplayOn) speak(qCur[0]);
+  return m;
 }
-function answer(el,val){
-  const right = val===qCur[2];
-  store.quiz.total++; if(right){store.quiz.right++;qStreak++;} else qStreak=0;
-  if(right){ const ch=qCur[0]; store.known[ch]=true; if(store.weak[ch])delete store.weak[ch]; }
-  else { store.weak[qCur[0]]=true; }
-  save(); renderStats();
-  document.getElementById("qPin").style.opacity=1;
-  document.querySelectorAll("#qOpts .opt").forEach(o=>{
-    o.style.pointerEvents="none";
-    if(o.textContent===qCur[2]) o.classList.add("correct");
-    else if(o===el) o.classList.add("wrong");
-    else o.classList.add("dim");
+function renderMenu(){
+  const pools=$("pools");pools.innerHTML="";
+  SIZES.forEach((sz,i)=>{
+    const b=document.createElement("button");
+    b.className="pool";
+    const best=ST.best[`s${sz}`];
+    const m=masteryOf(sz);
+    b.innerHTML=`<kbd>${i+1}</kbd><div class="n">${sz}<span>words</span></div>
+      <div class="best">${best?("best "+best):"&nbsp;"}</div>
+      <div class="mbar"><i style="width:${(100*m/sz).toFixed(1)}%"></i></div>
+      <div class="mtxt">${m} / ${sz} mastered</div>`;
+    b.onclick=()=>{b.blur();startGame(sz)};
+    pools.appendChild(b);
   });
-  document.getElementById("qScore").textContent="Score: "+store.quiz.right+" / "+store.quiz.total;
-  document.getElementById("qStreak").textContent = qStreak>1?("🔥 streak "+qStreak):"";
-  setTimeout(newQuiz, right?700:1500);
-}
-document.getElementById("qSpeak").addEventListener("click",()=>speak(qCur[0]));
-
-/* ============ LISTS (words / phrases) ============ */
-function renderList(el,data,big){
-  el.innerHTML="";
-  data.forEach(d=>{
-    const it=document.createElement("div"); it.className="item";
-    it.innerHTML=`<div class="cn"${big?' style="font-size:24px"':''}>${d[0]}</div>
-      <div class="info"><div class="ipin">${d[1]}</div><div class="imean">${d[2]}</div></div>
-      <button class="play" title="say it">🔊</button>`;
-    it.querySelector(".play").addEventListener("click",()=>speak(d[0].replace(/[…？！。，]/g,"")));
-    el.appendChild(it);
+  const types=$("types");types.innerHTML="";
+  TYPES.forEach(t=>{
+    const b=document.createElement("button");
+    const na=t.p==="au"&&!zhVoice;
+    b.className="type"+(S.types[t.id]&&!na?" on":"")+(na?" na":"");
+    b.innerHTML=`<kbd>${t.k.toUpperCase()}</kbd>${t.label}`;
+    if(na)b.title="no chinese voice available in this browser";
+    b.onclick=()=>{b.blur();toggleType(t.id)};
+    types.appendChild(b);
   });
-}
-renderList(document.getElementById("wordList"),WORDS,false);
-renderList(document.getElementById("phraseList"),PHRASES,true);
-
-/* ============ STATS ============ */
-function renderStats(){
-  document.getElementById("sKnown").textContent = Object.keys(store.known).length;
-  document.getElementById("sWeak").textContent = Object.keys(store.weak).length;
-  const acc = store.quiz.total? Math.round(store.quiz.right/store.quiz.total*100):0;
-  document.getElementById("sQuiz").textContent = acc+"%";
-}
-document.getElementById("reset").addEventListener("click",()=>{
-  if(confirm("Reset all saved progress?")){ store={known:{},weak:{},quiz:{right:0,total:0}}; save(); renderStats(); buildDeck(); renderFlash(); }
-});
-
-/* ============ RANGE CHIPS ============ */
-document.querySelectorAll(".chip[data-range]").forEach(chip=>{
-  chip.addEventListener("click",()=>{
-    document.querySelectorAll(".chip[data-range]").forEach(c=>c.classList.remove("on"));
-    chip.classList.add("on");
-    const r=chip.dataset.range;
-    range = r==="weak" ? "weak" : r.split(",").map(Number);
-    buildDeck();
-    if(range==="weak" && deck.length===0){ /* keep but show */ }
-    renderFlash(); newQuiz();
-    pBuildPool(); if(document.getElementById("view-practice").classList.contains("on")) pNext();
-  });
-});
-
-/* ============ TABS ============ */
-document.querySelectorAll(".tab").forEach(t=>{
-  t.addEventListener("click",()=>{
-    document.querySelectorAll(".tab").forEach(x=>x.classList.remove("on"));
-    document.querySelectorAll(".view").forEach(x=>x.classList.remove("on"));
-    t.classList.add("on");
-    document.getElementById("view-"+t.dataset.view).classList.add("on");
-    if(t.dataset.view==="quiz") newQuiz();
-    if(t.dataset.view==="stats") renderStats();
-    if(t.dataset.view==="practice"){ pBuildPool(); pNext(); }
-  });
-});
-
-/* ============ KEYBOARD ============ */
-document.addEventListener("keydown",e=>{
-  if(!document.getElementById("view-flash").classList.contains("on")) return;
-  if(e.code==="Space"){e.preventDefault();flip();}
-  else if(e.code==="ArrowRight") document.getElementById("fGot").click();
-  else if(e.code==="ArrowLeft") prev();
-  else if(e.key==="s") speak(deck[idx][0]);
-});
-
-/* ============ PRACTICE: adaptive rapid-fire engine ============ */
-store.srs = store.srs || {};                       // key -> {s:0..5, right, miss, seen}
-store.practice = store.practice || {seen:0,right:0};
-let pInclude = store.pInclude || {char:true,word:true,phrase:true};
-let pAuto = store.pAuto!==false;
-let pPool=[], pCur=null, pMode=null, pAnswered=false, pStreak=0;
-let pLast=null, pLastType=null, pLastMode=null, pTimer=null, pRecallReveal=null;
-const pKey = it => it.type+":"+it.cn;
-const pcShuffle = a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;};
-const pClean = s => s.replace(/[…？！。，、]/g,"");
-
-function pBuildPool(){
-  const chars = CHARS.map((c,i)=>({type:'char',cn:c[0],pin:c[1],en:c[2],rank:i+1}));
-  let pool=[];
-  if(pInclude.char){
-    const cs = range==="weak" ? chars.filter(c=>store.weak[c.cn])
-             : chars.filter(c=>c.rank>=range[0] && c.rank<=range[1]);
-    pool=pool.concat(cs);
+  $("togMode").innerHTML=`<kbd>M</kbd>${S.mode===0?"<b>sprint</b> · 60s":"<b>practice</b> · untimed"}`;
+  $("togPin").innerHTML=`<kbd>P</kbd>pinyin in practice: <b>${S.pin?"on":"off"}</b>`;
+  $("togPin").style.display=S.mode===1&&S.types.he?"":"none";
+  $("togSpk").innerHTML=zhVoice
+    ?`<kbd>A</kbd>speak answers: <b>${S.spk?"on":"off"}</b>`
+    :`<kbd>A</kbd>speech: <b>no zh voice</b>`;
+  $("togVoice").style.display=zhVoice?"":"none";
+  if(zhVoice){
+    const nm=zhVoice.name.replace(/\s*\((Chinese|Mandarin)[^)]*\)\s*/i,"").replace(/（[^）]*）/,"");
+    $("togVoice").innerHTML=`<kbd>B</kbd>voice: <b>${nm}</b>`;
+    $("togVoice").title=zhVoice.name+" — click to cycle & preview";
   }
-  if(pInclude.word) pool=pool.concat(WORDS.map(w=>({type:'word',cn:w[0],pin:w[1],en:w[2]})));
-  if(pInclude.phrase) pool=pool.concat(PHRASES.map(p=>({type:'phrase',cn:p[0],pin:p[1],en:p[2]})));
-  pPool=pool;
+  $("togSnd").innerHTML=`<kbd>V</kbd>sound fx: <b>${S.snd?"on":"off"}</b>`;
 }
+function toggleType(id){
+  const t=TYPES.find(x=>x.id===id);
+  if(t.p==="au"&&!zhVoice)return;
+  if(S.types[id]&&TYPES.filter(x=>S.types[x.id]&&(x.p!=="au"||zhVoice)).length===1)return; // keep at least one
+  S.types[id]=!S.types[id];saveS();renderMenu();
+}
+$("togMode").onclick=e=>{e.target.closest("button").blur();S.mode=1-S.mode;saveS();renderMenu()};
+$("togPin").onclick=e=>{e.target.closest("button").blur();S.pin=!S.pin;saveS();renderMenu()};
+$("togSpk").onclick=e=>{e.target.closest("button").blur();S.spk=!S.spk;saveS();renderMenu()};
+$("togVoice").onclick=e=>{e.target.closest("button").blur();cycleVoice()};
+$("togSnd").onclick=e=>{e.target.closest("button").blur();S.snd=!S.snd;saveS();renderMenu()};
+$("togList").onclick=e=>{e.target.closest("button").blur();show("list")};
+$("togStats").onclick=e=>{e.target.closest("button").blur();show("stats")};
 
-/* weighted draw: weak & new surface more, no immediate repeat, interleave types */
-function pPick(){
-  if(!pPool.length) return null;
-  const w = pPool.map(it=>{
-    const k=pKey(it), rec=store.srs[k], st=rec?rec.s:0;
-    let x = rec ? (7-st) : 4;                    // new items = medium; mastered = low
-    if(rec && rec.miss>rec.right) x+=2;          // historically struggled → boost
-    if(k===pLast) return 0;                      // never repeat back-to-back
-    if(it.type===pLastType) x*=0.45;             // bias toward switching type
-    return Math.max(x,0.08);
-  });
-  let r=Math.random()*w.reduce((a,b)=>a+b,0);
-  for(let i=0;i<pPool.length;i++){ r-=w[i]; if(r<=0) return pPool[i]; }
-  return pPool[pPool.length-1];
-}
-
-/* varied question type, never the same drill twice in a row */
-function pModeFor(it){
-  let modes = it.type==='char'  ? ['h2m','h2p','m2h','listen','recall']
-            : it.type==='word'  ? ['h2m','m2h','listen','recall']
-            :                      ['p_listen','p_read','p_say'];
-  modes = modes.filter(m=>m!==pLastMode); if(!modes.length) modes=['recall'];
-  return modes[Math.floor(Math.random()*modes.length)];
-}
-
-function pDistract(it,n,field){
-  let same = pPool.filter(x=>x.type===it.type && x.cn!==it.cn && x[field]!==it[field]);
-  if(same.length<n) same = pPool.filter(x=>x.cn!==it.cn && x[field]!==it[field]);
-  return pcShuffle(same.slice()).slice(0,n);
-}
-
-const pCard=document.getElementById("pCard");
-function pSetBig(t,size){ const e=document.getElementById("pBig"); e.textContent=t; e.style.fontSize=size+"px"; }
-function pDots(it){
-  const st=(store.srs[pKey(it)]||{}).s||0; let h="";
-  for(let i=0;i<5;i++) h+=`<i class="${i<st?'f':''}"></i>`;
-  document.getElementById("pDots").innerHTML=h;
-}
-function pSetStats(){
-  const a=store.practice, acc=a.seen?Math.round(a.right/a.seen*100):0;
-  document.getElementById("pStats").textContent=`seen ${a.seen} · acc ${acc}%`;
-  document.getElementById("pStreak").textContent = pStreak>1?("🔥 "+pStreak):"";
-}
-
-let pCorrectIt=null;
-function pBuildMCQ(opts, correctIt, label){
-  pCorrectIt=correctIt;
-  const box=document.getElementById("pOpts"); box.style.display="grid"; box.innerHTML="";
-  opts.forEach((o,i)=>{
-    const d=document.createElement("div"); d.className="opt"; d.dataset.cn=o.cn;
-    d.innerHTML=`<span class="optk">${i+1}</span>${label(o)}`;
-    d.addEventListener("click",()=>pAnswerMCQ(o));
-    box.appendChild(d);
-  });
-}
-function pAnswerMCQ(picked){
-  if(pAnswered) return; pAnswered=true;
-  const ok = picked.cn===pCorrectIt.cn;
-  document.querySelectorAll("#pOpts .opt").forEach(o=>{
-    o.style.pointerEvents="none";
-    if(o.dataset.cn===pCorrectIt.cn) o.classList.add("correct");
-    else if(o.dataset.cn===picked.cn) o.classList.add("wrong");
-    else o.classList.add("dim");
-  });
-  document.getElementById("pBigPin").textContent=pCur.pin;
-  document.getElementById("pBigPin").style.opacity=.85;
-  pGrade(ok);
-  if(pAuto){ clearTimeout(pTimer); pTimer=setTimeout(pNext, ok?700:1500); }
-  else document.getElementById("pSkip").textContent="next ›";
-}
-
-function pShowReveal(html, speakCn){
-  if(pAnswered || pCard.classList.contains("reveal")) return;
-  pCard.classList.add("reveal");
-  document.getElementById("pReveal").innerHTML=html;
-  document.getElementById("pHint").style.display="none";
-  document.getElementById("pGrade").style.display="flex";
-  if(speakCn) speak(pClean(speakCn));
-}
-function pGradeRecall(ok){
-  if(pAnswered) return; pAnswered=true;
-  pGrade(ok); clearTimeout(pTimer); pTimer=setTimeout(pNext,300);
-}
-
-function pGrade(ok){
-  const k=pKey(pCur), rec=store.srs[k]||{s:0,right:0,miss:0,seen:0};
-  rec.seen++; if(ok){rec.right++; rec.s=Math.min(5,rec.s+1);} else {rec.miss++; rec.s=Math.max(0,rec.s-1);}
-  store.srs[k]=rec;
-  store.practice.seen++; if(ok) store.practice.right++;
-  pStreak = ok?pStreak+1:0;
-  if(pCur.type==='char'){
-    if(ok){ store.known[pCur.cn]=true; if(rec.s>=2 && store.weak[pCur.cn]) delete store.weak[pCur.cn]; }
-    else store.weak[pCur.cn]=true;
-  } else if(!ok){ store.weak[pCur.cn]=true; }
-  save(); pSetStats(); renderStats();
-}
-
-function pNext(){
-  clearTimeout(pTimer); pAnswered=false; pRecallReveal=null; pCorrectIt=null;
-  pCur=pPick();
-  const opts=document.getElementById("pOpts"), grade=document.getElementById("pGrade");
-  opts.innerHTML=""; opts.style.display="none"; grade.style.display="none";
-  document.getElementById("pReveal").innerHTML=""; pCard.classList.remove("reveal");
-  document.getElementById("pHint").style.display="none";
-  document.getElementById("pBigPin").style.opacity=0;
-  document.getElementById("pSkip").textContent="skip ›";
-  const P=s=>document.getElementById("pPrompt").textContent=s;
-  if(!pCur){
-    pSetBig("∅",60); P("No items — enable a type below or widen the range.");
-    document.getElementById("pType").textContent="—"; document.getElementById("pDots").innerHTML=""; return;
-  }
-  pMode=pModeFor(pCur); pLast=pKey(pCur); pLastType=pCur.type; pLastMode=pMode;
-  document.getElementById("pType").textContent=pCur.type; pDots(pCur);
-  const cnBig = pCur.type==='char'?96 : pCur.type==='word'?58 : 30;
-  const optBig = o=>`<span style="font-size:22px">${o.cn}</span>`;
-
-  switch(pMode){
-    case 'h2m':
-      P("What does it mean?"); pSetBig(pCur.cn,cnBig);
-      pBuildMCQ(pcShuffle([pCur,...pDistract(pCur,3,'en')]), pCur, o=>o.en); break;
-    case 'h2p':
-      P("Pick the pinyin"); pSetBig(pCur.cn,cnBig);
-      pBuildMCQ(pcShuffle([pCur,...pDistract(pCur,3,'pin')]), pCur, o=>o.pin); break;
-    case 'm2h':
-      P("Which one means this?"); pSetBig(pCur.en,24);
-      pBuildMCQ(pcShuffle([pCur,...pDistract(pCur,3,'cn')]), pCur, optBig); break;
-    case 'listen':
-      P("Listen — pick the character"); pSetBig("🔊",70); speak(pClean(pCur.cn));
-      pBuildMCQ(pcShuffle([pCur,...pDistract(pCur,3,'cn')]), pCur, optBig); break;
-    case 'recall':
-      P("Recall: pinyin + meaning"); pSetBig(pCur.cn,cnBig);
-      document.getElementById("pHint").textContent="tap card / space to reveal";
-      document.getElementById("pHint").style.display="block";
-      pRecallReveal=()=>pShowReveal(`<div class="pin">${pCur.pin}</div><div class="mean">${pCur.en}</div>`, pCur.cn); break;
-    case 'p_listen':
-      P("Listen — what does it mean?"); pSetBig("🔊",70); speak(pClean(pCur.cn));
-      pBuildMCQ(pcShuffle([pCur,...pDistract(pCur,3,'en')]), pCur, o=>o.en); break;
-    case 'p_read':
-      P("Read it — what does it mean?"); pSetBig(pCur.cn,30);
-      document.getElementById("pHint").textContent="tap / space to reveal";
-      document.getElementById("pHint").style.display="block";
-      pRecallReveal=()=>pShowReveal(`<div class="pin">${pCur.pin}</div><div class="mean">${pCur.en}</div>`, pCur.cn); break;
-    case 'p_say':
-      P("Say it in Chinese:"); pSetBig(pCur.en,22);
-      document.getElementById("pHint").textContent="say it aloud, then tap / space to check";
-      document.getElementById("pHint").style.display="block";
-      pRecallReveal=()=>pShowReveal(`<div class="hanzi" style="font-size:34px">${pCur.cn}</div><div class="pin">${pCur.pin}</div>`, pCur.cn); break;
-  }
-  pSetStats();
-}
-
-pCard.addEventListener("click",()=>{ if(pRecallReveal) pRecallReveal(); });
-document.getElementById("pReplay").addEventListener("click",()=>{ if(pCur) speak(pClean(pCur.cn)); });
-document.getElementById("pSkip").addEventListener("click",pNext);
-document.getElementById("pMiss").addEventListener("click",()=>pGradeRecall(false));
-document.getElementById("pGot").addEventListener("click",()=>pGradeRecall(true));
-
-function pRenderToggles(){
-  document.getElementById("pToggles").innerHTML=
-    `<label><input type="checkbox" id="tgChar" ${pInclude.char?'checked':''}> characters</label>`+
-    `<label><input type="checkbox" id="tgWord" ${pInclude.word?'checked':''}> words</label>`+
-    `<label><input type="checkbox" id="tgPhrase" ${pInclude.phrase?'checked':''}> phrases</label>`+
-    `<label><input type="checkbox" id="tgAuto" ${pAuto?'checked':''}> auto-advance</label>`;
-  const upd=()=>{
-    pInclude={char:document.getElementById("tgChar").checked,word:document.getElementById("tgWord").checked,phrase:document.getElementById("tgPhrase").checked};
-    pAuto=document.getElementById("tgAuto").checked;
-    store.pInclude=pInclude; store.pAuto=pAuto; save();
-    pBuildPool(); pNext();
+/* ============================================================
+   GAME
+============================================================ */
+function startGame(size){
+  S.size=size;saveS();
+  let types=TYPES.filter(t=>S.types[t.id]&&(t.p!=="au"||zhVoice));
+  if(!types.length)types=[TYPES[0]];
+  G={
+    pool:WORDS.slice(0,size),types,
+    score:0,combo:0,maxCombo:0,ans:0,cor:0,ms:0,
+    missed:[],recentQ:[],phase:"ask",cur:null,qStart:0,
+    endAt:performance.now()+SPRINT_MS,sprint:S.mode===0,
   };
-  ["tgChar","tgWord","tgPhrase","tgAuto"].forEach(id=>document.getElementById(id).addEventListener("change",upd));
+  clearTimeout(advTimer);
+  $("clock").style.display=G.sprint?"":"none";
+  $("tbar").style.display=G.sprint?"":"none";
+  $("tbar").classList.remove("low");
+  show("game");
+  nextQuestion();
+  updateHUD();
+  if(G.sprint){cancelAnimationFrame(rafId);rafId=requestAnimationFrame(tickTimer)}
+}
+function tickTimer(){
+  if(screen!=="game"||!G||!G.sprint)return;
+  const left=Math.max(0,G.endAt-performance.now());
+  $("tbar").firstElementChild.style.width=(100*left/SPRINT_MS)+"%";
+  $("tbar").classList.toggle("low",left<10000);
+  $("clock").textContent=Math.ceil(left/1000)+"s";
+  if(left<=0){endGame();return}
+  rafId=requestAnimationFrame(tickTimer);
+}
+function pickWord(){
+  const ws=G.pool.map(w=>{
+    if(G.recentQ.includes(w[0]))return 0;
+    const st=wordStat(w);
+    return st.s===0?1.6:1+3*((st.s-st.c)/st.s);
+  });
+  let tot=0;for(const x of ws)tot+=x;
+  let r=Math.random()*tot;
+  for(let i=0;i<ws.length;i++){r-=ws[i];if(r<=0)return G.pool[i]}
+  return G.pool[G.pool.length-1];
+}
+function distractors(word,type){
+  // once pinyin or audio is in play, homophones (他/她/它 = tā) become ambiguous — exclude them
+  const pinSens=type.p==="pin"||type.p==="au"||type.a==="pin";
+  const tp=npin(word[1]);
+  const target=glossWords(word[2]);
+  const cands=shuffle(G.pool.slice()).filter(w=>
+    w[0]!==word[0]&&w[2]!==word[2]&&!(pinSens&&npin(w[1])===tp));
+  // when options show hanzi or pinyin, match the answer's character count so length isn't a tell
+  const lenMatch=type.a==="hz"||type.a==="pin";
+  const L=word[0].length;
+  const out=[],sets=[],usedPin=new Set([tp]);
+  const passes=lenMatch?[c=>c[0].length===L,c=>c[0].length!==L]:[()=>true];
+  for(const pass of passes){
+    for(const c of cands){
+      if(out.length===3)break;
+      if(!pass(c))continue;
+      const cw=glossWords(c[2]);
+      if(overlaps(cw,target))continue;
+      if(sets.some(s=>overlaps(cw,s)))continue;
+      if(type.a==="pin"&&usedPin.has(npin(c[1])))continue;
+      out.push(c);sets.push(cw);usedPin.add(npin(c[1]));
+    }
+    if(out.length===3)break;
+  }
+  for(const c of cands){
+    if(out.length===3)break;
+    if(out.includes(c))continue;
+    if(type.a==="pin"&&usedPin.has(npin(c[1])))continue;
+    out.push(c);usedPin.add(npin(c[1]));
+  }
+  return out;
+}
+function nextQuestion(){
+  const type=G.types[Math.floor(Math.random()*G.types.length)];
+  let w=pickWord();
+  if(type.p==="au")for(let i=0;i<12&&DUPH.has(w[0]);i++)w=pickWord();
+  G.recentQ.push(w[0]);if(G.recentQ.length>8)G.recentQ.shift();
+  const opts=shuffle([w,...distractors(w,type)]);
+  G.cur={w,opts,ans:opts.indexOf(w),type};
+  G.phase="ask";G.qStart=performance.now();
+  const big=$("big");
+  big.className="hz";big.onclick=null;
+  $("reveal").textContent="";
+  if(type.p==="hz"){
+    big.textContent=w[0];
+    if(!G.sprint&&S.pin&&type.id==="he")$("reveal").textContent=w[1];
+  }else if(type.p==="en"){
+    big.classList.add("en");big.textContent=w[2];
+  }else if(type.p==="pin"){
+    big.classList.add("pin");big.textContent=w[1];
+  }else{ // audio
+    big.classList.add("au");big.innerHTML=SPK;
+    big.onclick=()=>speak(w[0]);
+    speak(w[0]);
+  }
+  const box=$("opts");box.innerHTML="";
+  opts.forEach((o,i)=>{
+    const b=document.createElement("button");
+    b.className="opt";
+    if(type.a==="en")b.innerHTML=`<kbd>${i+1}</kbd><span>${o[2]}</span><span class="py">${o[1]}</span>`;
+    else if(type.a==="hz")b.innerHTML=`<kbd>${i+1}</kbd><span class="hz" lang="zh-Hans">${o[0]}</span><span class="py">${o[1]}</span>`;
+    else b.innerHTML=`<kbd>${i+1}</kbd><span style="color:var(--gold)">${o[1]}</span><span class="py hz" lang="zh-Hans">${o[0]}</span>`;
+    b.onclick=()=>answer(i);
+    box.appendChild(b);
+  });
+  $("waitmsg").classList.remove("on");
+}
+function answer(i){
+  if(!G||G.phase!=="ask")return;
+  G.phase="fb";
+  const {w,opts,ans}=G.cur;
+  const right=i===ans;
+  const ms=Math.min(10000,performance.now()-G.qStart);
+  const btns=$("opts").children;
+  for(const b of btns)b.disabled=true;
+  btns[ans].classList.add("right");
+  if(!right)btns[i].classList.add("wrong");
+  for(let k=0;k<4;k++)if(k!==ans&&k!==i)btns[k].classList.add("faded");
+  const t=G.cur.type;
+  if(t.id==="he")$("reveal").textContent=w[1];
+  else if(t.id==="eh")$("reveal").textContent=w[0]+"  ·  "+w[1];
+  else if(t.id==="hp"||t.id==="ph")$("reveal").textContent=w[2];
+  else $("reveal").textContent=w[0]+"  ·  "+w[1]+"  ·  "+w[2];
+
+  // record
+  G.ans++;G.ms+=ms;
+  const st=ST.words[wkey(w)]||(ST.words[wkey(w)]={s:0,c:0,ms:0});
+  st.s++;st.ms+=Math.round(ms);
+  if(right){
+    G.cor++;st.c++;
+    G.combo++;G.maxCombo=Math.max(G.maxCombo,G.combo);
+    const pts=100+Math.min(G.combo,10)*10+Math.max(0,Math.round((2000-ms)/40));
+    G.score+=pts;
+    const pop=$("pop");pop.textContent="+"+pts;
+    pop.classList.remove("go");void pop.offsetWidth;pop.classList.add("go");
+    snd("right");
+  }else{
+    G.combo=0;
+    if(!G.missed.some(m=>m[0]===w[0]))G.missed.push(w);
+    snd("wrong");
+  }
+  updateHUD();
+  if(S.spk&&t.p!=="au")speak(w[0]);
+  // advance: correct answers stay on screen until a key press or tap
+  if(right||!G.sprint){
+    G.phase="wait";G.waitAt=performance.now();
+    $("waitmsg").classList.add("on");
+  }else{
+    advTimer=setTimeout(()=>{if(screen==="game"&&G)nextQuestion()},1300);
+  }
+}
+function updateHUD(){
+  $("score").textContent=G.sprint?G.score:G.cor+" / "+G.ans;
+  $("combo").textContent=G.combo>=2?"×"+G.combo:"";
+  $("combo").classList.toggle("hot",G.combo>=5);
+}
+function endGame(){
+  cancelAnimationFrame(rafId);clearTimeout(advTimer);
+  const g=G;G=null;
+  saveGame(g);
+  $("endtitle").textContent=g.sprint?"time's up":"session done";
+  $("fscore").textContent=g.sprint?g.score:Math.round(100*(g.ans?g.cor/g.ans:0))+"%";
+  const nb=$("newbest");
+  if(g.sprint&&g.score>0&&g.score>=(g.newBestFrom||0)&&g.isBest){
+    nb.textContent="new best!";nb.classList.add("go");snd("best");
+  }else{nb.textContent="";nb.classList.remove("go");if(g.ans)snd("end")}
+  $("eAns").textContent=g.ans;
+  $("eAcc").textContent=g.ans?Math.round(100*g.cor/g.ans)+"%":"–";
+  $("eCombo").textContent=g.maxCombo;
+  $("eSpeed").textContent=g.ans?(g.ms/g.ans/1000).toFixed(1)+"s":"–";
+  const mi=$("missed");
+  if(g.missed.length){
+    mi.style.display="";
+    mi.innerHTML="<h3>missed words — click to hear</h3>"+g.missed.map(w=>
+      `<div class="miss" data-h="${w[0]}" style="cursor:pointer"><span class="hz" lang="zh-Hans">${w[0]}</span><span class="py">${w[1]}</span><span class="en">${w[2]}</span></div>`).join("");
+  }else{
+    mi.style.display=g.ans?"":"none";
+    mi.innerHTML=g.ans?"<h3>missed words</h3><div class='miss'><span class='en'>perfect — nothing missed</span></div>":"";
+  }
+  show("end");
+}
+function saveGame(g){
+  if(!g.ans){saveST();return}
+  ST.games++;
+  if(g.sprint){
+    const k=`s${S.size}`;
+    if(g.score>(ST.best[k]||0)){ST.best[k]=g.score;g.isBest=true}
+  }
+  ST.recent.unshift({d:Date.now(),size:S.size,mode:S.mode,score:g.score,ans:g.ans,cor:g.cor});
+  if(ST.recent.length>12)ST.recent.length=12;
+  saveST();
 }
 
-document.addEventListener("keydown",e=>{
-  if(!document.getElementById("view-practice").classList.contains("on")) return;
-  if(e.target.tagName==="INPUT") return;
-  const mcqOpen = document.getElementById("pOpts").style.display==="grid" && !pAnswered;
-  const gradeOpen = document.getElementById("pGrade").style.display==="flex";
-  if(mcqOpen && /^[1-4]$/.test(e.key)){ const el=document.querySelectorAll("#pOpts .opt")[+e.key-1]; if(el) el.click(); }
-  else if(gradeOpen && e.key==="1") document.getElementById("pMiss").click();
-  else if(gradeOpen && e.key==="2") document.getElementById("pGot").click();
-  else if(e.code==="Space"){ e.preventDefault(); if(pRecallReveal) pRecallReveal(); else if(pAnswered) pNext(); }
-  else if(e.key==="r") document.getElementById("pReplay").click();
-  else if(e.key==="n") pNext();
+/* ============================================================
+   VOCAB LIST
+============================================================ */
+let listSz=null;
+function renderList(){
+  if(!listSz)listSz=S.size;
+  const tabs=$("ltabs");tabs.innerHTML="";
+  SIZES.forEach((sz,i)=>{
+    const b=document.createElement("button");
+    b.className="tog"+(sz===listSz?" on":"");
+    b.innerHTML=`<kbd>${i+1}</kbd>top ${sz}`;
+    b.onclick=()=>{b.blur();listSz=sz;renderList()};
+    tabs.appendChild(b);
+  });
+  $("lwords").innerHTML=WORDS.slice(0,listSz).map((w,i)=>{
+    const st=wordStat(w);
+    const acc=st.s?Math.round(100*st.c/st.s):null;
+    const mastered=st.s>=3&&st.c/st.s>=0.8;
+    const cls=acc===null?"":(acc>=80?" good":" bad");
+    return `<div class="lrow" data-h="${w[0]}"><span class="rk">${i+1}</span><span class="hz" lang="zh-Hans">${w[0]}</span><span class="py">${w[1]}</span><span class="en">${w[2]}</span><span class="acc${cls}">${mastered?"✓ ":""}${acc===null?"–":acc+"%"}</span></div>`;
+  }).join("");
+}
+// click any word row (list / missed / weakest) to hear it
+document.addEventListener("click",e=>{
+  const r=e.target.closest("[data-h]");
+  if(r)speak(r.dataset.h);
 });
 
-/* ============ INIT ============ */
-buildDeck(); renderFlash(); renderStats();
-pBuildPool(); pRenderToggles(); pNext();
+/* ============================================================
+   STATS
+============================================================ */
+function renderStats(){
+  let s=0,c=0,ms=0;
+  for(const h in ST.words){const w=ST.words[h];s+=w.s;c+=w.c;ms+=w.ms}
+  $("sGames").textContent=ST.games;
+  $("sAns").textContent=s;
+  $("sAcc").textContent=s?Math.round(100*c/s)+"%":"–";
+  $("sSpeed").textContent=s?(ms/s/1000).toFixed(1)+"s":"–";
+  let t="<tr><th>pool</th><th>best score</th></tr>";
+  for(const sz of SIZES){
+    t+=`<tr><td>${sz} words</td><td><b>${ST.best[`s${sz}`]||"–"}</b></td></tr>`;
+  }
+  $("bestTbl").innerHTML=t;
+  $("mastery").innerHTML=SIZES.map(sz=>{
+    const m=masteryOf(sz);
+    return `<div class="mrow"><span class="lbl">${sz}</span><div class="mbar"><i style="width:${(100*m/sz).toFixed(1)}%"></i></div><span class="pct">${m} / ${sz}</span></div>`;
+  }).join("");
+  const weak=WORDS.filter(w=>{const st=wordStat(w);return st.s>=3&&st.c/st.s<0.8})
+    .sort((a,b)=>{const A=wordStat(a),B=wordStat(b);return A.c/A.s-B.c/B.s})
+    .slice(0,8);
+  $("weak").innerHTML=weak.length
+    ?weak.map(w=>{const st=wordStat(w);
+      return `<div class="miss" data-h="${w[0]}" style="cursor:pointer"><span class="hz" lang="zh-Hans">${w[0]}</span><span class="py">${w[1]}</span><span class="en">${w[2]}</span><span style="margin-left:auto;color:var(--dim);font-size:12px">${Math.round(100*st.c/st.s)}%</span></div>`}).join("")
+    :"<div style='color:var(--dim);font-size:13px'>nothing yet — play a few rounds</div>";
+  $("confirm").textContent="";$("btnReset").textContent="reset stats";confirmReset=false;
+}
+function resetStats(){
+  if(!confirmReset){
+    confirmReset=true;$("confirm").textContent="— press R again to confirm";
+    $("btnReset").innerHTML="<b style=\"color:var(--bad)\">confirm reset?</b>";
+    clearTimeout(confirmTimer);
+    confirmTimer=setTimeout(()=>{confirmReset=false;$("confirm").textContent="";$("btnReset").textContent="reset stats"},3000);
+    return;
+  }
+  ST.games=0;ST.best={};ST.words={};ST.recent=[];
+  saveST();renderStats();
+}
+
+/* ============================================================
+   KEYBOARD
+============================================================ */
+document.addEventListener("keydown",e=>{
+  if(e.metaKey||e.ctrlKey||e.altKey)return;
+  const k=e.key.toLowerCase();
+  if(screen==="menu"){
+    const t=TYPES.find(x=>x.k===k);
+    if(k>="1"&&k<="5"){e.preventDefault();startGame(SIZES[+k-1])}
+    else if(t)toggleType(t.id);
+    else if(k==="m"){S.mode=1-S.mode;saveS();renderMenu()}
+    else if(k==="p"){S.pin=!S.pin;saveS();renderMenu()}
+    else if(k==="a"){S.spk=!S.spk;saveS();renderMenu()}
+    else if(k==="b"){cycleVoice()}
+    else if(k==="v"){S.snd=!S.snd;saveS();renderMenu()}
+    else if(k==="l"){show("list")}
+    else if(k==="s"){show("stats")}
+  }
+  else if(screen==="game"){
+    if(k==="escape"){endGame();return}
+    if(!G)return;
+    if(G.phase==="ask"){
+      if(k>="1"&&k<="4"){e.preventDefault();answer(+k-1)}
+      else if((k===" "||k==="r")&&G.cur&&G.cur.type.p==="au"){e.preventDefault();speak(G.cur.w[0])}
+    }
+    else if(G.phase==="wait"){e.preventDefault();nextQuestion()}
+    else if(G.phase==="fb"&&(k==="enter"||k===" ")){
+      // skip feedback delay
+      e.preventDefault();clearTimeout(advTimer);nextQuestion();
+    }
+  }
+  else if(screen==="end"){
+    if(k==="enter"||k===" "){e.preventDefault();startGame(S.size)}
+    else if(k==="escape")show("menu");
+    else if(k==="s")show("stats");
+  }
+  else if(screen==="stats"){
+    if(k==="escape"||k==="s")show("menu");
+    else if(k==="r")resetStats();
+  }
+  else if(screen==="list"){
+    if(k>="1"&&k<="5"){listSz=SIZES[+k-1];renderList()}
+    else if(k==="escape"||k==="l")show("menu");
+  }
+});
+
+/* ---------- on-screen buttons (mobile has no esc/enter) ---------- */
+$("quitBtn").onclick=()=>endGame();
+$("btnAgain").onclick=()=>startGame(S.size);
+$("btnEndMenu").onclick=()=>show("menu");
+$("btnEndStats").onclick=()=>show("stats");
+$("btnListBack").onclick=()=>show("menu");
+$("btnStatsBack").onclick=()=>show("menu");
+$("btnReset").onclick=()=>resetStats();
+$("game").addEventListener("click",e=>{
+  if(G&&G.phase==="wait"&&performance.now()-G.waitAt>250)nextQuestion();
+});
+
+renderMenu();
 </script>
 </body>
 </html>
