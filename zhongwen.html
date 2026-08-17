@@ -129,6 +129,7 @@ kbd{
 #pop.go{animation:pop .7s ease-out}
 @keyframes pop{0%{opacity:0;transform:translateY(8px)}25%{opacity:1}100%{opacity:0;transform:translateY(-26px)}}
 #opts{display:flex;flex-direction:column;gap:9px}
+#opts.grid{display:grid;grid-template-columns:1fr 1fr}
 .opt{
   display:flex;align-items:center;gap:14px;width:100%;
   background:var(--card);border:1px solid var(--line);border-radius:12px;padding:13px 16px;
@@ -230,6 +231,7 @@ td b{color:var(--gold)}
       <button class="tog" id="togPin"></button>
       <button class="tog" id="togSpk"></button>
       <button class="tog" id="togVoice"></button>
+      <button class="tog" id="togOpts"></button>
       <button class="tog" id="togSnd"></button>
       <button class="tog" id="togList"><kbd>L</kbd>word list</button>
       <button class="tog" id="togStats"><kbd>S</kbd>stats</button>
@@ -254,7 +256,7 @@ td b{color:var(--gold)}
     </div>
     <div id="opts"></div>
     <div id="waitmsg">tap or press any key to continue</div>
-    <div class="hint"><kbd>1</kbd>–<kbd>4</kbd> answer · <kbd>space</kbd> replay audio · <kbd>esc</kbd> end</div>
+    <div class="hint"><kbd>1</kbd>–<kbd>8</kbd> answer · <kbd>space</kbd> replay audio · <kbd>esc</kbd> end</div>
   </div>
 
   <!-- ============ END ============ -->
@@ -316,231 +318,231 @@ td b{color:var(--gold)}
 "use strict";
 const SPK='<svg class="spk" viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-label="audio"><path d="M11 5 6 9H2v6h4l5 4z" fill="currentColor" stroke="none"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>';
 /* ============================================================
-   WORDS — Refold Mandarin 1k Simplified, in the deck's teaching order
-   (sourced from the Refold 1k community list on Hack Chinese).
+   WORDS — official Refold Mandarin 1k Simplified deck (2023-03 apkg),
+   exact teaching order (cards.due), with the deck's own Meaning field.
    [simplified, pinyin, english] — slices: top 100 / 200 / 300 / 500 / 1000.
 ============================================================ */
 const WORDS=[
 /* 1–50 */
-["我","wǒ","I; me"],["你","nǐ","you"],["是","shì","is; are"],["不","bù","(negative prefix)"],["在","zài","(located) at; (to be) in"],
-["他","tā","he or him"],["我们","wǒ men","we; us"],["有","yǒu","to have; there is"],["这","zhè","this; these"],["什么","shén me","what?; something"],
-["她","tā","she"],["想","xiǎng","to think; to believe"],["一","yī","one; single"],["很","hěn","(adverb of degree)"],["人","rén","man; person"],
-["来","lái","to come; to arrive"],["个","gè","individual; this"],["能","néng","can; to be able to"],["去","qù","to go; to go to (a place)"],["做","zuò","to do; to make"],
-["没有","méi yǒu","haven't; hasn't"],["怎么","zěn me","how?; what?"],["现在","xiàn zài","now; at present"],["点","diǎn","point; dot"],["太","tài","highest; greatest"],
-["谁","shéi","who"],["多","duō","many; much"],["时候","shí hou","time; length of time"],["下","xià","down; downwards"],["谢谢","xiè xie","to thank; thanks"],
-["先生","xiān sheng","Mister (Mr.); teacher"],["喜欢","xǐ huan","to like; to be fond of"],["小","xiǎo","small; tiny"],["叫","jiào","to shout; to call"],["爱","ài","to love; to be fond of"],
-["年","nián","year"],["请","qǐng","to ask; to invite"],["回","huí","to circle; to go back"],["工作","gōng zuò","to work; (of a machine) to operate"],["钱","qián","coin; money"],
-["吃","chī","to eat; to consume"],["开","kāi","to open; to start"],["家","jiā","home; family"],["朋友","péng you","friend"],["妈妈","mā ma","mama; mommy"],
-["今天","jīn tiān","today; at the present"],["爸爸","bà ba","(informal) father"],["些","xiē","some; few"],["怎么样","zěn me yàng","how?; how about?"],["对不起","duì bu qǐ","I'm sorry; to let down"],
+["的","de","indicates possession, like adding 's to a noun"],["我","wǒ","I; me"],["你","nǐ","you (singular)"],["是","shì","be; is; are; am"],["了","le","indicates a completed or finished action"],
+["不","bù","no; not"],["在","zài","at; on; in; indicates an action in progress"],["他","tā","he; him"],["我们","wǒmen","we; us"],["好","hǎo","good"],
+["有","yǒu","have"],["这","zhè","this"],["会","huì","can, able"],["吗","ma","indicates a yes/no question (added to a statement)"],["什么","shénme","what? (replaces the noun to turn a statement into a question)"],
+["说","shuō","speak"],["她","tā","she"],["想","xiǎng","think; believe; suppose; would like to"],["一","yī","one; once; a"],["很","hěn","very; quite"],
+["人","rén","person; man; people"],["那","nà","that"],["来","lái","come; arrive"],["都","dōu","all; both"],["个","ge","general measure word"],
+["能","néng","can; be able"],["去","qù","go; to leave"],["和","hé","and; with"],["做","zuò","do; make"],["上","shang","above; up"],
+["没有","méiyǒu","not have; there is not"],["看","kàn","see; look at; to watch"],["怎么","zěnme","how?; what"],["现在","xiànzài","now"],["点","diǎn","a dot; a little; o'clock"],
+["呢","ne","indicates a question; how about...?"],["太","tài","too (much)"],["里","li","inside"],["听","tīng","listen; hear"],["谁","shéi","who"],
+["多","duō","many"],["时候","shíhou","time"],["下","xià","fall; below"],["谢谢","xièxie","thank you"],["先生","xiānsheng","Mr.; Sir"],
+["喜欢","xǐhuan","to like"],["大","dà","big; large"],["东西","dōngxi","things; stuff"],["小","xiǎo","small; young"],["叫","jiào","to be called"],
 /* 51–100 */
-["住","zhù","to live; to dwell"],["三","sān","three"],["高兴","gāo xìng","happy; glad"],["买","mǎi","to buy; to purchase"],["医生","yī shēng","doctor"],
-["哪儿","nǎ r","where?; wherever"],["字","zì","letter; symbol"],["名字","míng zi","name (of a person or thing)"],["认识","rèn shi","to know; to recognize"],["坐","zuò","to sit; to take a seat"],
-["写","xiě","to write"],["月","yuè","moon; month"],["狗","gǒu","dog"],["岁","suì","classifier for years (of age)"],["看见","kàn jiàn","to see; to catch sight of"],
-["打电话","dǎ diàn huà","to make a telephone call"],["儿子","ér zi","son"],["漂亮","piào liang","pretty; beautiful"],["分钟","fēn zhōng","minute"],["再见","zài jiàn","goodbye; see you again later"],
-["本","běn","root; stem"],["明天","míng tiān","tomorrow"],["块","kuài","piece; yuan (money)"],["女儿","nǚ ér","daughter"],["小姐","xiǎo jie","young lady; miss"],
-["衣服","yī fu","clothes"],["水","shuǐ","water; river"],["学校","xué xiào","school"],["电影","diàn yǐng","movie; film"],["书","shū","book; letter"],
-["四","sì","four"],["五","wǔ","five"],["医院","yī yuàn","hospital"],["没关系","méi guān xi","it doesn't matter"],["飞机","fēi jī","airplane"],
-["二","èr","two; (Beijing dialect) stupid"],["电视","diàn shì","television; TV"],["后面","hòu miàn","rear; back"],["昨天","zuó tiān","yesterday"],["睡觉","shuì jiào","to go to bed; to sleep"],
-["六","liù","six"],["老师","lǎo shī","teacher"],["星期","xīng qī","week; day of the week"],["十","shí","ten"],["猫","māo","cat; (dialect) to hide oneself"],
-["电脑","diàn nǎo","computer"],["热","rè","to warm up; to heat up"],["学生","xué sheng","student; schoolchild"],["下午","xià wǔ","afternoon; p.m."],["学习","xué xí","to learn; to study"],
+["爱","ài","love"],["年","nián","year"],["请","qǐng","please; invite; to treat someone to something"],["回","huí","to return; to reply; to go back"],["工作","gōngzuò","work; a job"],
+["钱","qián","money; coin"],["吃","chī","eat"],["开","kāi","to open; to start; to operate (a vehicle)"],["家","jiā","family; home"],["哪","nǎ","which"],
+["朋友","péngyou","friend"],["妈妈","māma","mom; mum"],["今天","jīntiān","today"],["几","jǐ","how many; several; a few"],["爸爸","bàba","Dad"],
+["些","xiē","some; few; several; (plural measure word)"],["怎么样","zěnmeyàng","how about?; how is/was it?"],["对不起","duìbuqǐ","I'm sorry; excuse me"],["住","zhù","to live; reside; to stop"],["三","sān","three"],
+["高兴","gāoxìng","happy; glad"],["买","mǎi","to buy"],["医生","yīshēng","doctor"],["哪儿","nǎr","where? (Beijing accent)"],["字","zì","letter; character"],
+["名字","míngzi","name"],["认识","rènshi","recognize; know (a person)"],["坐","zuò","sit"],["喝","hē","to drink"],["写","xiě","to write; to compose"],
+["月","yuè","moon; month"],["号","hào","number; day of a month"],["狗","gǒu","dog"],["岁","suì","years old; age"],["看见","kànjiàn","see; catch sight of"],
+["打电话","dǎ diànhuà","make a phone call"],["喂","wèi","hey, hello (on the phone)*"],["儿子","érzi","son"],["漂亮","piàoliang","pretty; beautiful"],["分钟","fēnzhōng","minute; (measure word for time)"],
+["再见","zàijiàn","goodbye; see you later"],["本","běn","measure word for books"],["明天","míngtiān","tomorrow"],["少","shǎo","few; little"],["多少","duōshao","how much?; how many?"],
+["块","kuài","lump; piece; sum of money"],["女儿","nǚ ér","daughter"],["小姐","xiǎojie (Sandhi: xiáojie)","young lady; miss; Ms."],["衣服","yīfu","clothes"],["水","shuǐ","water"],
 /* 101–150 */
-["冷","lěng","cold"],["不客气","bù kè qi","you're welcome"],["前面","qián miàn","ahead; in front"],["八","bā","eight"],["中国","zhōng guó","?"],
-["七","qī","seven"],["菜","cài","dish (type of food)"],["桌子","zhuō zi","table; desk"],["出租车","chū zū chē","taxi; (Taiwan) rental car"],["天气","tiān qì","weather"],
-["茶","chá","tea; tea plant"],["九","jiǔ","nine"],["商店","shāng diàn","store; shop"],["椅子","yǐ zi","chair"],["同学","tóng xué","to study at the same school"],
-["苹果","píng guǒ","apple"],["饭店","fàn diàn","restaurant; hotel"],["中午","zhōng wǔ","noon; midday"],["上午","shàng wǔ","morning"],["水果","shuǐ guǒ","fruit"],
-["杯子","bēi zi","cup; glass"],["下雨","xià yǔ","to rain"],["米饭","mǐ fàn","(cooked) rice"],["北京","běi jīng","? (Běi jīng)"],["汉语","hàn yǔ","? (Hàn yǔ)"],
-["就","jiù","at once; right away"],["知道","zhī dào","to know; to become aware of"],["到","dào","to (a place); until (a time)"],["对","duì","right; correct"],["也","yě","also; too"],
-["让","ràng","to yield; to permit"],["真","zhēn","really; truly"],["可以","kě yǐ","can; may"],["走","zǒu","to walk; to go"],["因为","yīn wèi","because; owing to"],
-["再","zài","again; once more"],["快","kuài","rapid; quick"],["但是","dàn shì","but; however"],["已经","yǐ jīng","already"],["为什么","wèi shén me","why?; for what reason?"],
-["觉得","jué de","to think; to feel"],["它","tā","it"],["从","cóng","from; through"],["找","zhǎo","to try to find"],["最","zuì","most; the most"],
-["可能","kě néng","might (happen)"],["次","cì","next in sequence"],["出","chū","to go out; to come out"],["孩子","hái zi","child"],["所以","suǒ yǐ","therefore; as a result"],
+["学校","xuéxiào","school"],["电影","diànyǐng","movie; film"],["书","shū","book; letter"],["四","sì","four"],["五","wǔ","five"],
+["医院","yīyuàn","hospital"],["没关系","méi guānxi","it doesn't matter; never mind"],["飞机","fēijī","airplane"],["二","èr","two"],["电视","diànshì","television; TV"],
+["读","dú","to read; to study"],["后面","hòumian","back; behind"],["昨天","zuótiān","yesterday"],["睡觉","shuì jiào","to sleep; go to bed"],["六","liù","six"],
+["老师","lǎoshī","teacher"],["星期","xīngqī","week"],["十","shí","ten"],["猫","māo","cat"],["电脑","diànnǎo","computer"],
+["热","rè","heat; hot"],["学生","xuésheng","student"],["下午","xiàwǔ","afternoon"],["学习","xuéxí","learn; to study"],["冷","lěng","cold"],
+["不客气","bù kèqi (Sandhi: bú kèqi)","you're welcome; don't be polite"],["前面","qiánmiàn","in front"],["八","bā","eight"],["中国","Zhōngguó","China"],["七","qī","seven"],
+["菜","cài","dish (type of food); vegetables"],["桌子","zhuōzi","table; desk"],["出租车","chūzūchē","taxi; cab"],["天气","tiānqì","weather"],["茶","chá","tea"],
+["九","jiǔ","nine"],["商店","shāngdiàn","shop; store"],["椅子","yǐzi","chair"],["同学","tóngxué","fellow student; schoolmate; classmate"],["一点(儿)","yīdiǎn(r) (sandhi: yìdiǎn(r))","a bit; a few"],
+["苹果","píngguǒ","apple"],["饭店","fàndiàn","restaurant; hotel"],["中午","zhōngwǔ","noon; midday"],["上午","shàngwǔ","late morning (before noon)"],["水果","shuǐguǒ (Sandhi: shuíguǒ)","fruit"],
+["杯子","bēizi","cup; glass"],["下雨","xiàyǔ","to rain"],["米饭","mǐfàn","(cooked) rice"],["北京","Běijīng","Beijing"],["汉语","Hànyǔ","Chinese language"],
 /* 151–200 */
-["两","liǎng","two; both"],["错","cuò","mistake; wrong"],["等","děng","to await for; to wait"],["题","tí","topic; problem for discussion"],["问","wèn","to ask"],
-["问题","wèn tí","question; problem"],["一起","yī qǐ","in the same place"],["开始","kāi shǐ","to begin; beginning"],["时间","shí jiān","time; period"],["事情","shì qing","affair; matter"],
-["一下","yī xià","(used after a verb) give it a go"],["非常","fēi cháng","very; very much"],["希望","xī wàng","to wish for; to desire"],["准备","zhǔn bèi","preparation; to prepare"],["件","jiàn","item; component"],
-["意思","yì si","idea; opinion"],["第一","dì yī","first; number one"],["进","jìn","to go forward; to advance"],["大家","dà jiā","everyone; influential family"],["新","xīn","new; newly"],
-["您","nín","you (nín)"],["穿","chuān","to wear; to put on"],["送","sòng","to deliver; to carry"],["玩","wán","to play; to have fun"],["小时","xiǎo shí","hour"],
-["完","wán","to finish; to be over"],["每","měi","each; every"],["公司","gōng sī","(business) company"],["帮助","bāng zhù","assistance; aid"],["晚上","wǎn shang","evening; night"],
-["说话","shuō huà","to speak; to say"],["门","mén","gate; door"],["女","nǚ","female; woman"],["忙","máng","busy; hurriedly"],["卖","mài","to sell; to betray"],
-["高","gāo","high; tall"],["房间","fáng jiān","room"],["路","lù","road; journey"],["懂","dǒng","to understand; to comprehend"],["正在","zhèng zài","just at (that time)"],
-["笑","xiào","laugh; smile"],["丈夫","zhàng fu","husband"],["往","wǎng","to go (in a direction)"],["男","nán","male"],["眼睛","yǎn jing","eye"],
-["快乐","kuài lè","happy; merry"],["虽然","suī rán","although; even though"],["早上","zǎo shang","early morning"],["药","yào","medicine; drug"],["身体","shēn tǐ","the body; one's health"],
+["就","jiù","then; at once; just; only; with regard to"],["要","yào","to want; to need; will/shall"],["知道","zhīdao","know; be aware of"],["吧","ba","particle indicating polite suggestion"],["到","dào","arrive (at a place); until (a time)"],
+["对","duì","correct; a pair; to face; be opposite; to; towards"],["也","yě","also; too"],["还","hái","still; yet; in addition; even"],["让","ràng","let, allow"],["给","gěi","to give; to grant; (passive particle)"],
+["过","guo","indicates a past experience"],["得","de","used to link a verb and the manner clause that follows it"],["真","zhēn","real; true; genuine"],["着","zhe","ing (indicating action in progress)"],["可以","kěyǐ (Sandhi: kéyǐ)","can; may; possible; okay"],
+["别","bié","don't do something; don't"],["走","zǒu","to walk; to go; to move"],["告诉","gàosu","to tell; inform"],["因为","yīnwèi","because"],["再","zài","again; once more"],
+["快","kuài","fast; quick; swift"],["但是","dànshì","but; however"],["已经","yǐjing","already"],["为什么","wèishénme","why?; for what reason?"],["觉得","juéde","feel; think"],
+["它","tā","it"],["从","cóng","from"],["找","zhǎo","try to find; look for; seek"],["最","zuì","the most; -est; (indicator for superlative)"],["可能","kěnéng","possible; probable; maybe"],
+["次","cì","(measure word for number of times of occurrence)"],["出","chū","go out; occur"],["孩子","háizi","child; children; son or daughter"],["所以","suǒyǐ (Sandhi: suóyǐ)","so; therefore; as a result"],["两","liǎng","two; 2; both; (unit of weight equal to 50 grams)"],
+["错","cuò","mistake; error; blunder; miss an opportunity"],["等","děng","to wait"],["题","tí","topic; subject; question on a test or assignment"],["问","wèn","ask; inquire"],["问题","wèntí","question; problem"],
+["一起","yīqǐ (Sandhi: yìqǐ)","together; in the same place"],["开始","kāishǐ","begin; to start; beginning"],["时间","shíjiān","time; period"],["事情","shìqing","matter; affair; thing; business"],["一下","yīxià (Sandhi: yíxià)","a little bit/while; one time; once"],
+["非常","fēicháng","extremely; extraordinary; very"],["希望","xīwàng","to hope; wish for; to desire"],["准备","zhǔnbèi","prepare; get ready"],["比","bǐ","compare; (indicates comparison)"],["件","jiàn","(measure word for things, clothes, and items)"],
 /* 201–250 */
-["黑","hēi","black; dark"],["咖啡","kā fēi","coffee (loanword)"],["日","rì","sun; day"],["休息","xiū xi","rest; to rest"],["外","wài","outside; in addition"],
-["生日","shēng rì","birthday"],["哥哥","gē ge","older brother"],["票","piào","ticket; ballot"],["手机","shǒu jī","cell phone; mobile phone"],["洗","xǐ","to wash; to bathe"],
-["跳舞","tiào wǔ","to dance"],["弟弟","dì di","younger brother"],["妹妹","mèi mei","younger sister"],["红","hóng","red; popular"],["慢","màn","slow"],
-["近","jìn","near; close to"],["白","bái","white; snowy"],["姐姐","jiě jie","older sister"],["介绍","jiè shào","to introduce (sb to sb)"],["鱼","yú","fish"],
-["课","kè","subject; course"],["上班","shàng bān","to go to work; to be on duty"],["旁边","páng biān","lateral; side"],["运动","yùn dòng","to move; to exercise"],["去年","qù nián","last year"],
-["报纸","bào zhǐ","newspaper; newsprint"],["颜色","yán sè","color; countenance"],["机场","jī chǎng","airport; airfield"],["唱歌","chàng gē","to sing a song"],["千","qiān","thousand"],
-["考试","kǎo shì","to take an exam"],["左边","zuǒ bian","left; the left side"],["姓","xìng","family name"],["百","bǎi","hundred; numerous"],["雪","xuě","snow; snowfall"],
-["贵","guì","expensive; noble"],["生病","shēng bìng","to fall ill"],["游泳","yóu yǒng","swimming; to swim"],["牛奶","niú nǎi","cow's milk"],["右边","yòu bian","right side; right, to the right"],
-["公共汽车","gōng gòng qì chē","bus"],["起床","qǐ chuáng","to get out of bed"],["打篮球","dǎ lán qiú","play basketball"],["鸡蛋","jī dàn","(chicken) egg; hen's egg"],["踢足球","tī zú qiú","play soccer (football)"],
-["零","líng","zero; nought"],["手表","shǒu biǎo","wrist watch"],["旅游","lǚ yóu","trip; journey"],["服务员","fú wù yuán","waiter; waitress"],["宾馆","bīn guǎn","guesthouse; lodge"],
+["意思","yìsi","meaning; idea; opinion"],["第一","dìyī","first; primary; foremost"],["进","jìn","enter; come in"],["大家","dàjiā","everyone"],["新","xīn","new"],
+["您","nín","you (polite)"],["穿","chuān","to wear; put on; penetrate"],["送","sòng","deliver; to carry; to give; send"],["玩","wán","to play; have a good time"],["长","cháng","long; length"],
+["小时","xiǎoshí","hour"],["完","wán","to finish; be over; complete"],["每","měi","each; every"],["公司","gōngsī","company; corporation"],["帮助","bāngzhù","help; assist; aid"],
+["晚上","wǎnshang","evening; night"],["说话","shuōhuà","to talk; speak"],["门","mén","door; opening; gate"],["女","nǚ","woman; female"],["忙","máng","busy"],
+["卖","mài","to sell"],["高","gāo","high; tall"],["房间","fángjiān","room"],["路","lù","road; path; journey; route"],["懂","dǒng","understand; know"],
+["正在","zhèngzài","in the process of (doing something); currently"],["笑","xiào","to laugh; to smile"],["远","yuǎn","far; distant; remote"],["妻子","qīzi","wife"],["丈夫","zhàngfu","husband; man"],
+["离","lí","leave; depart; go away; apart from"],["往","wǎng","to go (in a direction); towards; in the past"],["男","nán","male"],["眼睛","yǎnjing","eye"],["快乐","kuàilè","happy"],
+["虽然","suīrán","although; even though"],["早上","zǎoshang","(early) morning"],["药","yào","medicine; drug; cure; chemical"],["身体","shēntǐ","health; (human) body"],["黑","hēi","black; dark"],
+["咖啡","kāfēi","coffee"],["日","rì","sun; day; date; time"],["休息","xiūxi","to rest; take a break"],["外","wài","outer; outside; in addition; foreign"],["生日","shēngrì","birthday"],
+["哥哥","gēge","older brother"],["票","piào","ticket; bank note; a vote"],["手机","shǒujī","mobile (cell) phone"],["洗","xǐ","to wash; bathe"],["跳舞","tiào wǔ","to dance"],
 /* 251–300 */
-["教室","jiào shì","classroom"],["跑步","pǎo bù","to run; to jog"],["阴","yīn","overcast (weather)"],["面条","miàn tiáo","noodles"],["铅笔","qiān bǐ","(lead) pencil"],
-["火车站","huǒ chē zhàn","train station"],["西瓜","xī guā","watermelon"],["羊肉","yáng ròu","mutton; goat meat"],["晴","qíng","clear; fine (weather)"],["如果","rú guǒ","if; in case"],
-["被","bèi","quilt; by"],["跟","gēn","heel; to follow closely"],["自己","zì jǐ","oneself; one's own"],["用","yòng","to use; to employ"],["像","xiàng","to resemble; to be like"],
-["需要","xū yào","to need; to want"],["应该","yīng gāi","ought to; should"],["才","cái","a moment ago; just now"],["又","yòu","(once) again; also"],["拿","ná","to hold; to seize"],
-["带","dài","to take along; to bring"],["然后","rán hòu","after; then (afterwards)"],["一样","yī yàng","same; like"],["当然","dāng rán","only natural; as it should be"],["相信","xiāng xìn","to be convinced (that sth is true)"],
-["认为","rèn wéi","to believe; to think"],["明白","míng bai","clear; obvious"],["一直","yī zhí","straight (in a straight line)"],["离开","lí kāi","to depart; to leave"],["一定","yī dìng","surely; certainly"],
-["还是","hái shi","or; still"],["发现","fā xiàn","to find; to discover"],["而且","ér qiě","(not only ...) but also"],["必须","bì xū","to have to; must"],["放","fàng","to put; to place"],
-["为了","wèi le","in order to; for the purpose of"],["向","xiàng","towards; to face"],["老","lǎo","old (of people)"],["位","wèi","position; location"],["先","xiān","first; early"],
-["最后","zuì hòu","final; last"],["其他","qí tā","other; (sth or sb) else"],["记得","jì de","to remember"],["或者","huò zhě","or; possibly"],["担心","dān xīn","anxious; worried"],
-["条","tiáo","strip; item"],["以前","yǐ qián","before; formerly"],["世界","shì jiè","world"],["重要","zhòng yào","important; significant"],["别人","bié ren","other people; others"],
+["弟弟","dìdi","younger brother"],["妹妹","mèimei","younger sister"],["红","hóng","red"],["慢","màn","slow"],["近","jìn","near; close (to)"],
+["白","bái","white; snowy; pure; bright; empty"],["姐姐","jiějie","older sister"],["介绍","jièshào","to introduce; recommend; introduction"],["鱼","yú","fish"],["累","lèi","tired"],
+["课","kè","class; subject; lesson; course"],["上班","shàng bān","go to work; be on duty"],["旁边","pángbiān","side, beside"],["运动","yùndòng","(physical) exercise; movement; sports; campaign"],["去年","qùnián","last year"],
+["报纸","bàozhǐ","newspaper"],["颜色","yánsè","color"],["机场","jīchǎng","airport; airfield"],["唱歌","chànggē","sing (a song)"],["千","qiān","one thousand"],
+["好吃","hǎochī","tasty"],["考试","kǎoshì","test; exam; to give or take a test"],["左边","zuǒbian","the left side; the left"],["姓","xìng","surname; family name"],["百","bǎi","hundred"],
+["雪","xuě","snow"],["贵","guì","expensive; noble; honorable"],["生病","shēng bìng","get sick; fall ill"],["游泳","yóuyǒng","to swim"],["牛奶","niúnǎi","cow's milk"],
+["右边","yòubian","the right (as opposed to left) side"],["便宜","piányi","cheap"],["公共汽车","gōnggòng qìchē","(public) bus"],["起床","qǐ chuáng","get out of bed"],["打篮球","dǎ lánqiú","play basketball"],
+["鸡蛋","jīdàn","(chicken) egg"],["踢足球","tīzúqiú","to play football/soccer"],["零","líng","zero; remnant"],["手表","shǒubiǎo (Sandhi: shóubiǎo)","wristwatch"],["旅游","lǚyóu","tour; tourism"],
+["服务员","fúwùyuán","waiter/waitress; server; attendant"],["宾馆","bīnguǎn","guesthouse; hotel"],["教室","jiàoshì","classroom"],["跑步","pǎo bù","to run; to jog"],["阴","yīn","cloudy (weather)"],
+["面条","miàntiáo","noodles"],["铅笔","qiānbǐ","pencil"],["火车站","huǒchēzhàn","train station"],["西瓜","xīguā","watermelon"],["羊肉","yángròu","mutton; lamb"],
 /* 301–350 */
-["机会","jī huì","opportunity; chance"],["张","zhāng","to open up; to spread"],["接","jiē","to receive; to answer (the phone)"],["比赛","bǐ sài","competition (sports etc)"],["关","guān","to close; to shut"],
-["关系","guān xi","relation; relationship"],["马","mǎ","horse"],["马上","mǎ shàng","right away"],["决定","jué dìng","to decide (to do something)"],["关于","guān yú","pertaining to; concerning"],
-["了解","liǎo jiě","to understand; to realize"],["站","zhàn","station; to stand"],["结束","jié shù","termination; to finish"],["清楚","qīng chu","clear; distinct"],["愿意","yuàn yì","to wish; to want"],
-["花","huā","flower; blossom"],["照片","zhào piàn","photograph; picture"],["欢迎","huān yíng","to welcome; welcome"],["总是","zǒng shì","always"],["嘴","zuǐ","mouth; beak"],
-["参加","cān jiā","to participate"],["办法","bàn fǎ","means; method"],["选择","xuǎn zé","to select; to pick"],["坏","huài","bad; spoiled"],["打算","dǎ suàn","to plan; to intend"],
-["试","shì","to test; to try"],["特别","tè bié","especially; special"],["注意","zhù yì","to take note of"],["其实","qí shí","actually; in fact"],["小心","xiǎo xīn","to be careful; to take care"],
-["久","jiǔ","(long) time; (long) duration of time"],["只有","zhǐ yǒu","only"],["讲","jiǎng","to speak; to explain"],["换","huàn","to exchange; to change (clothes etc)"],["结婚","jié hūn","to marry; to get married"],
-["段","duàn","paragraph; section"],["努力","nǔ lì","great effort; to strive"],["害怕","hài pà","to be afraid; to be scared"],["刚才","gāng cái","just now; a moment ago"],["节目","jié mù","program; item (on a program)"],
-["辆","liàng","classifier for vehicles"],["解决","jiě jué","to settle (a dispute)"],["办公室","bàn gōng shì","office; business premises"],["奇怪","qí guài","strange; odd"],["同意","tóng yì","to agree; to consent"],
-["游戏","yóu xì","game; to play"],["帮忙","bāng máng","to help; to lend a hand"],["国家","guó jiā","country; nation"],["最近","zuì jìn","recent; recently"],["声音","shēng yīn","voice; sound"],
+["晴","qíng","clear; fine (as of weather)"],["啊","a","ah"],["还","huán","to return"],["把","bǎ","particle marking the following noun as a direct object, grasp, to hold, handle"],["过","guò","to pass, to go by, to exceed"],
+["如果","rúguǒ","if; in the event that"],["只","zhǐ","only; merely"],["被","bèi","by (indicates passive voice sentences)"],["跟","gēn","follow; with; and"],["自己","zìjǐ","oneself; self"],
+["用","yòng","to use"],["像","xiàng","be like; resemble; appearance; appear"],["为","wèi","for; because of; to; for the sake of"],["需要","xūyào","to need; to want; to demand"],["应该","yīnggāi","should; ought to; must"],
+["起来","qǐlái","to get up, to rise, to arise, to start"],["才","cái","ability; talent; just now; not until"],["又","yòu","again; both...and..."],["拿","ná","hold; take; seize; capture"],["更","gèng","more; even more"],
+["带","dài","belt; zone; carry, bring, take"],["然后","ránhòu","then; afterwards"],["一样","yīyàng (Sandhi: yíyàng)","the same; alike; equal to"],["当然","dāngrán","of course; naturally"],["相信","xiāngxìn","believe (sb.); be convinced of"],
+["认为","rènwéi","believe; think that"],["明白","míngbai","clear; obvious; understand; explicit"],["一直","yīzhí (Sandhi: yìzhí)","always; all along; straight (in a straight line)"],["地","dì","earth; ground"],["地方","dìfang","place; space; room; part, (fāng: local; regional)"],
+["离开","líkāi","leave; depart"],["一定","yīdìng (Sandhi: yídìng)","surely; certainly; necessarily; definite"],["还是","háishi","or; still; nevertheless; had better"],["发","fā","send out; to issue, utter; express; emit"],["发现","fāxiàn","discover; to find"],
+["而且","érqiě","moreover; in addition; as well as"],["必须","bìxū","must; have to"],["放","fàng","put; to place; to release; to free"],["为了","wèile","in order to; for the sake of; for the purpose of"],["向","xiàng","direction; towards; to turn; to face"],
+["老","lǎo","old; aged"],["位","wèi","position; location; (polite measure word for people)"],["先","xiān","first; early; before"],["种","zhǒng","kind; seed"],["最后","zuìhòu","last; final; ultimately"],
+["其他","qítā","other; else"],["记得","jìde","remember"],["或者","huòzhě","or; possible; maybe; perhaps"],["过去","guòqù","in the past; formerly"],["担心","dānxīn","to worry; feel anxious"],
 /* 351–400 */
-["可爱","kě ài","adorable; cute"],["完成","wán chéng","to complete; to accomplish"],["半","bàn","half; semi-"],["要求","yāo qiú","to request; to require"],["除了","chú le","besides; apart from (... also...)"],
-["容易","róng yì","easy; likely"],["脸","liǎn","face"],["简单","jiǎn dān","simple; not complicated"],["检查","jiǎn chá","inspection; to examine"],["音乐","yīn yuè","music"],
-["越","yuè","to exceed; the more…"],["照顾","zhào gu","to take care of"],["聪明","cōng ming","intelligent; clever"],["甜","tián","sweet"],["突然","tū rán","sudden; abrupt"],
-["终于","zhōng yú","at last; in the end"],["船","chuán","boat; vessel"],["口","kǒu","mouth; classifier for things with mouths"],["回答","huí dá","to reply; to answer"],["礼物","lǐ wù","gift; present"],
-["头发","tóu fa","hair (on the head)"],["关心","guān xīn","to be concerned about"],["脚","jiǎo","foot; leg (of an animal or an object)"],["生气","shēng qì","to get angry; to take offense"],["哭","kū","to cry; to weep"],
-["画","huà","to draw; picture"],["年轻","nián qīng","young"],["包","bāo","bag; to cover"],["腿","tuǐ","leg"],["忘记","wàng jì","to forget"],
-["搬","bān","to move (i.e. relocate oneself)"],["楼","lóu","house with more than 1 story"],["遇到","yù dào","to meet; to run into"],["新闻","xīn wén","news"],["比较","bǐ jiào","to compare; to contrast"],
-["双","shuāng","two; double"],["见面","jiàn miàn","to meet; to see each other"],["经常","jīng cháng","frequently; constantly"],["城市","chéng shì","city; town"],["一会儿","yī huì r","a moment; a while"],
-["附近","fù jìn","(in the) vicinity"],["借","jiè","to lend; to borrow"],["影响","yǐng xiǎng","influence; effect"],["认真","rèn zhēn","conscientious; earnest"],["米","mǐ","rice; meter (classifier)"],
-["银行","yín háng","bank"],["安静","ān jìng","quiet; peaceful"],["多么","duō me","how (wonderful etc)"],["饿","è","to be hungry; hungry"],["根据","gēn jù","according to; based on"],
+["条","tiáo","measure word for long, narrow things; twig; strip; item"],["以前","yǐqián","before; formerly; previous"],["长","zhǎng","grow; grow up; increase"],["世界","shìjiè","world"],["重要","zhòngyào","important; significant; major"],
+["别人","biéren","others; other people; another person"],["机会","jīhuì","chance; opportunity"],["张","zhāng","(measure word for flat objects); spread; sheet of paper"],["接","jiē","connect; to meet; to pick up (somebody); to receive"],["比赛","bǐsài","match; competition"],
+["关","guān","to close; shut; concern; relationship; turn off"],["关系","guānxi","relation; to concern"],["马","mǎ","horse"],["马上","mǎshàng","at once; immediately; right away"],["决定","juédìng","decide; resolve; make up one's mind"],
+["关于","guānyú","about; regarding; concerning"],["难","nán","difficult"],["了解","liǎojiě (Sandhi: liáojiě)","comprehend; understand; know; find out"],["站","zhàn","stand; a station; be on one's feet; service center"],["结束","jiéshù","to end; to finish; conclude"],
+["清楚","qīngchu","clear; distinct; without ambiguity"],["愿意","yuànyì","be willing; want to; be ready"],["花","huā","flower; blossom; spend money; cost"],["照片","zhàopiàn","picture; photograph"],["欢迎","huānyíng","to welcome; greet"],
+["总是","zǒngshì","always; invariably"],["嘴","zuǐ","mouth"],["参加","cānjiā","participate; join; take part in"],["办法","bànfǎ","method; way (of doing something)"],["选择","xuǎnzé","select; to pick; choose"],
+["坏","huài","bad; broken"],["打算","dǎsuàn","to plan; intend"],["试","shì","to try; to test"],["特别","tèbié","special; particular"],["注意","zhùyì","pay attention to; take notice of; be careful"],
+["其实","qíshí","as a matter of fact; actually; in fact"],["小心","xiǎoxīn","take care; be careful"],["久","jiǔ","long (time)"],["只有","zhǐyǒu (Sandhi: zhíyǒu)","only; alone"],["讲","jiǎng","to talk; to lecture; to explain; a speech"],
+["故事","gùshi","story; tale"],["换","huàn","change; to exchange; to barter; to trade"],["结婚","jiéhūn","get married"],["段","duàn","paragraph; segment; section"],["努力","nǔlì","make great effort; try hard"],
+["害怕","hàipà","afraid of; to fear"],["刚才","gāngcái","just now; a moment ago"],["节目","jiémù","program; item (on a program)"],["辆","liàng","(measure word for vehicles)"],["万","wàn","ten thousand"],
 /* 401–450 */
-["几乎","jī hū","almost; nearly"],["后来","hòu lái","afterwards; later"],["动物","dòng wù","animal"],["西","xī","west"],["一边","yī biān","one side; either side"],
-["舒服","shū fu","comfortable; feeling well"],["一般","yī bān","same; ordinary"],["叔叔","shū shu","father's younger brother"],["疼","téng","(it) hurts; sore"],["迟到","chí dào","to arrive late"],
-["历史","lì shǐ","history"],["啤酒","pí jiǔ","beer (loanword)"],["短","duǎn","short; brief"],["经过","jīng guò","to pass; to go through"],["周末","zhōu mò","weekend"],
-["班","bān","team; class"],["习惯","xí guàn","habit; custom"],["公园","gōng yuán","park (for public recreation)"],["干净","gān jìng","clean; neat"],["鸟","niǎo","bird; (dialect) to pay attention to"],
-["健康","jiàn kāng","health; healthy"],["树","shù","tree; to cultivate"],["蛋糕","dàn gāo","cake"],["元","yuán","currency unit (esp. Chinese yuan)"],["客人","kè rén","visitor; guest"],
-["会议","huì yì","meeting; conference"],["奶奶","nǎi nai","grandma; (respectful) mistress of the house"],["裤子","kù zi","trousers; pants"],["邻居","lín jū","neighbor; next door"],["经理","jīng lǐ","manager; director"],
-["层","céng","layer; stratum"],["灯","dēng","lamp; light"],["练习","liàn xí","to practice; exercise"],["爷爷","yé ye","(coll.) father's father"],["蓝","lán","blue; indigo plant"],
-["难过","nán guò","to feel sad; to feel unwell"],["中间","zhōng jiān","between; intermediate"],["帽子","mào zi","hat; cap"],["的","de","of; ~'s (possessive particle)"],["了","le","; (completed action marker)"],
-["好","hǎo","good; well"],["会","huì","can; to be possible"],["吗","ma",""],["说","shuō","to say"],["那","nà","that; those"],
-["都","dōu","all; both"],["和","hé","and; together with"],["上","shàng","on top; upon"],["看","kàn","to see; to look at"],["呢","ne","particle indicating that a previously asked…"],
+["解决","jiějué","settle (a dispute); resolve; solve"],["办公室","bàngōngshì","office"],["奇怪","qíguài","strange; odd"],["同意","tóngyì","agree; to consent; approve"],["游戏","yóuxì","game; play; recreation"],
+["帮忙","bāngmáng","to help"],["国家","guójiā","country; state; nation"],["最近","zuìjìn","recently; lately; soon; in the near future"],["声音","shēngyīn","sound; voice"],["可爱","kě ài","cute; lovable; likable; lovely"],
+["分","fēn","divide; fraction; minute"],["完成","wánchéng","accomplish; complete; fulfill"],["半","bàn","half; semi-; incomplete"],["要求","yāoqiú","demand; request"],["除了","chúle","besides; except for; aside from; in addition to"],
+["容易","róngyì","easy; likely; liable (to)"],["教","jiāo","teach"],["脸","liǎn","face"],["简单","jiǎndān","simple; not complicated"],["检查","jiǎnchá","to check; examine; inspect"],
+["音乐","yīnyuè","music"],["越","yuè","the more...the more..."],["照顾","zhàogù","take care of; look after; give consideration"],["聪明","cōngming","intelligent; clever; bright; smart"],["甜","tián","sweet"],
+["突然","tūrán","suddenly; abruptly"],["终于","zhōngyú","at last; in the end; finally"],["船","chuán","a boat; vessel; ship"],["口","kǒu","mouth"],["回答","huídá","to reply; to answer"],
+["礼物","lǐwù","gift; present"],["头发","tóufa","hair (on the head)"],["关心","guānxīn","be concerned about; be interested in"],["脚","jiǎo","foot (body part)"],["生气","shēngqì","angry; mad"],
+["哭","kū","cry; weep"],["画","huà","draw; picture; painting"],["年轻","niánqīng","young"],["包","bāo","to cover; to wrap; to hold; include"],["腿","tuǐ","leg"],
+["忘记","wàngjì","forget; overlook; neglect"],["搬","bān","to move; to transport"],["楼","lóu","building, story"],["遇到","yùdào","come across; run into; encounter; meet"],["新闻","xīnwén","news"],
+["比较","bǐjiào","compare; contrast; relatively"],["双","shuāng","two; double; (measure word for pairs)"],["见面","jiànmiàn","meet/see somebody (face to face); meeting"],["经常","jīngcháng","often; frequently; daily"],["城市","chéngshì","city or town"],
 /* 451–500 */
-["里","lǐ","inside; lining"],["听","tīng","to listen; to hear"],["大","dà","big; huge"],["东西","dōng xi","thing; stuff"],["哪","nǎ","how; which"],
-["几","jǐ","how much; how many"],["喝","hē","to drink; My goodness!"],["号","hào","ordinal number"],["喂","wéi","hello (when answering the phone)"],["少","shǎo","few; less"],
-["多少","duō shǎo","number; amount"],["读","dú","to read; to study"],["要","yào","important; vital"],["吧","ba","; ...right?"],["还","hái","still; still in progress"],
-["给","gěi","to; for"],["过","guo","(experienced action marker)"],["得","de","structural particle: used after a verb, linking it…"],["着","zhe","aspect particle indicating action in progress"],["别","bié","don't...!; to leave"],
-["告诉","gào su","to tell; to inform"],["比","bǐ","; to compare"],["长","cháng","length; long"],["远","yuǎn","far; distant"],["妻子","qī zi","wife"],
-["离","lí","to leave; to part from"],["累","lèi","tired; weary"],["好吃","hǎo chī","tasty; delicious"],["便宜","pián yi","cheap; inexpensive"],["啊","a","modal particle ending sentence, showing…"],
-["还","huán","to pay back; to return"],["把","bǎ","to hold; to contain"],["过","guò","to cross; to go over"],["只","zhǐ","only; merely"],["为","wèi","because of; for"],
-["起来","qǐ lái","indicating the beginning and continuation of an…"],["更","gèng","more; even more"],["地","dì","earth; ground"],["地方","dì fang","area; place"],["发","fā","to send out; to show (one's feeling)"],
-["种","zhǒng","seed; species"],["过去","guò qù","(in the) past; former"],["长","zhǎng","chief; head"],["难","nán","difficult (to...)"],["故事","gù shi","narrative; story"],
-["万","wàn","ten thousand; a great number"],["分","fēn","to divide; to separate"],["教","jiāo","to teach"],["差","chà","to differ from"],["一点","yī diǎn","a bit; a little"],
+["一会儿","yīhuìr (Sandhi: yíhuìr)","a while; a moment"],["附近","fùjìn","(in the) vicinity; nearby; neighboring"],["借","jiè","lend; borrow; excuse"],["影响","yǐngxiǎng (Sandhi: yíngxiǎng)","influence; affect; effect"],["认真","rènzhēn","take seriously"],
+["米","mǐ","rice; meter"],["差","chà","differ from; fall short of; poor; inferior"],["银行","yínháng","bank"],["安静","ānjìng","quiet; peaceful; calm"],["多么","duōme","how (wonderful, etc.); what (a great idea)"],
+["饿","è","hungry"],["根据","gēnjù","on the basis of; according to"],["几乎","jīhū","almost"],["后来","hòulái","afterwards; after; later"],["动物","dòngwù","animal"],
+["西","xī","West"],["一边","yībiān (Sandhi: yìbiān)","one side; on the one hand; at the same time"],["舒服","shūfu","comfortable; feeling well"],["一般","yībān (Sandhi: yìbān)","general; ordinary; common; same"],["叔叔","shūshu","(informal) father's younger brother; uncle"],
+["疼","téng","ache; sore; (it) hurts; love fondly"],["迟到","chídào","be/come/arrive late"],["历史","lìshǐ","history; past records"],["啤酒","píjiǔ","beer"],["短","duǎn","short (opposite of 长 cháng)"],
+["经过","jīngguò","to pass; go through; as a result of"],["周末","zhōumò","weekend"],["班","bān","class; work"],["习惯","xíguàn","habit; be accustomed to; usual practice"],["公园","gōngyuán","park; garden"],
+["干净","gānjìng","clean; neat and tidy"],["鸟","niǎo","bird"],["健康","jiànkāng","health; healthy"],["树","shù","tree"],["蛋糕","dàngāo","cake"],
+["元","yuán","Chinese monetary unit; dollar; primary"],["客人","kèren","guest; customer"],["会议","huìyì","meeting; conference"],["奶奶","nǎinai","grandma; (informal) paternal grandmother"],["裤子","kùzi","pants; trousers"],
+["邻居","línjū","neighbor"],["经理","jīnglǐ","manager; director"],["层","céng","layer, level, storey"],["灯","dēng","lamp; light"],["练习","liànxí","practice; exercise"],
+["爷爷","yéye","(informal) father's father; paternal grandfather"],["蓝","lán","blue"],["难过","nánguò","be grieved; be sad; have a hard time"],["中间","zhōngjiān","center; middle; between; among"],["帽子","màozi","hat; cap"],
 /* 501–550 */
-["一点儿","yī diǎn r","a little"],["司机","sī jī","chauffeur; driver"],["旧","jiù","old; opposite: new 新"],["满意","mǎn yì","satisfied; pleased"],["太阳","tài yang","sun"],
-["极","jí","extremely; pole (geography, physics)"],["主要","zhǔ yào","main; principal"],["同事","tóng shì","colleague; co-worker"],["鼻子","bí zi","nose"],["变化","biàn huà","change; variation"],
-["东","dōng","east; host"],["年级","nián jí","grade; year (in school, college etc)"],["环境","huán jìng","environment; circumstances"],["地图","dì tú","map"],["面包","miàn bāo","bread"],
-["电子邮件","diàn zǐ yóu jiàn","email"],["耳朵","ěr duo","ear; handle (on a cup)"],["裙子","qún zi","skirt"],["新鲜","xīn xiān","fresh (experience, food etc)"],["放心","fàng xīn","to feel relieved"],
-["聊天","liáo tiān","to chat; to gossip"],["南","nán","south"],["热情","rè qíng","cordial; enthusiastic"],["信用卡","xìn yòng kǎ","credit card"],["电梯","diàn tī","elevator; escalator"],
-["方便","fāng biàn","convenient; suitable"],["洗手间","xǐ shǒu jiān","toilet; lavatory"],["洗澡","xǐ zǎo","to bathe; to take a shower"],["饮料","yǐn liào","drink; beverage"],["校长","xiào zhǎng","(college, university) president"],
-["水平","shuǐ píng","level (of achievement etc)"],["作业","zuò yè","school assignment"],["衬衫","chèn shān","shirt; blouse"],["成绩","chéng jì","achievement; performance records"],["碗","wǎn","bowl; cup"],
-["阿姨","ā yí","maternal aunt; step-mother"],["图书馆","tú shū guǎn","library"],["文化","wén huà","culture; civilization"],["绿","lǜ","green"],["打扫","dǎ sǎo","to clean; to sweep"],
-["草","cǎo","grass; straw"],["冰箱","bīng xiāng","icebox; freezer cabinet"],["数学","shù xué","mathematics; mathematical"],["自行车","zì xíng chē","bicycle; bike"],["着急","zháo jí","to worry; to feel anxious"],
-["瘦","shòu","thin; to lose weight"],["提高","tí gāo","to raise; to increase"],["起飞","qǐ fēi","(of an aircraft) to take off"],["矮","ǎi","low; short (in length)"],["地铁","dì tiě","subway; metro"],
+["司机","sījī","driver; chauffeur"],["旧","jiù","old; past; used"],["满意","mǎnyì","satisfied; pleased"],["骑","qí","to ride (an animal or bike); to sit astride"],["太阳","tàiyáng","the sun"],
+["极","jí","very; an extreme; pole"],["主要","zhǔyào","main; principal; major"],["同事","tóngshì","colleague; co-worker"],["鼻子","bízi","nose"],["角","jiǎo","horn; angle; unit of money (1/10 yuan); corner"],
+["变化","biànhuà","change; vary"],["东","dōng","East"],["年级","niánjí","grade; year (in school)"],["环境","huánjìng","environment; surroundings; situation"],["胖","pàng","fat; plump"],
+["地图","dìtú","map; atlas"],["面包","miànbāo","bread"],["电子邮件","diànzǐ yóujiàn","email"],["耳朵","ěrduo","ear"],["裙子","qúnzi","skirt; petticoat"],
+["新鲜","xīnxiān","fresh (experience, food, etc.); new; novel"],["放心","fàng xīn","set one's mind at rest; rest assured; feel relieved"],["聊天","liáotiān","chat; gossip"],["南","nán","South"],["热情","rèqíng","enthusiastic; passionate"],
+["信用卡","xìnyòngkǎ","credit card"],["电梯","diàntī","elevator"],["方便","fāngbiàn","convenient"],["洗手间","xǐshǒujiān (Sandhi: xíshǒujiān)","toilet; lavatory; washroom"],["洗澡","xǐzǎo (Sandhi: xízǎo)","take a bath"],
+["饮料","yǐnliào","beverage; drink"],["校长","xiàozhǎng","principal (of school, college or university)"],["水平","shuǐpíng","standard; level; proficiency"],["作业","zuòyè","school assignment; homework; task"],["衬衫","chènshān","shirt; blouse"],
+["成绩","chéngjì","result; achievement; success"],["碗","wǎn","bowl; cup"],["阿姨","āyí","auntie; step-mother; mother's younger sister"],["图书馆","túshūguǎn","library"],["文化","wénhuà","culture; civilization"],
+["绿","lǜ","green"],["打扫","dǎsǎo (Sandhi: dásǎo)","to clean; to sweep"],["草","cǎo","grass; straw"],["冰箱","bīngxiāng","refrigerator; freezer"],["数学","shùxué","mathematics"],
+["自行车","zìxíngchē","bike; bicycle"],["着急","zháojí","to worry; feel anxious"],["瘦","shòu","thin; tight; lean"],["提高","tígāo","to raise; heighten; improve"],["起飞","qǐfēi","take off (in an airplane); liftoff"],
 /* 551–600 */
-["体育","tǐ yù","sports; physical education"],["刻","kè","quarter (hour)"],["护照","hù zhào","passport"],["节日","jié rì","holiday; festival"],["盘子","pán zi","tray; plate"],
-["一共","yī gòng","altogether"],["瓶子","píng zi","bottle"],["街道","jiē dào","street; subdistrict"],["锻炼","duàn liàn","to toughen; to temper"],["感冒","gǎn mào","to catch cold; (common) cold"],
-["爱好","ài hào","to like; to take pleasure in"],["超市","chāo shì","supermarket; abbr. for 超級市場|超级市场"],["月亮","yuè liang","the moon"],["饱","bǎo","to eat till full"],["有名","yǒu míng","famous; well-known"],
-["香蕉","xiāng jiāo","banana"],["笔记本","bǐ jì běn","notebook (stationery)"],["夏","xià","summer"],["菜单","cài dān","menu"],["北方","běi fāng","north; the northern part a country"],
-["上网","shàng wǎng","to go online; to connect to the Internet"],["季节","jì jié","time; season"],["渴","kě","thirsty"],["发烧","fā shāo","to have a high temperature"],["不但","bù dàn","not only (... but also...)"],
-["空调","kōng tiáo","air conditioning"],["照相机","zhào xiàng jī","camera"],["春","chūn","spring (season)"],["伞","sǎn","umbrella; parasol"],["公斤","gōng jīn","kilogram (kg)"],
-["个子","gè zi","height; stature"],["熊猫","xióng māo","panda"],["刷牙","shuā yá","to brush one's teeth"],["复习","fù xí","to review; revision"],["请假","qǐng jià","to request leave of absence"],
-["中文","zhōng wén","? (Zhōng wén)"],["秋","qiū","autumn; fall"],["句子","jù zi","sentence"],["行李箱","xíng li xiāng","suitcase; baggage compartment"],["筷子","kuài zi","chopsticks"],
-["皮鞋","pí xié","leather shoes"],["爬山","pá shān","to climb a mountain"],["黑板","hēi bǎn","blackboard"],["感兴趣","gǎn xìng qù","to be interested"],["词典","cí diǎn","dictionary (of Chinese compound words)"],
-["留学","liú xué","to study abroad"],["刮风","guā fēng","to be windy"],["黄河","huáng hé","? (Huáng Hé)"],["死","sǐ","to die; impassable"],["而","ér","and; as well as"],
+["矮","ǎi","short (not tall); low"],["地铁","dìtiě","underground (railway); subway"],["体育","tǐyù","physical education/training; sports"],["刻","kè","quarter (hour)"],["护照","hùzhào","passport"],
+["节日","jiérì","festival; holiday"],["盘子","pánzi","plate; dish; tray"],["一共","yīgòng (sandhi: yígòng)","altogether; in all; all told"],["瓶子","píngzi","bottle"],["街道","jiēdào","street"],
+["锻炼","duànliàn","to exercise; work out; toughen; to temper"],["感冒","gǎnmào","catch cold; (common) cold"],["爱好","àihào","hobby; fond of; to like; interest"],["超市","chāoshì","supermarket"],["月亮","yuèliang","the moon"],
+["饱","bǎo","eat until full; satisfied"],["有名","yǒumíng","famous; well-known"],["香蕉","xiāngjiāo","banana"],["笔记本","bǐjìběn","notebook"],["夏","xià","summer"],
+["菜单","càidān","menu"],["北方","běifāng","north; the northern part of the country"],["上网","shàngwǎng","to surf the web; to go online"],["季节","jìjié","season; time; period"],["渴","kě","thirsty"],
+["发烧","fāshāo","have a fever"],["不但","bùdàn (Sandhi: búdàn)","not only"],["空调","kōngtiáo","air-conditioner; air-conditioning"],["照相机","zhàoxiàngjī","camera"],["春","chūn","spring (season); joyful"],
+["伞","sǎn","umbrella; parasol"],["公斤","gōngjīn","kilogram"],["个子","gèzi","height; stature; build"],["熊猫","xióngmāo","panda"],["刷牙","shuāyá","brush one's teeth"],
+["复习","fùxí","review; revise"],["冬","dōng","winter"],["请假","qǐng jià","to ask for time off, ask for leave"],["中文","Zhōngwén","Chinese (written) language"],["秋","qiū","autumn; fall; harvest time"],
+["句子","jùzi","sentence"],["行李箱","xínglǐxiāng","trunk; suitcase"],["筷子","kuàizi","chopsticks"],["皮鞋","píxié","leather shoes"],["爬山","páshān","mountain climbing"],
+["黑板","hēibǎn","blackboard"],["感兴趣","gǎn xìngqù","be interested in"],["词典","cídiǎn","dictionary"],["留学","liú xué","study abroad"],["刮风","guāfēng","windy; to blow (wind)"],
 /* 601–650 */
-["所有","suǒ yǒu","all; to have"],["也许","yě xǔ","perhaps; maybe"],["不过","bù guò","merely"],["发生","fā shēng","to happen; to occur"],["一切","yī qiè","everything; every"],
-["抱","bào","to hold; to carry (in one's arms)"],["抱歉","bào qiàn","to be sorry; to feel apologetic"],["感觉","gǎn jué","to feel; to become aware of"],["肯定","kěn dìng","to be certain; to be positive"],["棒","bàng","awesome; stick"],
-["以","yǐ","to use; by means of"],["以为","yǐ wéi","to think"],["掉","diào","to fall; to drop"],["生活","shēng huó","life; activity"],["之","zhī","him; her"],
-["任何","rèn hé","any; whatever"],["却","què","but; yet"],["继续","jì xù","to continue; to proceed with"],["够","gòu","enough (sufficient)"],["父亲","fù qīn","father"],
-["完全","wán quán","complete; whole"],["可是","kě shì","however"],["谈","tán","to speak; to talk"],["好像","hǎo xiàng","as if; to seem like"],["警察","jǐng chá","police; police officer"],
-["刚","gāng","just now; hard"],["呀","ya","(ya)"],["情况","qíng kuàng","circumstances; state of affairs"],["只要","zhǐ yào","if only; so long as"],["份","fèn","part; share"],
-["到底","dào dǐ","finally; in the end"],["成为","chéng wéi","to become; to turn into"],["永远","yǒng yuǎn","forever; eternal"],["安全","ān quán","safe; secure"],["留","liú","to leave (a message etc)"],
-["计划","jì huà","plan; project"],["俩","liǎ","two (colloquial equivalent of 兩個|两个)"],["停","tíng","to stop; to halt"],["感谢","gǎn xiè","(express) thanks"],["敢","gǎn","to dare; daring"],
-["从来","cóng lái","always; at all times"],["赢","yíng","to beat; to win"],["消息","xiāo xi","news; information"],["拉","lā","to pull; to play (a bowed instrument)"],["原因","yuán yīn","cause; origin"],
-["连","lián","to link; to join"],["确实","què shí","indeed; really"],["挺","tǐng","straight; erect"],["保证","bǎo zhèng","guarantee; to guarantee"],["接受","jiē shòu","to accept; to receive"],
+["黄河","huánghé","Yellow River"],["得","dé","get; obtain; win; earn"],["死","sǐ","to die; dead; fixed; impassible; extremely"],["干","gàn","to work; do; manage"],["而","ér","and; but; yet; while"],
+["等","děng","etc."],["当","dāng","act as; work as"],["所有","suǒyǒu (Sandhi: suóyǒu)","all; to have; to possess"],["也许","yěxǔ (Sandhi: yéxǔ)","perhaps; probably; maybe"],["行","xíng","go; ok; alright; capable"],
+["不过","bùguò (Sandhi: búguò)","but; however; only"],["发生","fāshēng","happen; occur; take place"],["一切","yīqiè (Sandhi: yíqiè)","all; every; everything"],["抱","bào","to hold; to hug; carry in one's arms; to cradle"],["抱歉","bàoqiàn","be sorry; feel apologetic; to regret"],
+["感觉","gǎnjué","to feel; become aware of; feeling"],["肯定","kěndìng","sure; definite; affirm; approve"],["棒","bàng","stick; club; good; excellent"],["以","yǐ","to use; according to; so as to; for; by"],["以为","yǐwéi","think (mistakenly); consider (that); believe"],
+["掉","diào","to drop; to fall"],["生活","shēnghuó","life; livelihood; to live"],["之","zhī","(literary equivalent to 的); (pronoun); of"],["任何","rènhé","any; whatever; whichever"],["与","yǔ","(formal) and; to give; together with"],
+["弄","nòng","do; manage; to handle; make"],["却","què","but; yet; however"],["继续","jìxù","to continue; to go on; to proceed"],["够","gòu","enough; to reach"],["父亲","fùqin","father"],
+["完全","wánquán","complete; whole; totally"],["可是","kěshì","but; however"],["谈","tán","to talk; to chat; discuss"],["好像","hǎoxiàng","as if; seem to be"],["警察","jǐngchá","police"],
+["场","chǎng","courtyard; place; field"],["刚","gāng","just (indicating the immediate past); recently; firm"],["呀","ya","ah; oh"],["情况","qíngkuàng","circumstance; state of affairs; situation"],["只要","zhǐyào","so long as; if only; provided that"],
+["份","fèn","part; portion"],["底","dǐ","bottom; background; base"],["到底","dào dǐ","after all; in the end (used in a question)"],["成为","chéngwéi","become; turn into"],["永远","yǒngyuǎn (Sandhi: yóngyuǎn)","forever; eternal; always"],
+["安全","ānquán","safe; safety; secure; security"],["留","liú","to leave (behind, a message); to retain; to stay"],["计划","jìhuà","plan; project"],["俩","liǎ","(colloquial) two (people)"],["停","tíng","to stop; to halt; to park (a car)"],
 /* 651–700 */
-["改变","gǎi biàn","to change; to alter"],["麻烦","má fan","inconvenient; troublesome"],["出现","chū xiàn","to appear; to arise"],["不管","bù guǎn","not to be concerned"],["甚至","shèn zhì","even; so much so that"],
-["保护","bǎo hù","to protect; to defend"],["真正","zhēn zhèng","genuine; real"],["至少","zhì shǎo","at least; (to say the) least"],["律师","lǜ shī","lawyer"],["表演","biǎo yǎn","play; show"],
-["无","wú","not to have; no"],["猜","cāi","to guess"],["咱们","zán men","we or us spoken to)"],["进行","jìn xíng","to advance; to conduct"],["内","nèi","inside; inner"],
-["是否","shì fǒu","whether (or not)"],["调查","diào chá","investigation; inquiry"],["成功","chéng gōng","success; to succeed"],["考虑","kǎo lǜ","to think over; to consider"],["约会","yuē huì","appointment; engagement"],
-["通过","tōng guò","by means of; through"],["开心","kāi xīn","to feel happy; to rejoice"],["母亲","mǔ qīn","mother"],["主意","zhǔ yi","plan; idea"],["解释","jiě shì","explanation; to explain"],
-["联系","lián xì","connection; contact"],["证明","zhèng míng","proof; certificate"],["生命","shēng mìng","life; living being"],["难道","nán dào","don't tell me ..."],["由","yóu","to follow; from"],
-["指","zhǐ","finger; to point at or to"],["危险","wēi xiǎn","danger; dangerous"],["讨厌","tǎo yàn","to dislike; to loathe"],["醒","xǐng","to wake up; to be awake"],["样子","yàng zi","appearance; manner"],
-["有趣","yǒu qù","interesting; fascinating"],["提","tí","to carry (hanging down from the hand)"],["部分","bù fen","share"],["理解","lǐ jiě","to comprehend; to understand"],["任务","rèn wu","mission; assignment"],
-["使","shǐ","to make; to cause"],["博士","bó shì","doctor; court academician (in feudal China)"],["紧张","jǐn zhāng","nervous; keyed up"],["放弃","fàng qì","to renounce; to abandon"],["大概","dà gài","roughly; probably"],
-["重新","chóng xīn","once more"],["其中","qí zhōng","among; in"],["来自","lái zì","to come from (a place)"],["本来","běn lái","original; originally"],["并且","bìng qiě","and; besides"],
+["感谢","gǎnxiè","thank; be grateful"],["敢","gǎn","to dare"],["从来","cónglái","have always (from the beginning); never (with negative)"],["赢","yíng","to win; to beat; to profit"],["消息","xiāoxi","news; information"],
+["拉","lā","to pull; to play (string instruments); to drag"],["原因","yuányīn","cause; reason"],["连","lián","even; including; join"],["确实","quèshí","indeed; in truth; reliable"],["挺","tǐng","very; rather (good); straighten up; stick out"],
+["保证","bǎozhèng","to guarantee; ensure"],["接受","jiēshòu","accept; receive (honors, etc.)"],["改变","gǎibiàn","to change; alter; to transform"],["麻烦","máfan","trouble (someone); troubling; bothersome"],["出现","chūxiàn","appear; arise; emerge"],
+["不管","bùguǎn","no matter (what, how, etc.); regardless of"],["甚至","shènzhì","even (to the point of); so much so that"],["保护","bǎohù","to protect; to defend"],["真正","zhēnzhèng","genuine; real; true"],["结果","jiéguǒ","result; outcome; finally"],
+["当时","dāngshí","then; at that time; while"],["至少","zhìshǎo","at least; (to say the) least"],["律师","lǜshī","lawyer"],["表演","biǎoyǎn (Sandhi: biáoyǎn)","perform; to play"],["无","wú","have not; without; not"],
+["猜","cāi","to guess"],["咱们","zánmen","we (including the listener); us; our"],["进行","jìnxíng","carry on; carry out; undertake"],["内","nèi","inside; inner; internal; within"],["是否","shìfǒu","whether (or not); if"],
+["调查","diàochá","investigate; survey; inquiry"],["成功","chénggōng","success; to succeed"],["考虑","kǎolǜ","think over; consider"],["约会","yuēhuì","appointment; engagement; date"],["通过","tōngguò","by means of; through (a method); pass through; via"],
+["开心","kāixīn","feel happy; have a great time"],["母亲","mǔqin","mother"],["主意","zhǔyi","plan; idea; decision"],["倒","dǎo","to collapse; to fall; fail; to exchange"],["解释","jiěshì","to explain"],
+["联系","liánxì","integrate; link; connection; contact"],["证明","zhèngmíng","proof; testify; confirm; certificate"],["生命","shēngmìng","life"],["难道","nándào","could it be that ...?; don't tell me ..."],["由","yóu","follow; from; by; through"],
+["指","zhǐ","finger; to point (at, to, out); refer to"],["危险","wēixiǎn","danger; dangerous; perilous"],["讨厌","tǎoyàn","to hate; loathe; disgusting; troublesome"],["醒","xǐng","wake up"],["样子","yàngzi","manner; air; appearance; looks"],
 /* 701–750 */
-["直接","zhí jiē","direct; opposite: indirect 間接|间接"],["对于","duì yú","regarding; as far as sth is concerned"],["正常","zhèng cháng","regular; normal"],["遍","biàn","everywhere; all over"],["冷静","lěng jìng","calm; cool-headed"],
-["方法","fāng fǎ","method; way"],["扔","rēng","to throw; to throw away"],["能力","néng lì","capability; ability"],["另外","lìng wài","additional; in addition"],["放松","fàng sōng","to loosen; to relax"],
-["丢","diū","to lose; to put aside"],["负责","fù zé","to be in charge of"],["梦","mèng","dream"],["戴","dài","to put on or wear"],["错误","cuò wù","error; mistake"],
-["随便","suí biàn","as one wishes; it's up to you"],["经历","jīng lì","experience; to experience"],["支持","zhī chí","to be in favor of"],["建议","jiàn yì","to propose; to suggest"],["否则","fǒu zé","if not; otherwise"],
-["光","guāng","light; ray"],["安排","ān pái","to arrange; to plan"],["钥匙","yào shi","key"],["信息","xìn xī","information"],["全部","quán bù","whole; entire"],
-["首先","shǒu xiān","first (of all)"],["照","zhào","according to; in accordance with"],["交","jiāo","to hand over; to deliver"],["坚持","jiān chí","to persevere with"],["火","huǒ","fire; urgent"],
-["即使","jí shǐ","even if; even though"],["到处","dào chù","everywhere"],["挂","guà","to hang or suspend (from a hook etc)"],["道歉","dào qiàn","to apologize"],["可怜","kě lián","pitiful; pathetic"],
-["实在","shí zài","really; actually"],["骗","piàn","to cheat; to swindle"],["原谅","yuán liàng","to excuse; to forgive"],["乱","luàn","in confusion or disorder"],["差不多","chà bu duō","nearly"],
-["满","mǎn","to fill; full"],["研究","yán jiū","research; a study"],["打扰","dǎ rǎo","to disturb; to bother"],["正确","zhèng què","correct; proper"],["收","shōu","to receive; to accept"],
-["秒","miǎo","second (unit of time)"],["同时","tóng shí","at the same time"],["提供","tí gōng","to offer; to supply"],["输","shū","to lose; to transport"],["号码","hào mǎ","number"],
+["有趣","yǒuqù","interesting; fascinating; amusing"],["提","tí","to carry; to lift; to raise (an issue)"],["部分","bùfen","part; share; section"],["理解","lǐjiě (Sandhi: líjiě)","comprehend; understand"],["重","zhòng","heavy; serious; important"],
+["任务","rènwu","a mission; an assignment; a task"],["使","shǐ","to use; to make; to cause; enable; envoy; messenger"],["转","zhuǎn","to turn; to change; pass on"],["博士","bóshì","doctor; PhD"],["紧张","jǐnzhāng","nervous; tension; strain"],
+["放弃","fàngqì","abandon; renounce; give up"],["大概","dàgài","probably; roughly; approximate"],["重新","chóngxīn","again; anew; once more"],["其中","qízhōng","among; in; included among these"],["来自","láizì","come from (a place)"],
+["本来","běnlái","originally; at first"],["并且","bìngqiě","and; besides; moreover"],["直接","zhíjiē","direct; immediate"],["对于","duìyú","regarding; as far as sth. is concerned"],["正常","zhèngcháng","normal; regular; ordinary"],
+["遍","biàn","a time; everywhere; turn"],["冷静","lěngjìng","calm; cool-headed; sober"],["方法","fāngfǎ","method; way; means"],["扔","rēng","to throw; throw away"],["能力","nénglì","capability; capable; ability"],
+["另外","lìngwài","another; in addition; besides"],["放松","fàngsōng","relax; loosen; slacken"],["丢","diū","lose (something); throw; put aside"],["负责","fùzé","responsible for (something); in charge of"],["梦","mèng","to dream"],
+["戴","dài","put on; to wear; to respect"],["错误","cuòwù","error; mistake; mistaken"],["随便","suíbiàn","as one pleases; informal; random; casual"],["经历","jīnglì","undergo; to experience"],["支持","zhīchí","sustain; hold out; support"],
+["建议","jiànyì","to propose; to suggest; recommend"],["否则","fǒuzé","if not; otherwise; or else"],["光","guāng","light; ray; bright; only; merely; used up"],["安排","ānpái","arrange; to plan"],["钥匙","yàoshi","key"],
+["信息","xìnxī","information; news; message"],["全部","quánbù","whole; entire; complete"],["首先","shǒuxiān","first (of all); in the first place; firstly"],["照","zhào","to shine; illuminate; according to"],["交","jiāo","deliver; turn over; intersect; to pay (money)"],
+["台","tái","platform; desk; stage; (measure word for machines)"],["坚持","jiānchí","persist in; persevere"],["生意","shēngyi","business; trade"],["火","huǒ","fire"],["即使","jíshǐ","even if; even though"],
 /* 751–800 */
-["座","zuò","seat; base"],["比如","bǐ rú","for example; for instance"],["严重","yán zhòng","grave; serious"],["脱","tuō","to shed; to take off"],["陪","péi","to accompany; to keep sb company"],
-["法律","fǎ lǜ","law"],["值得","zhí de","to be worth; to deserve"],["使用","shǐ yòng","to employ"],["方面","fāng miàn","respect; aspect"],["原来","yuán lái","original; former"],
-["讨论","tǎo lùn","to discuss; to talk over"],["说明","shuō míng","to explain; to illustrate"],["仍然","réng rán","still; yet"],["动作","dòng zuò","movement; motion"],["受到","shòu dào","to receive; to be ...ed"],
-["赶","gǎn","to overtake; to catch up with"],["怀疑","huái yí","to doubt (sth)"],["拒绝","jù jué","to refuse; to decline"],["演员","yǎn yuán","actor or actress"],["破","pò","broken; damaged"],
-["因此","yīn cǐ","thus; consequently"],["答案","dá àn","answer; solution"],["活动","huó dòng","to exercise; to move about"],["既然","jì rán","since; as"],["通知","tōng zhī","to notify; to inform"],
-["不得不","bù dé bù","have no choice or option but to"],["无论","wú lùn","no matter what or how"],["刀","dāo","knife; blade"],["适合","shì hé","to fit; to suit"],["失望","shī wàng","disappointed; to lose hope"],
-["允许","yǔn xǔ","to permit; to allow"],["意见","yì jiàn","opinion"],["获得","huò dé","to obtain; to receive"],["要是","yào shi","if"],["邀请","yāo qǐng","to invite; invitation"],
-["尽管","jǐn guǎn","despite; although"],["浪费","làng fèi","to waste; to squander"],["失败","shī bài","to be defeated"],["责任","zé rèn","responsibility"],["美丽","měi lì","beautiful"],
-["压力","yā lì","pressure"],["味道","wèi dao","flavor; smell"],["厉害","lì hai","difficult to deal with"],["出发","chū fā","to set off; to start (on a journey)"],["兴奋","xīng fèn","excited; excitement"],
-["观众","guān zhòng","spectators; audience"],["反对","fǎn duì","to fight against"],["精彩","jīng cǎi","wonderful; marvelous"],["感情","gǎn qíng","emotion; sentiment"],["演出","yǎn chū","to act (in a play)"],
+["到处","dàochù","everywhere; in all places; all over"],["挂","guà","hang; put up; suspend"],["道歉","dàoqiàn","apologize; make an apology"],["可怜","kělián","pitiful; poor; pathetic"],["实在","shízài","honest; in reality; honestly; indeed; certainly"],
+["骗","piàn","to cheat; to swindle; deceive"],["原谅","yuánliàng","to excuse; forgive; to pardon"],["乱","luàn","disorder; confusion; arbitrarily"],["差不多","chàbuduō","almost; about the same"],["满","mǎn","full"],
+["假","jiǎ","fake; if; borrow"],["研究","yánjiū","to study; to research"],["打扰","dǎrǎo (Sandhi: dárǎo)","disturb"],["正确","zhèngquè","correct; proper"],["收","shōu","receive; accept; collect; to harvest"],
+["秒","miǎo","second (unit of time or angle)"],["同时","tóngshí","at the same time; simultaneously"],["提供","tígōng","to supply; provide; furnish"],["输","shū","to transport; to lose (a game, etc.)"],["号码","hàomǎ","number"],
+["座","zuò","seat; base"],["比如","bǐrú","for example; for instance; such as"],["严重","yánzhòng","grave; serious; critical"],["脱","tuō","to shed; take off; to escape"],["陪","péi","accompany; keep company"],
+["法律","fǎlǜ","law; statute"],["值得","zhíde","be worth; deserve"],["使用","shǐyòng","to use; employ; apply; administer; manipulate"],["方面","fāngmiàn","aspect; field; side"],["原来","yuánlái","original; former; as it turns out"],
+["讨论","tǎolùn","to discuss; discussion; to talk over"],["说明","shuōmíng","explain; explanation; illustrate; to show"],["仍然","réngrán","still; yet"],["动作","dòngzuò","movement; motion; action"],["受到","shòudào","receive (influence, restriction, etc.); be subjected to"],
+["赶","gǎn","catch up; overtake; drive away"],["怀疑","huáiyí","doubt; to suspect; be skeptical"],["拒绝","jùjué","to refuse; to decline; to reject"],["演员","yǎnyuán","actor or actress; performer"],["破","pò","broken; damaged; to split"],
+["因此","yīncǐ","therefore; thus; that is why; because of this"],["答案","dá àn","answer; solution"],["活动","huódòng","activity; exercise; move about"],["既然","jìrán","since; given that; now that"],["通知","tōngzhī","notify; to inform; notice"],
+["不得不","bù dé bù","have to; have no choice but to; cannot but"],["无论","wúlùn","no matter what; regardless of whether..."],["刀","dāo","knife; blade"],["适合","shìhé","to suit; to fit"],["失望","shīwàng","disappointed; lose hope"],
 /* 801–850 */
-["愉快","yú kuài","cheerful; cheerily"],["开玩笑","kāi wán xiào","to play a joke"],["杂志","zá zhì","magazine"],["合适","hé shì","suitable; fitting"],["广告","guǎng gào","to advertise; a commercial"],
-["自然","zì rán","nature; natural"],["深","shēn","deep; depth"],["取","qǔ","to take; to get"],["短信","duǎn xìn","text message; SMS"],["地球","dì qiú","the earth"],
-["帅","shuài","handsome; graceful"],["推","tuī","to push; to cut"],["关键","guān jiàn","crucial point; crux"],["究竟","jiū jìng","to go to the bottom of a matter"],["恐怕","kǒng pà","fear; to dread"],
-["躺","tǎng","to recline; to lie down"],["聚会","jù huì","party; gathering"],["方向","fāng xiàng","direction; orientation"],["幸福","xìng fú","happiness; happy"],["接着","jiē zhe","to catch and hold on"],
-["技术","jì shù","technology; technique"],["困","kùn","sleepy; tired"],["困难","kùn nan","difficult; challenging"],["正好","zhèng hǎo","just (in time)"],["提醒","tí xǐng","to remind; to call attention to"],
-["旅行","lǚ xíng","to travel; journey"],["激动","jī dòng","to move emotionally"],["骄傲","jiāo ào","pride; arrogance"],["毛","máo","fur; hair"],["许多","xǔ duō","many; a lot of"],
-["顺利","shùn lì","smoothly; without a hitch"],["职业","zhí yè","occupation; profession"],["地址","dì zhǐ","address"],["于是","yú shì","thereupon; as a result"],["收拾","shōu shi","to put in order"],
-["周围","zhōu wéi","surroundings; environment"],["爱情","ài qíng","romance; love (romantic)"],["尊重","zūn zhòng","to esteem; to respect"],["十分","shí fēn","very; completely"],["教授","jiào shòu","professor; to instruct"],
-["超过","chāo guò","to surpass; to exceed"],["寄","jì","to send; to mail"],["顺便","shùn biàn","conveniently; in passing"],["无聊","wú liáo","bored; boring"],["目的","mù dì","purpose; aim"],
-["低","dī","low; beneath"],["剩","shèng","to remain; to be left"],["复杂","fù zá","complicated; complex"],["社会","shè huì","society"],["故意","gù yì","deliberately; on purpose"],
+["允许","yǔnxǔ (Sandhi: yúnxǔ)","to permit; allow"],["意见","yìjiàn","opinion; view; suggestion; complaint"],["获得","huòdé","obtain; acquire; to gain"],["要是","yàoshi","if; suppose; in case"],["邀请","yāoqǐng","to invite"],
+["尽管","jǐnguǎn (Sandhi: jínguǎn)","despite; although; even though"],["浪费","làngfèi","to waste; squander"],["失败","shībài","be defeated; fail; lose"],["责任","zérèn","responsibility; blame; duty"],["美丽","měilì","beautiful"],
+["压力","yālì","pressure; stress"],["味道","wèidao","flavor; taste"],["厉害","lìhai","terrible; formidable; fierce; cool; awesome"],["出发","chūfā","start out; set off"],["兴奋","xīngfèn","excitement; be excited"],
+["观众","guānzhòng","spectator; audience"],["反对","fǎnduì","oppose; fight against"],["精彩","jīngcǎi","brilliant; spectacular; wonderful"],["感情","gǎnqíng","feeling; emotion; sensation"],["演出","yǎnchū","to act (in a play); to perform; to put on a show"],
+["愉快","yúkuài","happy; cheerful; delightful"],["开玩笑","kāi wánxiào","joke; play a joke; make fun of"],["杂志","zázhì","magazine"],["合适","héshì","suitable; proper; appropriate"],["广告","guǎnggào","advertisement; a commercial"],
+["自然","zìrán","nature; natural"],["深","shēn","deep; profound; dark (of colors)"],["取","qǔ","to take; get; choose"],["短信","duǎnxìn","text message; SMS"],["地球","dìqiú","the Earth; planet"],
+["帅","shuài","handsome; graceful; commander-in-chief"],["推","tuī","to push; to scrape; to decline; postpone; elect"],["关键","guānjiàn","crucial; key; pivotal"],["空","kōng","empty; sky"],["究竟","jiūjìng","after all; when all is said and done; actually"],
+["恐怕","kǒngpà","be afraid; to fear; I'm afraid that..."],["躺","tǎng","recline; lie down (on back or side)"],["聚会","jùhuì","hold a meeting; get together; a party"],["方向","fāngxiàng","direction; orientation"],["幸福","xìngfú","happy; blessed; fortunate"],
+["接着","jiēzhe","after that; and then"],["技术","jìshù","technology; technique; skill"],["困","kùn","sleepy; surround; hard-pressed"],["困难","kùnnan","difficulty; difficult; problem"],["正好","zhènghǎo","just (in time); just right; just enough; happen to"],
+["提醒","tíxǐng","remind; call attention to; warn of"],["旅行","lǚxíng","travel"],["激动","jīdòng","excite; agitate"],["骄傲","jiāo ào","proud; arrogant; conceited; take pride in"],["毛","máo","hair; fur; feather; dime"],
 /* 851–900 */
-["好处","hǎo chu","benefit; advantage"],["竟然","jìng rán","unexpectedly; to one's surprise"],["表示","biǎo shì","to express; to show"],["印象","yìn xiàng","impression"],["出生","chū shēng","to be born"],
-["估计","gū jì","to estimate; to reckon"],["地点","dì diǎn","place; site"],["轻","qīng","light; easy"],["轻松","qīng sōng","light; gentle"],["作用","zuò yòng","to act on; to affect"],
-["举","jǔ","to lift; to hold up"],["小伙子","xiǎo huǒ zi","young man; young guy"],["著名","zhù míng","famous; noted"],["免费","miǎn fèi","free (of charge)"],["伤心","shāng xīn","to grieve; to be broken-hearted"],
-["记者","jì zhě","reporter; journalist"],["仔细","zǐ xì","careful; attentive"],["巧克力","qiǎo kè lì","chocolate (loanword)"],["辣","là","hot (spicy); pungent"],["互相","hù xiāng","each other; mutually"],
-["厕所","cè suǒ","lavatory"],["过程","guò chéng","course of events"],["申请","shēn qǐng","to apply for sth"],["引起","yǐn qǐ","to give rise to"],["发展","fā zhǎn","development; growth"],
-["毕业","bì yè","graduation; to graduate"],["正式","zhèng shì","formal; official"],["厨房","chú fáng","kitchen"],["专业","zhuān yè","specialty; specialized field"],["吸引","xī yǐn","to attract (interest, investment etc)"],
-["心情","xīn qíng","mood; frame of mind"],["祝贺","zhù hè","to congratulate"],["条件","tiáo jiàn","condition; circumstances"],["千万","qiān wàn","ten million; countless"],["糖","táng","sugar; sweets"],
-["由于","yóu yú","due to; as a result of"],["密码","mì mǎ","secret code; ciphertext"],["倍","bèi","(two, three etc) -fold"],["擦","cā","to wipe; to erase"],["尤其","yóu qí","especially; particularly"],
-["经验","jīng yàn","to experience"],["盒子","hé zi","box; case"],["干杯","gān bēi","to drink a toast"],["看法","kàn fǎ","way of looking at a thing"],["艺术","yì shù","art"],
-["速度","sù dù","speed; rate"],["勇敢","yǒng gǎn","brave; courageous"],["数字","shù zì","numeral; digit"],["暂时","zàn shí","temporary; provisional"],["优秀","yōu xiù","outstanding; excellent"],
+["节","jié","festival; section; part; save"],["许多","xǔduō","many; a lot; much"],["顺利","shùnlì","go smoothly; without a hitch; successful"],["职业","zhíyè","profession; occupation"],["赚","zhuàn","earn; make a profit"],
+["地址","dìzhǐ","address"],["于是","yúshì","as a result; thus; therefore"],["收拾","shōushi","to tidy; put in order; to repair; to settle with"],["周围","zhōuwéi","surroundings; vicinity; environment"],["爱情","àiqíng","(romantic) love"],
+["尊重","zūnzhòng","esteem; to respect; to value; to honor"],["十分","shífēn","very; fully; 100%"],["教授","jiàoshòu","professor; instruct; to lecture"],["超过","chāoguò","surpass; exceed; outstrip"],["寄","jì","send by mail"],
+["顺便","shùnbiàn","conveniently; in passing; on the way"],["无聊","wúliáo","nonsense; bored; silly; stupid"],["目的","mùdì","purpose; aim; goal"],["低","dī","low; to lower (one's head); droop"],["剩","shèng","have as remainder; be left over; surplus"],
+["复杂","fùzá","complicated; complex"],["社会","shèhuì","society"],["故意","gùyì","deliberately; intentional; on purpose"],["好处","hǎochu","benefit; advantage"],["竟然","jìngrán","unexpectedly; to one's surprise; go so far as to"],
+["表示","biǎoshì","express; show; indicate"],["印象","yìnxiàng","impression"],["出生","chūshēng","be born"],["估计","gūjì","appraise; estimate"],["地点","dìdiǎn","place; site; location"],
+["轻","qīng","light; easy; gentle; soft"],["轻松","qīngsōng","relaxed; gentle; easygoing"],["作用","zuòyòng","action; activity; effect"],["举","jǔ","lift; raise; cite"],["小伙子","xiǎohuǒzi (Sandhi: xiáohuǒzi)","young man; lad; youngster"],
+["著名","zhùmíng","famous; well-known; celebration"],["免费","miǎn fèi","free (of charge); no cost"],["伤心","shāngxīn","sad; grieve; brokenhearted"],["记者","jìzhě","reporter; journalist"],["仔细","zǐxì","careful; attentive; cautious"],
+["巧克力","qiǎokèlì","chocolate"],["辣","là","hot (spicy)"],["互相","hùxiāng","mutually; with each other"],["厕所","cèsuǒ","bathroom; toilet; lavatory"],["过程","guòchéng","course of events; process"],
+["申请","shēnqǐng","apply for; application"],["引起","yǐnqǐ (Sandhi: yínqǐ)","give rise to; lead to; to cause; arouse"],["发展","fāzhǎn","develop; development; growth"],["毕业","bì yè","to graduate; to finish school"],["正式","zhèngshì","formal; official"],
 /* 901–950 */
-["笑话","xiào huà","joke; jest"],["可惜","kě xī","it is a pity; what a pity"],["响","xiǎng","echo; sound"],["笨","bèn","stupid; foolish"],["科学","kē xué","science; scientific knowledge"],
-["餐厅","cān tīng","dining hall; dining room"],["各","gè","every"],["距离","jù lí","distance; to be apart from"],["窗户","chuāng hu","window"],["空气","kōng qì","air; atmosphere"],
-["护士","hù shi","nurse"],["后悔","hòu huǐ","to regret; to repent"],["大约","dà yuē","approximately; probably"],["内容","nèi róng","content; substance"],["规定","guī dìng","provision; to fix"],
-["效果","xiào guǒ","result; effect"],["现金","xiàn jīn","cash"],["儿童","ér tóng","child (ér tóng)"],["租","zū","to hire; to rent"],["篇","piān","sheet; piece of writing"],
-["浪漫","làng màn","romantic"],["态度","tài du","manner; bearing"],["自信","zì xìn","to have confidence in oneself"],["吃惊","chī jīng","to be startled"],["熟悉","shú xī","to be familiar with"],
-["按照","àn zhào","in accordance with"],["世纪","shì jì","century"],["回忆","huí yì","to recall; memories"],["相同","xiāng tóng","identical; same"],["教育","jiào yù","to educate"],
-["受不了","shòu bù liǎo","unbearable; unable to endure"],["皮肤","pí fū","skin"],["区别","qū bié","difference; to distinguish"],["左右","zuǒ yòu","around (a number)"],["阳光","yáng guāng","sunshine"],
-["页","yè","page; leaf"],["文章","wén zhāng","article; essay"],["语言","yǔ yán","language"],["标准","biāo zhǔn","(an official) standard"],["管理","guǎn lǐ","to supervise; to manage"],
-["误会","wù huì","to misunderstand"],["桥","qiáo","bridge"],["举行","jǔ xíng","to hold (a meeting, ceremony etc)"],["肚子","dù zi","belly; abdomen"],["不仅","bù jǐn","not only (this one)"],
-["饼干","bǐng gān","biscuit; cracker"],["国际","guó jì","international"],["信心","xìn xīn","confidence; faith (in sb or sth)"],["抬","tái","to lift; to raise"],["竞争","jìng zhēng","to compete; competition"],
+["厨房","chúfáng","kitchen"],["专业","zhuānyè","profession; specialized field of study; major"],["吸引","xīyǐn","attract (interest, investment, etc.)"],["心情","xīnqíng","mood; state of mind"],["祝贺","zhùhè","congratulate"],
+["条件","tiáojiàn","condition; circumstances; prerequisite"],["千万","qiānwàn","ten million; be sure to; must"],["糖","táng","sugar; candy; sweets"],["趟","tàng","(measure word for trips times); trip; row"],["由于","yóuyú","due to; owing to; as a result of; thanks to"],
+["密码","mìmǎ","password; secret code"],["倍","bèi","(two, three, etc)-fold; times (multiplier)"],["擦","cā","to wipe; to rub; to polish"],["尤其","yóuqí","especially; particularly"],["经验","jīngyàn","experience"],
+["盒子","hézi","box"],["干杯","gān bēi","to drink a toast; cheers!; bottoms up!"],["看法","kànfǎ","point of view; opinion"],["脏","zāng","filthy; dirty"],["艺术","yìshù","art"],
+["速度","sùdù","speed; rate; velocity"],["勇敢","yǒnggǎn (Sandhi: yónggǎn)","brave; courageous"],["数字","shùzì","number; numeral; figure; digit"],["暂时","zànshí","temporary; transient; for the moment"],["优秀","yōuxiù","outstanding; excellent"],
+["笑话","xiàohua","joke; laugh at"],["可惜","kěxī","it's a pity; regrettable; too bad"],["响","xiǎng","make a sound; to ring; echo"],["省","shěng","province; to save; economize; omit"],["笨","bèn","stupid; foolish; silly; dumb; clumsy"],
+["科学","kēxué","science; scientific knowledge"],["餐厅","cāntīng","dining hall; cafeteria; restaurant"],["各","gè","each; every"],["距离","jùlí","distance; be apart; away from"],["窗户","chuānghu","window"],
+["空气","kōngqì","air"],["护士","hùshi","nurse"],["后悔","hòuhuǐ","to regret; repent"],["大约","dàyuē","approximately; about"],["内容","nèiróng","content; substance; details"],
+["规定","guīdìng","regulation; stipulate; fix; set"],["效果","xiàoguǒ","effect; result"],["现金","xiànjīn","cash"],["儿童","értóng","child; children"],["租","zū","to rent"],
+["篇","piān","sheet; (measure word for articles); piece of writing"],["浪漫","làngmàn","romantic"],["态度","tàidu","manner; bearing; attitude"],["自信","zìxìn","self-confidence"],["吃惊","chī jīng","be startled; be shocked; be amazed"],
 /* 951–1000 */
-["作家","zuò jiā","author; writer"],["诚实","chéng shí","honest; honesty"],["顾客","gù kè","client; customer"],["存","cún","to exist; to deposit"],["香","xiāng","fragrant; sweet smelling"],
-["打扮","dǎ ban","to decorate; to dress"],["交流","jiāo liú","to exchange; exchange"],["年龄","nián líng","(a person's) age"],["小说","xiǎo shuō","novel; fiction"],["符合","fú hé","in keeping with"],
-["交通","jiāo tōng","to be connected"],["共同","gòng tóng","common; joint"],["稍微","shāo wēi","a little bit"],["增加","zēng jiā","to increase"],["敲","qiāo","to hit; to strike"],
-["适应","shì yìng","to adapt; to fit"],["苦","kǔ","bitter; hardship"],["辛苦","xīn kǔ","exhausting; hard"],["然而","rán ér","however; yet"],["耐心","nài xīn","to be patient; patience"],
-["将来","jiāng lái","in the future; future"],["沙发","shā fā","sofa (loanword)"],["骑","qí","to ride (an animal or bike)"],["角","jiǎo","angle; corner"],["胖","pàng","fat; plump"],
-["冬","dōng","winter"],["得","dé","to obtain; to get"],["干","gàn","to do; to work"],["当","dāng","to be; to act as"],["行","xíng","to walk; \"that's fine\""],
-["与","yǔ","and; to give"],["弄","nòng","to make"],["场","chǎng","large place used for a specific purpose"],["底","dǐ","background; bottom"],["结果","jié guǒ","outcome; result"],
-["当时","dāng shí","then; at that time"],["倒","dǎo","to fall; to collapse"],["重","zhòng","heavy; serious"],["转","zhuǎn","to turn; to change direction"],["台","tái","desk; table"],
-["生意","shēng yi","business"],["假","jiǎ","fake; false"],["空","kōng","empty; air"],["节","jié","festival; holiday"],["赚","zhuàn","to earn; to make a profit"],
-["趟","tàng","classifier for times, round trips or rows"],["脏","zāng","dirty; filthy"],["省","shěng","to save; to economize"],["重点","zhòng diǎn","important point"],["汤","tāng","soup; hot or boiling water"]
+["熟悉","shúxī","familiar with; know well"],["按照","ànzhào","according to; in accordance with; in light of"],["世纪","shìjì","century"],["回忆","huíyì","to recall; recollect"],["相同","xiāngtóng","identical; same; alike"],
+["重点","zhòngdiǎn","emphasis; main point; to focus on"],["教育","jiàoyù","education"],["受不了","shòu bu liǎo","cannot endure; unbearable; can't stand"],["皮肤","pífū","skin"],["区别","qūbié","difference; distinguish"],
+["左右","zuǒyòu","about; approximate; around; (left and right); control"],["阳光","yángguāng","sunshine; sunlight"],["页","yè","page; leaf"],["文章","wénzhāng","article; essay"],["语言","yǔyán","language"],
+["标准","biāozhǔn","(an official) standard; norm; criterion"],["管理","guǎnlǐ (Sandhi: guánlǐ)","supervise; manage"],["误会","wùhuì","to misunderstand; to mistake"],["桥","qiáo","bridge"],["举行","jǔxíng","convene; to hold (a meeting, ceremony, etc.)"],
+["肚子","dùzi","belly; abdomen; stomach"],["不仅","bùjǐn","not only; not just"],["饼干","bǐnggān","biscuit; cracker; cookie"],["国际","guójì","international"],["信心","xìnxīn","confidence; faith (in sb. or sth.)"],
+["抬","tái","to lift; to raise (with both palms up)"],["竞争","jìngzhēng","compete"],["汤","tāng","soup; broth"],["作家","zuòjiā","author; writer"],["诚实","chéngshí","honest; honorable"],
+["顾客","gùkè","customer; client"],["存","cún","exist; to deposit; to store"],["香","xiāng","fragrant; savory"],["打扮","dǎban","dress up; put on make up"],["交流","jiāoliú","communicate; exchange; give and take; interaction"],
+["年龄","niánlíng","(a person's) age"],["小说","xiǎoshuō","novel; fiction"],["符合","fúhé","in keeping with; in accordance with; conform"],["交通","jiāotōng","traffic; transportation"],["共同","gòngtóng","together; common; joint"],
+["稍微","shāowēi","a little bit; slightly"],["增加","zēngjiā","to increase; to raise; add"],["敲","qiāo","knock; blackmail"],["适应","shìyìng","to suit; to fit; adapt"],["苦","kǔ","bitter; miserable"],
+["辛苦","xīnkǔ","hard; exhausting; toilsome; laborious"],["然而","rán ér","however; yet; but"],["耐心","nàixīn","to be patient"],["将来","jiānglái","the future"],["沙发","shāfā","sofa"]
 ];//ENDWORDS
 
 /* ============================================================ */
@@ -549,7 +551,7 @@ const SPRINT_MS=60000;
 const $=id=>document.getElementById(id);
 
 /* ---------- persistence ---------- */
-const S=Object.assign({size:100,dir:0,mode:0,pin:true,snd:true,spk:true,types:null,voice:null},
+const S=Object.assign({size:100,dir:0,mode:0,pin:true,snd:true,spk:true,types:null,voice:null,nopts:4},
   JSON.parse(localStorage.getItem("zhongwen-settings")||"{}"));
 const ST=Object.assign({games:0,best:{},words:{},recent:[]},
   JSON.parse(localStorage.getItem("zhongwen-stats")||"{}"));
@@ -646,7 +648,7 @@ function overlaps(a,b){for(const x of a)if(b.has(x))return true;return false}
 
 /* ---------- helpers ---------- */
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
-const wkey=w=>w[0]+"|"+w[1];
+const wkey=w=>w[0]+"|"+w[1]+"|"+w[2].slice(0,12);
 const wordStat=w=>ST.words[wkey(w)]||{s:0,c:0,ms:0};
 const npin=s=>s.toLowerCase().replace(/['\s]/g,"");
 
@@ -713,8 +715,10 @@ function renderMenu(){
     $("togVoice").innerHTML=`<kbd>B</kbd>voice: <b>${nm}</b>`;
     $("togVoice").title=zhVoice.name+" — click to cycle & preview";
   }
+  $("togOpts").innerHTML=`<kbd>C</kbd>choices: <b>${S.nopts}</b>`;
   $("togSnd").innerHTML=`<kbd>V</kbd>sound fx: <b>${S.snd?"on":"off"}</b>`;
 }
+function cycleOpts(){S.nopts=S.nopts>=8?4:S.nopts+2;saveS();renderMenu()}
 function toggleType(id){
   const t=TYPES.find(x=>x.id===id);
   if(t.p==="au"&&!zhVoice)return;
@@ -725,6 +729,7 @@ $("togMode").onclick=e=>{e.target.closest("button").blur();S.mode=1-S.mode;saveS
 $("togPin").onclick=e=>{e.target.closest("button").blur();S.pin=!S.pin;saveS();renderMenu()};
 $("togSpk").onclick=e=>{e.target.closest("button").blur();S.spk=!S.spk;saveS();renderMenu()};
 $("togVoice").onclick=e=>{e.target.closest("button").blur();cycleVoice()};
+$("togOpts").onclick=e=>{e.target.closest("button").blur();cycleOpts()};
 $("togSnd").onclick=e=>{e.target.closest("button").blur();S.snd=!S.snd;saveS();renderMenu()};
 $("togList").onclick=e=>{e.target.closest("button").blur();show("list")};
 $("togStats").onclick=e=>{e.target.closest("button").blur();show("stats")};
@@ -771,7 +776,7 @@ function pickWord(){
   for(let i=0;i<ws.length;i++){r-=ws[i];if(r<=0)return G.pool[i]}
   return G.pool[G.pool.length-1];
 }
-function distractors(word,type){
+function distractors(word,type,need){
   // once pinyin or audio is in play, homophones (他/她/它 = tā) become ambiguous — exclude them
   const pinSens=type.p==="pin"||type.p==="au"||type.a==="pin";
   const tp=npin(word[1]);
@@ -785,7 +790,7 @@ function distractors(word,type){
   const passes=lenMatch?[c=>c[0].length===L,c=>c[0].length!==L]:[()=>true];
   for(const pass of passes){
     for(const c of cands){
-      if(out.length===3)break;
+      if(out.length===need)break;
       if(!pass(c))continue;
       const cw=glossWords(c[2]);
       if(overlaps(cw,target))continue;
@@ -793,10 +798,10 @@ function distractors(word,type){
       if(type.a==="pin"&&usedPin.has(npin(c[1])))continue;
       out.push(c);sets.push(cw);usedPin.add(npin(c[1]));
     }
-    if(out.length===3)break;
+    if(out.length===need)break;
   }
   for(const c of cands){
-    if(out.length===3)break;
+    if(out.length===need)break;
     if(out.includes(c))continue;
     if(type.a==="pin"&&usedPin.has(npin(c[1])))continue;
     out.push(c);usedPin.add(npin(c[1]));
@@ -808,7 +813,7 @@ function nextQuestion(){
   let w=pickWord();
   if(type.p==="au")for(let i=0;i<12&&DUPH.has(w[0]);i++)w=pickWord();
   G.recentQ.push(w[0]);if(G.recentQ.length>8)G.recentQ.shift();
-  const opts=shuffle([w,...distractors(w,type)]);
+  const opts=shuffle([w,...distractors(w,type,S.nopts-1)]);
   G.cur={w,opts,ans:opts.indexOf(w),type};
   G.phase="ask";G.qStart=performance.now();
   const big=$("big");
@@ -827,6 +832,7 @@ function nextQuestion(){
     speak(w[0]);
   }
   const box=$("opts");box.innerHTML="";
+  box.classList.toggle("grid",opts.length>4&&type.a!=="en");
   opts.forEach((o,i)=>{
     const b=document.createElement("button");
     b.className="opt";
@@ -848,7 +854,7 @@ function answer(i){
   for(const b of btns)b.disabled=true;
   btns[ans].classList.add("right");
   if(!right)btns[i].classList.add("wrong");
-  for(let k=0;k<4;k++)if(k!==ans&&k!==i)btns[k].classList.add("faded");
+  for(let k=0;k<btns.length;k++)if(k!==ans&&k!==i)btns[k].classList.add("faded");
   const t=G.cur.type;
   if(t.id==="he")$("reveal").textContent=w[1];
   else if(t.id==="eh")$("reveal").textContent=w[0]+"  ·  "+w[1];
@@ -1006,6 +1012,7 @@ document.addEventListener("keydown",e=>{
     else if(k==="p"){S.pin=!S.pin;saveS();renderMenu()}
     else if(k==="a"){S.spk=!S.spk;saveS();renderMenu()}
     else if(k==="b"){cycleVoice()}
+    else if(k==="c"){cycleOpts()}
     else if(k==="v"){S.snd=!S.snd;saveS();renderMenu()}
     else if(k==="l"){show("list")}
     else if(k==="s"){show("stats")}
@@ -1014,7 +1021,7 @@ document.addEventListener("keydown",e=>{
     if(k==="escape"){endGame();return}
     if(!G)return;
     if(G.phase==="ask"){
-      if(k>="1"&&k<="4"){e.preventDefault();answer(+k-1)}
+      if(/^[1-9]$/.test(k)&&+k<=G.cur.opts.length){e.preventDefault();answer(+k-1)}
       else if((k===" "||k==="r")&&G.cur&&G.cur.type.p==="au"){e.preventDefault();speak(G.cur.w[0])}
     }
     else if(G.phase==="wait"){e.preventDefault();nextQuestion()}
@@ -1046,8 +1053,8 @@ $("btnEndStats").onclick=()=>show("stats");
 $("btnListBack").onclick=()=>show("menu");
 $("btnStatsBack").onclick=()=>show("menu");
 $("btnReset").onclick=()=>resetStats();
-$("game").addEventListener("click",e=>{
-  if(G&&G.phase==="wait"&&performance.now()-G.waitAt>250)nextQuestion();
+document.addEventListener("click",e=>{
+  if(screen==="game"&&G&&G.phase==="wait"&&performance.now()-G.waitAt>250)nextQuestion();
 });
 
 renderMenu();
