@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>汉字 · Chinese Practice</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#181b22; --panel2:#1f232c; --line:#2a2f3a;
+    --txt:#e8eaf0; --muted:#9aa3b2; --accent:#e8553e; --accent2:#f0a04b;
+    --good:#3fbf7f; --bad:#e05a5a; --blue:#5a9ce0;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    background:radial-gradient(1200px 600px at 50% -10%,#1a1d26,#0f1115);
+    color:var(--txt);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    display:flex;flex-direction:column;align-items:center;min-height:100%;
+  }
+  header{width:100%;max-width:900px;padding:18px 16px 6px;text-align:center}
+  h1{margin:0;font-size:22px;letter-spacing:.5px}
+  h1 .cn{color:var(--accent);font-size:26px;margin-right:8px}
+  .sub{color:var(--muted);font-size:13px;margin-top:4px}
+  .wrap{width:100%;max-width:900px;padding:0 16px 60px}
+
+  /* control bar */
+  .bar{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin:14px 0;display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between}
+  .ctl{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
+  .ctl label{font-weight:600;letter-spacing:.3px}
+  .row{display:flex;gap:8px;align-items:center}
+  select,input[type=range]{accent-color:var(--accent)}
+  select{background:var(--panel2);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:6px 8px;font-size:13px}
+  .chip{background:var(--panel2);border:1px solid var(--line);color:var(--muted);border-radius:20px;padding:5px 12px;font-size:12px;cursor:pointer;user-select:none}
+  .chip:hover{border-color:var(--accent)}
+  .chip.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+
+  /* tabs */
+  .tabs{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 4px}
+  .tab{flex:1;min-width:90px;text-align:center;padding:10px;border-radius:10px;background:var(--panel);border:1px solid var(--line);cursor:pointer;font-size:14px;color:var(--muted);font-weight:600}
+  .tab.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+
+  .view{display:none}
+  .view.on{display:block}
+
+  /* flashcard */
+  .card{background:linear-gradient(180deg,#20242e,#171a21);border:1px solid var(--line);border-radius:20px;padding:34px 20px;text-align:center;margin:14px 0;min-height:300px;display:flex;flex-direction:column;justify-content:center;align-items:center;cursor:pointer;position:relative}
+  .rank{position:absolute;top:14px;left:16px;font-size:12px;color:var(--muted)}
+  .star{position:absolute;top:12px;right:16px;font-size:20px;cursor:pointer;opacity:.5}
+  .star.on{opacity:1}
+  .hanzi{font-size:120px;line-height:1.1;font-weight:500}
+  .pin{font-size:30px;color:var(--accent2);margin-top:6px;min-height:36px}
+  .mean{font-size:20px;color:var(--txt);margin-top:8px;min-height:26px}
+  .hint{color:var(--muted);font-size:12px;margin-top:14px}
+  .answer{opacity:0;transition:opacity .15s}
+  .card.flip .answer{opacity:1}
+
+  .btns{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin:10px 0}
+  button.act{background:var(--panel2);color:var(--txt);border:1px solid var(--line);border-radius:10px;padding:11px 16px;font-size:14px;cursor:pointer;font-weight:600}
+  button.act:hover{border-color:var(--accent)}
+  button.act.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  button.act.good{background:var(--good);border-color:var(--good);color:#06281a}
+  button.act.bad{background:var(--bad);border-color:var(--bad);color:#fff}
+  button.act:disabled{opacity:.4;cursor:default}
+  .speak{background:var(--blue);border-color:var(--blue);color:#04203f}
+
+  .progress{height:6px;background:var(--panel2);border-radius:4px;overflow:hidden;margin:6px 0}
+  .progress>div{height:100%;background:var(--accent);width:0%}
+  .meta{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-top:4px}
+
+  /* quiz */
+  .opts{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px}
+  .opt{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:16px;font-size:16px;cursor:pointer;text-align:center}
+  .opt:hover{border-color:var(--accent)}
+  .opt.correct{background:var(--good);color:#06281a;border-color:var(--good)}
+  .opt.wrong{background:var(--bad);color:#fff;border-color:var(--bad)}
+  .opt.dim{opacity:.45}
+
+  /* lists */
+  .list{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+  .item{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:flex;align-items:center;gap:14px}
+  .item .cn{font-size:26px;min-width:auto}
+  .item .info{flex:1}
+  .item .ipin{color:var(--accent2);font-size:15px}
+  .item .imean{color:var(--muted);font-size:14px;margin-top:2px}
+  .item .play{background:var(--blue);border:none;color:#04203f;border-radius:50%;width:40px;height:40px;font-size:18px;cursor:pointer;flex-shrink:0}
+  .ph .cn{font-size:22px;line-height:1.4}
+
+  .stat{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px}
+  .box{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;text-align:center}
+  .box .n{font-size:30px;font-weight:700;color:var(--accent2)}
+  .box .l{font-size:12px;color:var(--muted);margin-top:4px}
+  .danger{color:var(--bad);cursor:pointer;text-decoration:underline;font-size:12px}
+  .note{color:var(--muted);font-size:12px;text-align:center;margin-top:18px;line-height:1.6}
+  /* practice */
+  .prow{display:flex;align-items:center;gap:10px;margin-top:14px;flex-wrap:wrap}
+  .badge{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:3px 9px;font-size:11px;color:var(--accent2);text-transform:uppercase;letter-spacing:.5px;font-weight:700}
+  .dots{display:flex;gap:4px}
+  .dots i{width:9px;height:9px;border-radius:50%;background:var(--panel2);border:1px solid var(--line);display:inline-block}
+  .dots i.f{background:var(--good);border-color:var(--good)}
+  .pprompt{color:var(--muted);font-size:13px;font-weight:600;margin-left:auto}
+  .pcard .answer{opacity:0;transition:opacity .12s}
+  .pcard.reveal .answer{opacity:1}
+  .opt{position:relative}
+  .optk{position:absolute;left:8px;top:6px;font-size:10px;color:var(--muted);opacity:.55}
+  .prow2{display:flex;gap:16px;flex-wrap:wrap;justify-content:center;margin-top:18px;color:var(--muted);font-size:12px}
+  .prow2 label{display:flex;align-items:center;gap:5px;cursor:pointer}
+  @media(max-width:520px){.hanzi{font-size:90px}.opts{grid-template-columns:1fr}.stat{grid-template-columns:1fr 1fr}.pprompt{margin-left:0;width:100%}}
+</style>
+</head>
+<body>
+<header>
+  <h1><span class="cn">汉字</span>Chinese Practice</h1>
+  <div class="sub">Frequency-ordered characters · pinyin · voice · words & phrases</div>
+</header>
+
+<div class="wrap">
+
+  <div class="bar">
+    <div class="ctl">
+      <label>Frequency range (by rank)</label>
+      <div class="row">
+        <span class="chip" data-range="1,150">1–150 (your zone)</span>
+        <span class="chip on" data-range="1,300">1–300</span>
+        <span class="chip" data-range="100,150">focus 100–150</span>
+        <span class="chip" data-range="weak">⭐ weak only</span>
+      </div>
+    </div>
+    <div class="ctl">
+      <label>Voice</label>
+      <div class="row">
+        <select id="voiceSel"></select>
+        <label style="display:flex;align-items:center;gap:4px;font-size:11px">speed
+          <input id="rate" type="range" min="0.5" max="1.2" step="0.1" value="0.85" style="width:70px">
+        </label>
+      </div>
+    </div>
+    <div class="ctl">
+      <label>Options</label>
+      <div class="row">
+        <span class="chip on" id="autoplay">🔊 auto-play</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab on" data-view="practice">⚡ Practice</div>
+    <div class="tab" data-view="flash">Flashcards</div>
+    <div class="tab" data-view="quiz">Quiz</div>
+    <div class="tab" data-view="words">Words</div>
+    <div class="tab" data-view="phrases">Phrases</div>
+    <div class="tab" data-view="stats">Stats</div>
+  </div>
+
+  <!-- PRACTICE (adaptive rapid-fire) -->
+  <div class="view on" id="view-practice">
+    <div class="prow">
+      <span class="badge" id="pType">char</span>
+      <span class="dots" id="pDots"></span>
+      <span class="pprompt" id="pPrompt"></span>
+    </div>
+    <div class="card pcard" id="pCard" style="min-height:230px">
+      <div class="hanzi" id="pBig">字</div>
+      <div class="pin" id="pBigPin" style="opacity:0"></div>
+      <div class="answer" id="pReveal"></div>
+      <div class="hint" id="pHint" style="display:none"></div>
+    </div>
+    <div class="row" style="justify-content:center;margin:8px 0;gap:8px">
+      <button class="act speak" id="pReplay">🔊 replay</button>
+      <button class="act" id="pSkip">skip ›</button>
+    </div>
+    <div class="opts" id="pOpts" style="display:none"></div>
+    <div class="btns" id="pGrade" style="display:none">
+      <button class="act bad" id="pMiss">❌ Missed (1)</button>
+      <button class="act good" id="pGot">✅ Got it (2)</button>
+    </div>
+    <div class="meta" style="margin-top:12px"><span id="pStats"></span><span id="pStreak"></span></div>
+    <div class="prow2" id="pToggles"></div>
+  </div>
+
+  <!-- FLASHCARDS -->
+  <div class="view" id="view-flash">
+    <div class="card" id="card">
+      <span class="rank" id="fRank"></span>
+      <span class="star" id="fStar" title="mark as weak / favorite">★</span>
+      <div class="hanzi" id="fHanzi">字</div>
+      <div class="answer">
+        <div class="pin" id="fPin"></div>
+        <div class="mean" id="fMean"></div>
+      </div>
+      <div class="hint" id="fHint">tap card to reveal</div>
+    </div>
+    <div class="btns">
+      <button class="act speak" id="fSpeak">🔊 Say it</button>
+      <button class="act" id="fPrev">‹ Prev</button>
+      <button class="act bad" id="fAgain">Again</button>
+      <button class="act good" id="fGot">Got it ›</button>
+      <button class="act" id="fShuffle">🔀 Shuffle</button>
+    </div>
+    <div class="progress"><div id="fBar"></div></div>
+    <div class="meta"><span id="fPos"></span><span id="fKnown"></span></div>
+  </div>
+
+  <!-- QUIZ -->
+  <div class="view" id="view-quiz">
+    <div class="card" style="min-height:170px;cursor:default;padding:24px">
+      <span class="rank" id="qRank"></span>
+      <div class="hanzi" id="qHanzi" style="font-size:88px">字</div>
+      <div class="pin" id="qPin" style="opacity:0"></div>
+    </div>
+    <div class="row" style="justify-content:center;margin:6px 0">
+      <button class="act speak" id="qSpeak">🔊 hear</button>
+      <span style="color:var(--muted);font-size:13px;align-self:center" id="qPrompt">Pick the meaning:</span>
+    </div>
+    <div class="opts" id="qOpts"></div>
+    <div class="meta" style="margin-top:14px"><span id="qScore">Score: 0 / 0</span><span id="qStreak"></span></div>
+  </div>
+
+  <!-- WORDS -->
+  <div class="view" id="view-words">
+    <div class="list" id="wordList"></div>
+  </div>
+
+  <!-- PHRASES -->
+  <div class="view" id="view-phrases">
+    <div class="list ph" id="phraseList"></div>
+  </div>
+
+  <!-- STATS -->
+  <div class="view" id="view-stats">
+    <div class="stat">
+      <div class="box"><div class="n" id="sKnown">0</div><div class="l">characters learned</div></div>
+      <div class="box"><div class="n" id="sWeak">0</div><div class="l">marked weak ⭐</div></div>
+      <div class="box"><div class="n" id="sQuiz">0%</div><div class="l">quiz accuracy</div></div>
+    </div>
+    <p class="note">
+      Progress is saved in your browser (localStorage). “Got it” marks a character learned;
+      “Again” / the ★ marks it weak so you can drill it with the <b>⭐ weak only</b> range.<br>
+      <span class="danger" id="reset">Reset all progress</span>
+    </p>
+  </div>
+
+  <p class="note">
+    Tip: you're ~rank 100–150 in your Refold deck — use <b>1–150</b> to consolidate, then push the range out.
+    Voice uses your device's built-in Mandarin (zh-CN) speech. If no Chinese voice shows up, install one in your OS settings.
+  </p>
+</div>
+
+<script>
+/* ============ DATA: top characters by frequency (rank order) ============ */
+const CHARS = [
+["的","de","(possessive particle)"],["一","yī","one"],["是","shì","to be"],["不","bù","not / no"],["了","le","(completed-action particle)"],
+["在","zài","at / in / -ing"],["人","rén","person"],["有","yǒu","to have"],["我","wǒ","I / me"],["他","tā","he / him"],
+["这","zhè","this"],["个","gè","(generic measure word)"],["们","men","(plural marker)"],["中","zhōng","middle / China"],["来","lái","to come"],
+["上","shàng","up / on / previous"],["大","dà","big"],["为","wèi/wéi","for / to be"],["和","hé","and / with"],["国","guó","country"],
+["地","dì/de","earth / (adverb particle)"],["到","dào","to arrive / to"],["以","yǐ","with / by / so as to"],["说","shuō","to speak / say"],["时","shí","time / hour"],
+["要","yào","to want / will / need"],["就","jiù","then / at once / just"],["出","chū","to go out / produce"],["会","huì","can / meeting"],["可","kě","can / may"],
+["也","yě","also / too"],["你","nǐ","you"],["对","duì","correct / toward / pair"],["生","shēng","to be born / life / raw"],["能","néng","can / be able"],
+["而","ér","and / but / yet"],["子","zǐ","child / seed"],["那","nà","that"],["得","de/dé","(structural particle) / to get"],["于","yú","at / in / than"],
+["着","zhe","(continuous-aspect particle)"],["下","xià","down / below / next"],["自","zì","self / from"],["之","zhī","(literary possessive)"],["年","nián","year"],
+["过","guò","to pass / (experienced particle)"],["发","fā","to send / develop / hair"],["后","hòu","after / behind"],["作","zuò","to do / make / work"],["里","lǐ","inside / li (½ km)"],
+["用","yòng","to use"],["道","dào","way / road / to say"],["行","xíng/háng","to walk / OK / row"],["所","suǒ","place / (nominalizer)"],["然","rán","so / thus / -ly"],
+["家","jiā","home / family / -ist"],["种","zhǒng/zhòng","kind / to plant"],["事","shì","matter / affair"],["成","chéng","to become / succeed"],["方","fāng","square / direction / method"],
+["多","duō","many / much / more"],["经","jīng","to pass through / scripture"],["么","me","(question/word suffix)"],["去","qù","to go"],["法","fǎ","law / method"],
+["学","xué","to study / learn"],["如","rú","like / as / if"],["都","dōu/dū","all / capital"],["同","tóng","same / together"],["现","xiàn","now / to appear"],
+["当","dāng/dàng","when / to serve as / proper"],["没","méi/mò","not have / sink"],["动","dòng","to move"],["面","miàn","face / surface / noodles"],["起","qǐ","to rise / get up"],
+["看","kàn","to look / watch / read"],["定","dìng","to fix / decide / settle"],["天","tiān","sky / day / heaven"],["分","fēn/fèn","to divide / minute / part"],["还","hái/huán","still / also / to return"],
+["进","jìn","to enter / advance"],["好","hǎo/hào","good / to like"],["小","xiǎo","small / young"],["部","bù","part / department / (measure word)"],["其","qí","its / his / that"],
+["些","xiē","some / a few"],["主","zhǔ","main / host / lord"],["样","yàng","kind / manner / appearance"],["理","lǐ","reason / to manage"],["心","xīn","heart / mind"],
+["她","tā","she / her"],["本","běn","root / origin / (measure word: books)"],["前","qián","front / before"],["开","kāi","to open / start / drive"],["但","dàn","but / only"],
+["因","yīn","because / cause"],["只","zhǐ/zhī","only / (measure word: animals)"],["从","cóng","from / to follow"],["想","xiǎng","to think / want / miss"],["实","shí","real / solid / fruit"],
+["日","rì","sun / day / Japan"],["军","jūn","army / military"],["者","zhě","(one who…)"],["意","yì","meaning / idea / intention"],["无","wú","without / none"],
+["力","lì","strength / power"],["它","tā","it"],["与","yǔ","and / with / to give"],["长","cháng/zhǎng","long / to grow / chief"],["把","bǎ","to hold / (disposal particle)"],
+["机","jī","machine / opportunity"],["十","shí","ten"],["民","mín","people / civilian"],["第","dì","(ordinal prefix: -th)"],["公","gōng","public / male / duke"],
+["此","cǐ","this / here"],["已","yǐ","already"],["工","gōng","work / labor"],["使","shǐ","to make / use / send"],["情","qíng","feeling / situation / love"],
+["明","míng","bright / clear / next (day)"],["性","xìng","nature / -ness / sex"],["知","zhī","to know"],["全","quán","whole / complete"],["三","sān","three"],
+["又","yòu","again / also"],["关","guān","to close / relation / pass"],["点","diǎn","point / dot / o'clock / a bit"],["正","zhèng","correct / just / upright"],["业","yè","industry / profession"],
+["外","wài","outside / foreign"],["将","jiāng/jiàng","will / shall / general"],["两","liǎng","two (of) / a couple"],["高","gāo","tall / high"],["间","jiān/jiàn","between / room / gap"],
+["由","yóu","from / by / cause"],["问","wèn","to ask"],["很","hěn","very"],["最","zuì","most / -est"],["重","zhòng/chóng","heavy / important / again"],
+["并","bìng","and / moreover / actually"],["物","wù","thing / matter"],["手","shǒu","hand"],["应","yīng/yìng","should / to respond"],["战","zhàn","war / to fight"],
+["向","xiàng","toward / direction"],["头","tóu","head / top / (measure word)"],["文","wén","writing / culture / language"],["体","tǐ","body / form"],["政","zhèng","politics / government"],
+["美","měi","beautiful / America"],["相","xiāng/xiàng","mutual / appearance"],["见","jiàn","to see / meet"],["被","bèi","(passive marker) / quilt"],["利","lì","benefit / sharp / profit"],
+["什","shén","what (in 什么)"],["二","èr","two"],["等","děng","to wait / rank / etc."],["产","chǎn","to produce / give birth"],["或","huò","or / maybe"],
+["新","xīn","new"],["己","jǐ","self / oneself"],["制","zhì","to make / system / control"],["身","shēn","body / oneself"],["果","guǒ","fruit / result"],
+["加","jiā","to add / plus"],["西","xī","west"],["斯","sī","(phonetic 'si') / this"],["月","yuè","moon / month"],["话","huà","speech / words / language"],
+["合","hé","to combine / suit / close"],["回","huí","to return / (measure word: times)"],["特","tè","special"],["代","dài","to replace / era / generation"],["内","nèi","inside / inner"],
+["信","xìn","letter / to believe / trust"],["表","biǎo","surface / to express / watch / form"],["化","huà","to transform / -ize"],["老","lǎo","old / venerable"],["给","gěi/jǐ","to give / for"],
+["世","shì","world / generation / era"],["位","wèi","position / (measure word: people)"],["次","cì","time (occurrence) / order"],["度","dù","degree / extent"],["门","mén","door / gate"],
+["任","rèn","to appoint / duty / let"],["常","cháng","often / common / ordinary"],["先","xiān","first / earlier"],["海","hǎi","sea / ocean"],["通","tōng","to go through / connect"],
+["教","jiào/jiāo","to teach / religion"],["儿","ér","child / son / (suffix)"],["原","yuán","origin / former / plain"],["东","dōng","east"],["声","shēng","sound / voice / tone"],
+["提","tí","to lift / raise / mention"],["立","lì","to stand / establish"],["及","jí","and / to reach"],["比","bǐ","to compare / than"],["员","yuán","member / personnel"],
+["解","jiě","to untie / solve / explain"],["水","shuǐ","water"],["名","míng","name / fame / (measure word: people)"],["真","zhēn","real / true / really"],["论","lùn","to discuss / theory"],
+["处","chù/chǔ","place / to handle"],["走","zǒu","to walk / leave / go"],["义","yì","meaning / righteousness"],["各","gè","each / every"],["入","rù","to enter"],
+["几","jǐ/jī","how many / several / almost"],["口","kǒu","mouth / (measure word) / opening"],["认","rèn","to recognize / admit"],["条","tiáo","strip / (measure word) / item"],["平","píng","flat / level / peace"],
+["系","xì/jì","system / to relate / tie"],["气","qì","air / gas / energy / anger"],["题","tí","topic / question / problem"],["活","huó","to live / alive / work"],["尔","ěr","you (literary) / (phonetic)"],
+["更","gèng/gēng","more / to change"],["别","bié","don't / other / to part"],["打","dǎ","to hit / play / make"],["女","nǚ","woman / female"],["变","biàn","to change / become"],
+["四","sì","four"],["神","shén","god / spirit / expression"],["总","zǒng","total / always / chief"],["何","hé","what / how / why"],["电","diàn","electricity"],
+["数","shù/shǔ","number / to count"],["安","ān","peace / safe / quiet"],["少","shǎo/shào","few / less / young"],["报","bào","to report / newspaper"],["才","cái","talent / only then / just"],
+["结","jié/jiē","to tie / knot / bear (fruit)"],["反","fǎn","opposite / to oppose / anti-"],["受","shòu","to receive / endure / suffer"],["目","mù","eye / item / list"],["太","tài","too / very / highest"],
+["量","liàng/liáng","quantity / to measure"],["再","zài","again / then"],["感","gǎn","to feel / sense / move"],["建","jiàn","to build / establish"],["务","wù","affair / must / business"],
+["做","zuò","to do / make"],["接","jiē","to connect / receive / meet"],["必","bì","must / surely"],["场","chǎng","field / place / (measure word)"],["件","jiàn","(measure word: items/matters)"],
+["计","jì","to count / plan / calculate"],["管","guǎn","to manage / tube / care about"],["期","qī","period / phase / to expect"],["市","shì","city / market"],["直","zhí","straight / direct / just"],
+["德","dé","virtue / morality / Germany"],["资","zī","resources / capital / funds"],["命","mìng","life / fate / order"],["山","shān","mountain"],["金","jīn","gold / metal / money"],
+["指","zhǐ","finger / to point / indicate"],["克","kè","gram / to overcome"],["许","xǔ","to allow / perhaps"],["统","tǒng","to unify / system"],["区","qū","area / district / to distinguish"],
+["保","bǎo","to protect / keep / guarantee"],["至","zhì","to / until / utmost"],["队","duì","team / line / queue"],["形","xíng","form / shape"],["社","shè","society / agency"],
+["便","biàn/pián","convenient / then / cheap"],["空","kōng/kòng","empty / sky / free time"],["决","jué","to decide / definitely"],["治","zhì","to govern / cure / order"],["展","zhǎn","to unfold / exhibit"],
+["马","mǎ","horse"],["科","kē","science / branch / department"],["司","sī","to manage / department"],["五","wǔ","five"],["基","jī","base / foundation"],
+["眼","yǎn","eye"],["书","shū","book / to write"],["非","fēi","not / non- / wrong"],["则","zé","rule / then / standard"],["听","tīng","to listen / hear"],
+["白","bái","white / clear / in vain"],["却","què","but / yet / however"],["界","jiè","boundary / world / field"],["达","dá","to reach / express"],["光","guāng","light / bright / only"],
+["放","fàng","to put / release / let go"],["强","qiáng/qiǎng","strong / to force"],["即","jí","namely / immediately / even if"],["像","xiàng","to resemble / image / like"],["难","nán/nàn","difficult / disaster"],
+["且","qiě","moreover / for now"],["权","quán","power / right / authority"],["思","sī","to think / thought"],["王","wáng","king"],["完","wán","to finish / complete / whole"]
+];
+
+/* common 2-syllable words */
+const WORDS = [
+["你好","nǐ hǎo","hello"],["谢谢","xiè xie","thank you"],["再见","zài jiàn","goodbye"],["对不起","duì bu qǐ","sorry"],["没关系","méi guān xi","it's okay / no problem"],
+["我们","wǒ men","we / us"],["他们","tā men","they / them"],["什么","shén me","what"],["怎么","zěn me","how"],["为什么","wèi shén me","why"],
+["现在","xiàn zài","now"],["今天","jīn tiān","today"],["明天","míng tiān","tomorrow"],["昨天","zuó tiān","yesterday"],["时候","shí hou","time / moment"],
+["知道","zhī dào","to know"],["觉得","jué de","to feel / think"],["喜欢","xǐ huan","to like"],["可以","kě yǐ","can / may"],["因为","yīn wèi","because"],
+["所以","suǒ yǐ","so / therefore"],["但是","dàn shì","but"],["还是","hái shì","still / or"],["如果","rú guǒ","if"],["中国","zhōng guó","China"],
+["朋友","péng you","friend"],["工作","gōng zuò","work / job"],["学生","xué sheng","student"],["老师","lǎo shī","teacher"],["时间","shí jiān","time"],
+["东西","dōng xi","thing / stuff"],["地方","dì fang","place"],["问题","wèn tí","problem / question"],["事情","shì qing","matter / affair"],["生活","shēng huó","life / to live"],
+["开始","kāi shǐ","to start"],["孩子","hái zi","child"],["名字","míng zi","name"],["介绍","jiè shào","to introduce"],["大家","dà jiā","everyone"],
+["一起","yì qǐ","together"],["一点","yì diǎn","a little"],["这样","zhè yàng","like this / so"],["认识","rèn shi","to know (a person)"],["帮助","bāng zhù","to help"]
+];
+
+/* practical phrases & responses */
+const PHRASES = [
+["你好吗？","nǐ hǎo ma?","How are you?"],
+["我很好，谢谢。","wǒ hěn hǎo, xiè xie.","I'm fine, thanks."],
+["你叫什么名字？","nǐ jiào shén me míng zi?","What's your name?"],
+["我叫…","wǒ jiào…","My name is…"],
+["认识你很高兴。","rèn shi nǐ hěn gāo xìng.","Nice to meet you."],
+["你是哪国人？","nǐ shì nǎ guó rén?","What country are you from?"],
+["我是美国人。","wǒ shì měi guó rén.","I'm American."],
+["这是什么？","zhè shì shén me?","What is this?"],
+["这个多少钱？","zhè ge duō shǎo qián?","How much is this?"],
+["我不知道。","wǒ bù zhī dào.","I don't know."],
+["我听不懂。","wǒ tīng bu dǒng.","I don't understand (hearing)."],
+["请再说一遍。","qǐng zài shuō yí biàn.","Please say it again."],
+["请说慢一点。","qǐng shuō màn yì diǎn.","Please speak slower."],
+["你会说英语吗？","nǐ huì shuō yīng yǔ ma?","Do you speak English?"],
+["这个用中文怎么说？","zhè ge yòng zhōng wén zěn me shuō?","How do you say this in Chinese?"],
+["我饿了。","wǒ è le.","I'm hungry."],
+["我想喝水。","wǒ xiǎng hē shuǐ.","I want to drink water."],
+["现在几点？","xiàn zài jǐ diǎn?","What time is it now?"],
+["厕所在哪里？","cè suǒ zài nǎ lǐ?","Where is the toilet?"],
+["我可以坐这里吗？","wǒ kě yǐ zuò zhè lǐ ma?","Can I sit here?"],
+["没问题。","méi wèn tí.","No problem."],
+["太好了！","tài hǎo le!","Great! / Awesome!"],
+["我也是。","wǒ yě shì.","Me too."],
+["真的吗？","zhēn de ma?","Really?"],
+["当然可以。","dāng rán kě yǐ.","Of course."],
+["对不起，我来晚了。","duì bu qǐ, wǒ lái wǎn le.","Sorry, I'm late."],
+["你今天怎么样？","nǐ jīn tiān zěn me yàng?","How's your day?"],
+["我们走吧。","wǒ men zǒu ba.","Let's go."],
+["请帮我一下。","qǐng bāng wǒ yí xià.","Please help me a moment."],
+["慢走。","màn zǒu.","Take care (when seeing off)."]
+];
+
+/* ============ STATE / STORAGE ============ */
+const LS = "cn-practice-v1";
+let store = JSON.parse(localStorage.getItem(LS) || "{}");
+store.known = store.known || {};   // char -> true
+store.weak  = store.weak  || {};   // char -> true
+store.quiz  = store.quiz  || {right:0,total:0};
+function save(){ localStorage.setItem(LS, JSON.stringify(store)); }
+
+let range = [1,300];      // 1-indexed rank inclusive, or "weak"
+let deck = [];            // current array of [char,pin,mean,rank]
+let idx = 0;
+
+function buildDeck(){
+  const all = CHARS.map((c,i)=>[c[0],c[1],c[2],i+1]);
+  if(range==="weak"){ deck = all.filter(c=>store.weak[c[0]]); }
+  else { deck = all.filter(c=> c[3]>=range[0] && c[3]<=range[1]); }
+  if(deck.length===0) deck = all.slice(0,1);
+  idx = 0;
+}
+
+/* ============ SPEECH ============ */
+let voices = [], chosenVoice = null;
+function loadVoices(){
+  voices = speechSynthesis.getVoices().filter(v=>/zh|cmn|chinese|普通话|中文/i.test(v.lang+ " " + v.name));
+  const sel = document.getElementById("voiceSel");
+  sel.innerHTML = "";
+  if(voices.length===0){
+    const o=document.createElement("option"); o.textContent="(no Chinese voice found)"; sel.appendChild(o);
+  } else {
+    voices.forEach((v,i)=>{ const o=document.createElement("option"); o.value=i; o.textContent=v.name+" ("+v.lang+")"; sel.appendChild(o);});
+    chosenVoice = voices[0];
+  }
+}
+loadVoices();
+if(speechSynthesis.onvoiceschanged !== undefined) speechSynthesis.onvoiceschanged = loadVoices;
+document.getElementById("voiceSel").addEventListener("change",e=>{ chosenVoice = voices[+e.target.value]||null; });
+
+function speak(text){
+  if(!text) return;
+  try{
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = "zh-CN";
+    if(chosenVoice) u.voice = chosenVoice;
+    u.rate = parseFloat(document.getElementById("rate").value);
+    speechSynthesis.speak(u);
+  }catch(e){}
+}
+let autoplayOn = true;
+document.getElementById("autoplay").addEventListener("click",function(){
+  autoplayOn = !autoplayOn; this.classList.toggle("on",autoplayOn);
+});
+
+/* ============ FLASHCARDS ============ */
+const card = document.getElementById("card");
+let flipped = false;
+function renderFlash(){
+  const c = deck[idx];
+  document.getElementById("fHanzi").textContent = c[0];
+  document.getElementById("fPin").textContent = c[1];
+  document.getElementById("fMean").textContent = c[2];
+  document.getElementById("fRank").textContent = (range==="weak"?"⭐ weak":"#"+c[3]);
+  document.getElementById("fStar").classList.toggle("on", !!store.weak[c[0]]);
+  document.getElementById("fPos").textContent = (idx+1)+" / "+deck.length;
+  document.getElementById("fBar").style.width = ((idx+1)/deck.length*100)+"%";
+  const knownCount = deck.filter(d=>store.known[d[0]]).length;
+  document.getElementById("fKnown").textContent = knownCount+" learned in range";
+  flipped=false; card.classList.remove("flip");
+  document.getElementById("fHint").style.display="block";
+  if(autoplayOn) speak(c[0]);
+}
+function flip(){
+  flipped=!flipped; card.classList.toggle("flip",flipped);
+  document.getElementById("fHint").style.display = flipped?"none":"block";
+}
+card.addEventListener("click",flip);
+document.getElementById("fSpeak").addEventListener("click",e=>{e.stopPropagation();speak(deck[idx][0]);});
+document.getElementById("fStar").addEventListener("click",e=>{
+  e.stopPropagation();
+  const ch=deck[idx][0];
+  store.weak[ch]=!store.weak[ch]; if(!store.weak[ch]) delete store.weak[ch];
+  save(); document.getElementById("fStar").classList.toggle("on",!!store.weak[ch]); renderStats();
+});
+function next(){ idx=(idx+1)%deck.length; renderFlash(); }
+function prev(){ idx=(idx-1+deck.length)%deck.length; renderFlash(); }
+document.getElementById("fPrev").addEventListener("click",prev);
+document.getElementById("fGot").addEventListener("click",()=>{
+  const ch=deck[idx][0]; store.known[ch]=true; if(store.weak[ch]) delete store.weak[ch];
+  save(); renderStats(); next();
+});
+document.getElementById("fAgain").addEventListener("click",()=>{
+  const ch=deck[idx][0]; store.weak[ch]=true; save(); renderStats(); next();
+});
+document.getElementById("fShuffle").addEventListener("click",()=>{
+  for(let i=deck.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[deck[i],deck[j]]=[deck[j],deck[i]];}
+  idx=0; renderFlash();
+});
+
+/* ============ QUIZ ============ */
+let qCur=null, qStreak=0;
+function newQuiz(){
+  document.getElementById("qPin").style.opacity=0;
+  qCur = deck[Math.floor(Math.random()*deck.length)];
+  document.getElementById("qHanzi").textContent=qCur[0];
+  document.getElementById("qPin").textContent=qCur[1];
+  document.getElementById("qRank").textContent = (range==="weak"?"⭐":"#"+qCur[3]);
+  // build 4 options of meanings
+  const pool = CHARS.slice();
+  const opts=[qCur[2]]; let guard=0;
+  while(opts.length<4 && guard++<200){
+    const r=pool[Math.floor(Math.random()*pool.length)][2];
+    if(!opts.includes(r)) opts.push(r);
+  }
+  for(let i=opts.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[opts[i],opts[j]]=[opts[j],opts[i]];}
+  const box=document.getElementById("qOpts"); box.innerHTML="";
+  opts.forEach(o=>{
+    const d=document.createElement("div"); d.className="opt"; d.textContent=o;
+    d.addEventListener("click",()=>answer(d,o)); box.appendChild(d);
+  });
+  if(autoplayOn) speak(qCur[0]);
+}
+function answer(el,val){
+  const right = val===qCur[2];
+  store.quiz.total++; if(right){store.quiz.right++;qStreak++;} else qStreak=0;
+  if(right){ const ch=qCur[0]; store.known[ch]=true; if(store.weak[ch])delete store.weak[ch]; }
+  else { store.weak[qCur[0]]=true; }
+  save(); renderStats();
+  document.getElementById("qPin").style.opacity=1;
+  document.querySelectorAll("#qOpts .opt").forEach(o=>{
+    o.style.pointerEvents="none";
+    if(o.textContent===qCur[2]) o.classList.add("correct");
+    else if(o===el) o.classList.add("wrong");
+    else o.classList.add("dim");
+  });
+  document.getElementById("qScore").textContent="Score: "+store.quiz.right+" / "+store.quiz.total;
+  document.getElementById("qStreak").textContent = qStreak>1?("🔥 streak "+qStreak):"";
+  setTimeout(newQuiz, right?700:1500);
+}
+document.getElementById("qSpeak").addEventListener("click",()=>speak(qCur[0]));
+
+/* ============ LISTS (words / phrases) ============ */
+function renderList(el,data,big){
+  el.innerHTML="";
+  data.forEach(d=>{
+    const it=document.createElement("div"); it.className="item";
+    it.innerHTML=`<div class="cn"${big?' style="font-size:24px"':''}>${d[0]}</div>
+      <div class="info"><div class="ipin">${d[1]}</div><div class="imean">${d[2]}</div></div>
+      <button class="play" title="say it">🔊</button>`;
+    it.querySelector(".play").addEventListener("click",()=>speak(d[0].replace(/[…？！。，]/g,"")));
+    el.appendChild(it);
+  });
+}
+renderList(document.getElementById("wordList"),WORDS,false);
+renderList(document.getElementById("phraseList"),PHRASES,true);
+
+/* ============ STATS ============ */
+function renderStats(){
+  document.getElementById("sKnown").textContent = Object.keys(store.known).length;
+  document.getElementById("sWeak").textContent = Object.keys(store.weak).length;
+  const acc = store.quiz.total? Math.round(store.quiz.right/store.quiz.total*100):0;
+  document.getElementById("sQuiz").textContent = acc+"%";
+}
+document.getElementById("reset").addEventListener("click",()=>{
+  if(confirm("Reset all saved progress?")){ store={known:{},weak:{},quiz:{right:0,total:0}}; save(); renderStats(); buildDeck(); renderFlash(); }
+});
+
+/* ============ RANGE CHIPS ============ */
+document.querySelectorAll(".chip[data-range]").forEach(chip=>{
+  chip.addEventListener("click",()=>{
+    document.querySelectorAll(".chip[data-range]").forEach(c=>c.classList.remove("on"));
+    chip.classList.add("on");
+    const r=chip.dataset.range;
+    range = r==="weak" ? "weak" : r.split(",").map(Number);
+    buildDeck();
+    if(range==="weak" && deck.length===0){ /* keep but show */ }
+    renderFlash(); newQuiz();
+    pBuildPool(); if(document.getElementById("view-practice").classList.contains("on")) pNext();
+  });
+});
+
+/* ============ TABS ============ */
+document.querySelectorAll(".tab").forEach(t=>{
+  t.addEventListener("click",()=>{
+    document.querySelectorAll(".tab").forEach(x=>x.classList.remove("on"));
+    document.querySelectorAll(".view").forEach(x=>x.classList.remove("on"));
+    t.classList.add("on");
+    document.getElementById("view-"+t.dataset.view).classList.add("on");
+    if(t.dataset.view==="quiz") newQuiz();
+    if(t.dataset.view==="stats") renderStats();
+    if(t.dataset.view==="practice"){ pBuildPool(); pNext(); }
+  });
+});
+
+/* ============ KEYBOARD ============ */
+document.addEventListener("keydown",e=>{
+  if(!document.getElementById("view-flash").classList.contains("on")) return;
+  if(e.code==="Space"){e.preventDefault();flip();}
+  else if(e.code==="ArrowRight") document.getElementById("fGot").click();
+  else if(e.code==="ArrowLeft") prev();
+  else if(e.key==="s") speak(deck[idx][0]);
+});
+
+/* ============ PRACTICE: adaptive rapid-fire engine ============ */
+store.srs = store.srs || {};                       // key -> {s:0..5, right, miss, seen}
+store.practice = store.practice || {seen:0,right:0};
+let pInclude = store.pInclude || {char:true,word:true,phrase:true};
+let pAuto = store.pAuto!==false;
+let pPool=[], pCur=null, pMode=null, pAnswered=false, pStreak=0;
+let pLast=null, pLastType=null, pLastMode=null, pTimer=null, pRecallReveal=null;
+const pKey = it => it.type+":"+it.cn;
+const pcShuffle = a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;};
+const pClean = s => s.replace(/[…？！。，、]/g,"");
+
+function pBuildPool(){
+  const chars = CHARS.map((c,i)=>({type:'char',cn:c[0],pin:c[1],en:c[2],rank:i+1}));
+  let pool=[];
+  if(pInclude.char){
+    const cs = range==="weak" ? chars.filter(c=>store.weak[c.cn])
+             : chars.filter(c=>c.rank>=range[0] && c.rank<=range[1]);
+    pool=pool.concat(cs);
+  }
+  if(pInclude.word) pool=pool.concat(WORDS.map(w=>({type:'word',cn:w[0],pin:w[1],en:w[2]})));
+  if(pInclude.phrase) pool=pool.concat(PHRASES.map(p=>({type:'phrase',cn:p[0],pin:p[1],en:p[2]})));
+  pPool=pool;
+}
+
+/* weighted draw: weak & new surface more, no immediate repeat, interleave types */
+function pPick(){
+  if(!pPool.length) return null;
+  const w = pPool.map(it=>{
+    const k=pKey(it), rec=store.srs[k], st=rec?rec.s:0;
+    let x = rec ? (7-st) : 4;                    // new items = medium; mastered = low
+    if(rec && rec.miss>rec.right) x+=2;          // historically struggled → boost
+    if(k===pLast) return 0;                      // never repeat back-to-back
+    if(it.type===pLastType) x*=0.45;             // bias toward switching type
+    return Math.max(x,0.08);
+  });
+  let r=Math.random()*w.reduce((a,b)=>a+b,0);
+  for(let i=0;i<pPool.length;i++){ r-=w[i]; if(r<=0) return pPool[i]; }
+  return pPool[pPool.length-1];
+}
+
+/* varied question type, never the same drill twice in a row */
+function pModeFor(it){
+  let modes = it.type==='char'  ? ['h2m','h2p','m2h','listen','recall']
+            : it.type==='word'  ? ['h2m','m2h','listen','recall']
+            :                      ['p_listen','p_read','p_say'];
+  modes = modes.filter(m=>m!==pLastMode); if(!modes.length) modes=['recall'];
+  return modes[Math.floor(Math.random()*modes.length)];
+}
+
+function pDistract(it,n,field){
+  let same = pPool.filter(x=>x.type===it.type && x.cn!==it.cn && x[field]!==it[field]);
+  if(same.length<n) same = pPool.filter(x=>x.cn!==it.cn && x[field]!==it[field]);
+  return pcShuffle(same.slice()).slice(0,n);
+}
+
+const pCard=document.getElementById("pCard");
+function pSetBig(t,size){ const e=document.getElementById("pBig"); e.textContent=t; e.style.fontSize=size+"px"; }
+function pDots(it){
+  const st=(store.srs[pKey(it)]||{}).s||0; let h="";
+  for(let i=0;i<5;i++) h+=`<i class="${i<st?'f':''}"></i>`;
+  document.getElementById("pDots").innerHTML=h;
+}
+function pSetStats(){
+  const a=store.practice, acc=a.seen?Math.round(a.right/a.seen*100):0;
+  document.getElementById("pStats").textContent=`seen ${a.seen} · acc ${acc}%`;
+  document.getElementById("pStreak").textContent = pStreak>1?("🔥 "+pStreak):"";
+}
+
+let pCorrectIt=null;
+function pBuildMCQ(opts, correctIt, label){
+  pCorrectIt=correctIt;
+  const box=document.getElementById("pOpts"); box.style.display="grid"; box.innerHTML="";
+  opts.forEach((o,i)=>{
+    const d=document.createElement("div"); d.className="opt"; d.dataset.cn=o.cn;
+    d.innerHTML=`<span class="optk">${i+1}</span>${label(o)}`;
+    d.addEventListener("click",()=>pAnswerMCQ(o));
+    box.appendChild(d);
+  });
+}
+function pAnswerMCQ(picked){
+  if(pAnswered) return; pAnswered=true;
+  const ok = picked.cn===pCorrectIt.cn;
+  document.querySelectorAll("#pOpts .opt").forEach(o=>{
+    o.style.pointerEvents="none";
+    if(o.dataset.cn===pCorrectIt.cn) o.classList.add("correct");
+    else if(o.dataset.cn===picked.cn) o.classList.add("wrong");
+    else o.classList.add("dim");
+  });
+  document.getElementById("pBigPin").textContent=pCur.pin;
+  document.getElementById("pBigPin").style.opacity=.85;
+  pGrade(ok);
+  if(pAuto){ clearTimeout(pTimer); pTimer=setTimeout(pNext, ok?700:1500); }
+  else document.getElementById("pSkip").textContent="next ›";
+}
+
+function pShowReveal(html, speakCn){
+  if(pAnswered || pCard.classList.contains("reveal")) return;
+  pCard.classList.add("reveal");
+  document.getElementById("pReveal").innerHTML=html;
+  document.getElementById("pHint").style.display="none";
+  document.getElementById("pGrade").style.display="flex";
+  if(speakCn) speak(pClean(speakCn));
+}
+function pGradeRecall(ok){
+  if(pAnswered) return; pAnswered=true;
+  pGrade(ok); clearTimeout(pTimer); pTimer=setTimeout(pNext,300);
+}
+
+function pGrade(ok){
+  const k=pKey(pCur), rec=store.srs[k]||{s:0,right:0,miss:0,seen:0};
+  rec.seen++; if(ok){rec.right++; rec.s=Math.min(5,rec.s+1);} else {rec.miss++; rec.s=Math.max(0,rec.s-1);}
+  store.srs[k]=rec;
+  store.practice.seen++; if(ok) store.practice.right++;
+  pStreak = ok?pStreak+1:0;
+  if(pCur.type==='char'){
+    if(ok){ store.known[pCur.cn]=true; if(rec.s>=2 && store.weak[pCur.cn]) delete store.weak[pCur.cn]; }
+    else store.weak[pCur.cn]=true;
+  } else if(!ok){ store.weak[pCur.cn]=true; }
+  save(); pSetStats(); renderStats();
+}
+
+function pNext(){
+  clearTimeout(pTimer); pAnswered=false; pRecallReveal=null; pCorrectIt=null;
+  pCur=pPick();
+  const opts=document.getElementById("pOpts"), grade=document.getElementById("pGrade");
+  opts.innerHTML=""; opts.style.display="none"; grade.style.display="none";
+  document.getElementById("pReveal").innerHTML=""; pCard.classList.remove("reveal");
+  document.getElementById("pHint").style.display="none";
+  document.getElementById("pBigPin").style.opacity=0;
+  document.getElementById("pSkip").textContent="skip ›";
+  const P=s=>document.getElementById("pPrompt").textContent=s;
+  if(!pCur){
+    pSetBig("∅",60); P("No items — enable a type below or widen the range.");
+    document.getElementById("pType").textContent="—"; document.getElementById("pDots").innerHTML=""; return;
+  }
+  pMode=pModeFor(pCur); pLast=pKey(pCur); pLastType=pCur.type; pLastMode=pMode;
+  document.getElementById("pType").textContent=pCur.type; pDots(pCur);
+  const cnBig = pCur.type==='char'?96 : pCur.type==='word'?58 : 30;
+  const optBig = o=>`<span style="font-size:22px">${o.cn}</span>`;
+
+  switch(pMode){
+    case 'h2m':
+      P("What does it mean?"); pSetBig(pCur.cn,cnBig);
+      pBuildMCQ(pcShuffle([pCur,...pDistract(pCur,3,'en')]), pCur, o=>o.en); break;
+    case 'h2p':
+      P("Pick the pinyin"); pSetBig(pCur.cn,cnBig);
+      pBuildMCQ(pcShuffle([pCur,...pDistract(pCur,3,'pin')]), pCur, o=>o.pin); break;
+    case 'm2h':
+      P("Which one means this?"); pSetBig(pCur.en,24);
+      pBuildMCQ(pcShuffle([pCur,...pDistract(pCur,3,'cn')]), pCur, optBig); break;
+    case 'listen':
+      P("Listen — pick the character"); pSetBig("🔊",70); speak(pClean(pCur.cn));
+      pBuildMCQ(pcShuffle([pCur,...pDistract(pCur,3,'cn')]), pCur, optBig); break;
+    case 'recall':
+      P("Recall: pinyin + meaning"); pSetBig(pCur.cn,cnBig);
+      document.getElementById("pHint").textContent="tap card / space to reveal";
+      document.getElementById("pHint").style.display="block";
+      pRecallReveal=()=>pShowReveal(`<div class="pin">${pCur.pin}</div><div class="mean">${pCur.en}</div>`, pCur.cn); break;
+    case 'p_listen':
+      P("Listen — what does it mean?"); pSetBig("🔊",70); speak(pClean(pCur.cn));
+      pBuildMCQ(pcShuffle([pCur,...pDistract(pCur,3,'en')]), pCur, o=>o.en); break;
+    case 'p_read':
+      P("Read it — what does it mean?"); pSetBig(pCur.cn,30);
+      document.getElementById("pHint").textContent="tap / space to reveal";
+      document.getElementById("pHint").style.display="block";
+      pRecallReveal=()=>pShowReveal(`<div class="pin">${pCur.pin}</div><div class="mean">${pCur.en}</div>`, pCur.cn); break;
+    case 'p_say':
+      P("Say it in Chinese:"); pSetBig(pCur.en,22);
+      document.getElementById("pHint").textContent="say it aloud, then tap / space to check";
+      document.getElementById("pHint").style.display="block";
+      pRecallReveal=()=>pShowReveal(`<div class="hanzi" style="font-size:34px">${pCur.cn}</div><div class="pin">${pCur.pin}</div>`, pCur.cn); break;
+  }
+  pSetStats();
+}
+
+pCard.addEventListener("click",()=>{ if(pRecallReveal) pRecallReveal(); });
+document.getElementById("pReplay").addEventListener("click",()=>{ if(pCur) speak(pClean(pCur.cn)); });
+document.getElementById("pSkip").addEventListener("click",pNext);
+document.getElementById("pMiss").addEventListener("click",()=>pGradeRecall(false));
+document.getElementById("pGot").addEventListener("click",()=>pGradeRecall(true));
+
+function pRenderToggles(){
+  document.getElementById("pToggles").innerHTML=
+    `<label><input type="checkbox" id="tgChar" ${pInclude.char?'checked':''}> characters</label>`+
+    `<label><input type="checkbox" id="tgWord" ${pInclude.word?'checked':''}> words</label>`+
+    `<label><input type="checkbox" id="tgPhrase" ${pInclude.phrase?'checked':''}> phrases</label>`+
+    `<label><input type="checkbox" id="tgAuto" ${pAuto?'checked':''}> auto-advance</label>`;
+  const upd=()=>{
+    pInclude={char:document.getElementById("tgChar").checked,word:document.getElementById("tgWord").checked,phrase:document.getElementById("tgPhrase").checked};
+    pAuto=document.getElementById("tgAuto").checked;
+    store.pInclude=pInclude; store.pAuto=pAuto; save();
+    pBuildPool(); pNext();
+  };
+  ["tgChar","tgWord","tgPhrase","tgAuto"].forEach(id=>document.getElementById(id).addEventListener("change",upd));
+}
+
+document.addEventListener("keydown",e=>{
+  if(!document.getElementById("view-practice").classList.contains("on")) return;
+  if(e.target.tagName==="INPUT") return;
+  const mcqOpen = document.getElementById("pOpts").style.display==="grid" && !pAnswered;
+  const gradeOpen = document.getElementById("pGrade").style.display==="flex";
+  if(mcqOpen && /^[1-4]$/.test(e.key)){ const el=document.querySelectorAll("#pOpts .opt")[+e.key-1]; if(el) el.click(); }
+  else if(gradeOpen && e.key==="1") document.getElementById("pMiss").click();
+  else if(gradeOpen && e.key==="2") document.getElementById("pGot").click();
+  else if(e.code==="Space"){ e.preventDefault(); if(pRecallReveal) pRecallReveal(); else if(pAnswered) pNext(); }
+  else if(e.key==="r") document.getElementById("pReplay").click();
+  else if(e.key==="n") pNext();
+});
+
+/* ============ INIT ============ */
+buildDeck(); renderFlash(); renderStats();
+pBuildPool(); pRenderToggles(); pNext();
+</script>
+</body>
+</html>
