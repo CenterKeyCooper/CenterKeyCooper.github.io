@@ -1,0 +1,2850 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Minecrawl: Depths</title>
+  <script>
+  (function(){
+    var c=document.createElement('canvas'),x=c.getContext('2d');
+    c.width=c.height=32;
+    x.fillStyle='#0d1117';x.fillRect(0,0,32,32);
+    x.fillStyle='#ffd70030';x.beginPath();x.arc(16,16,14,0,Math.PI*2);x.fill();
+    x.fillStyle='#00ff88';x.beginPath();x.arc(16,16,9,0,Math.PI*2);x.fill();
+    x.fillStyle='#ffd700';x.beginPath();x.arc(16,16,5,0,Math.PI*2);x.fill();
+    x.fillStyle='#00dd6a';x.beginPath();
+    x.moveTo(16,29);x.lineTo(11,20);x.lineTo(21,20);x.closePath();x.fill();
+    var l=document.createElement('link');l.rel='icon';l.href=c.toDataURL();
+    document.head.appendChild(l);
+  })();
+  </script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0d1117;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      overflow: hidden;
+      font-family: 'Courier New', monospace;
+    }
+    canvas {
+      display: block;
+      image-rendering: crisp-edges;
+      border-radius: 6px;
+      box-shadow: 0 0 60px rgba(0, 255, 136, 0.08);
+      touch-action: none;
+    }
+    #overlay, #draft, #join {
+      position: fixed; inset: 0;
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 10;
+      background: #00000088;
+    }
+    #overlay.show, #draft.show, #join.show { display: flex; }
+    .ob {
+      background: #0a0a14;
+      border: 3px solid #ffd700;
+      box-shadow: 0 0 0 3px #0a0a14, 0 0 30px #ffd70030, inset 0 0 30px #ffd70008;
+      padding: 28px 36px;
+      text-align: center;
+      color: #c9d1d9;
+      min-width: 340px;
+      max-width: 440px;
+    }
+    .ob.lost { border-color: #ff2d55; box-shadow: 0 0 0 3px #0a0a14, 0 0 30px #ff2d5530; }
+    .ob.lost h1 { color: #ff2d55; text-shadow: 0 0 10px #ff2d5560, 2px 2px 0 #880022; }
+    .ob h1 {
+      color: #ffd700; font: bold 24px 'Courier New', monospace;
+      margin: 0 0 2px; letter-spacing: 3px; text-transform: uppercase;
+      text-shadow: 0 0 10px #ffd70060, 2px 2px 0 #aa8800;
+    }
+    .ob .sub {
+      color: #00ff88; font: bold 11px 'Courier New', monospace;
+      margin: 0 0 18px; letter-spacing: 2px; text-transform: uppercase;
+      text-shadow: 0 0 8px #00ff8840;
+    }
+    .ob .time-line {
+      color: #4a9eff; font: bold 14px 'Courier New', monospace;
+      margin: 0 0 20px; letter-spacing: 1px;
+      text-shadow: 0 0 6px #4a9eff40;
+    }
+    .ob .sep { border: none; border-top: 2px dashed #30363d; margin: 0 0 16px; }
+    .ob .input-row { display: flex; gap: 8px; margin-bottom: 18px; }
+    .ob input {
+      flex: 1; padding: 8px 10px;
+      background: #000; border: 2px solid #30363d;
+      color: #00ff88; font: bold 16px 'Courier New', monospace;
+      outline: none; text-transform: uppercase; letter-spacing: 4px; text-align: center;
+    }
+    .ob input::placeholder { color: #30363d; letter-spacing: 1px; }
+    .ob input:focus { border-color: #00ff88; box-shadow: 0 0 8px #00ff8830; }
+    .ob button {
+      padding: 8px 14px;
+      background: #ffd700; border: 2px solid #ffaa00;
+      color: #0a0a14; font: bold 13px 'Courier New', monospace; cursor: pointer;
+      text-transform: uppercase; letter-spacing: 1px;
+    }
+    .ob button:hover { background: #ffee55; box-shadow: 0 0 10px #ffd70050; }
+    .ob .hint {
+      color: #30363d; font: bold 11px 'Courier New', monospace;
+      margin-top: 16px; letter-spacing: 1px;
+    }
+    /* ---- perk draft ---- */
+    .draft-box { text-align: center; }
+    .draft-title {
+      color: #ffd700; font: bold 22px 'Courier New', monospace;
+      letter-spacing: 4px; text-transform: uppercase;
+      text-shadow: 0 0 12px #ffd70060, 2px 2px 0 #aa8800;
+      margin-bottom: 4px;
+    }
+    .draft-sub {
+      color: #00ff88; font: bold 11px 'Courier New', monospace;
+      letter-spacing: 2px; text-transform: uppercase; margin-bottom: 22px;
+      text-shadow: 0 0 8px #00ff8840;
+    }
+    #draft-wait {
+      display: none;
+      color: #ffd700; font: bold 12px 'Courier New', monospace;
+      letter-spacing: 2px; text-transform: uppercase; margin-top: 20px;
+      text-shadow: 0 0 8px #ffd70040;
+    }
+    .draft-cards { display: flex; gap: 16px; justify-content: center; }
+    .draft-cards.picked { opacity: 0.35; pointer-events: none; }
+    .dcard {
+      width: 168px; padding: 18px 14px 16px;
+      background: #0a0a14;
+      border: 3px solid var(--pc, #30363d);
+      box-shadow: 0 0 0 3px #0a0a14, 0 0 18px color-mix(in srgb, var(--pc) 25%, transparent);
+      cursor: pointer;
+      color: #c9d1d9;
+      font-family: 'Courier New', monospace;
+      transition: transform .08s;
+    }
+    .dcard:hover { transform: translateY(-4px); box-shadow: 0 0 0 3px #0a0a14, 0 0 28px color-mix(in srgb, var(--pc) 55%, transparent); }
+    .dcard .key {
+      color: #586069; font: bold 10px 'Courier New', monospace; letter-spacing: 2px;
+      margin-bottom: 8px;
+    }
+    .dcard .tag {
+      display: inline-block; width: 34px; height: 34px; line-height: 34px;
+      border: 2px solid var(--pc); color: var(--pc);
+      font: bold 14px 'Courier New', monospace; margin-bottom: 10px;
+      text-shadow: 0 0 8px var(--pc);
+    }
+    .dcard .pname {
+      color: var(--pc); font: bold 13px 'Courier New', monospace;
+      text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;
+      text-shadow: 0 0 6px color-mix(in srgb, var(--pc) 50%, transparent);
+    }
+    .dcard .pdesc { color: #8b949e; font: 11px 'Courier New', monospace; line-height: 1.5; }
+    .dcard .owned { color: #586069; font: bold 10px 'Courier New', monospace; margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <canvas id="c"></canvas>
+
+  <div id="overlay">
+    <div class="ob" id="endBox">
+      <h1 id="ov-title">DEPTHS CONQUERED</h1>
+      <p class="sub" id="ov-sub">- you cleared the mines -</p>
+      <p class="time-line" id="ov-time"></p>
+      <hr class="sep">
+      <div id="ov-stats" style="font:bold 12px 'Courier New',monospace;color:#8b949e;text-align:left;line-height:1.9"></div>
+      <p class="hint" id="ov-hint">[R] NEW RUN</p>
+    </div>
+  </div>
+
+  <div id="draft">
+    <div class="draft-box">
+      <div class="draft-title" id="draft-title">DEPTH CLEARED</div>
+      <div class="draft-sub">choose an advancement</div>
+      <div class="draft-cards" id="draft-cards"></div>
+      <div id="draft-wait">waiting for the rest of the party…</div>
+    </div>
+  </div>
+
+  <div id="join">
+    <div class="ob">
+      <h1 style="font-size:18px" id="join-title">JOIN RUN</h1>
+      <p class="sub" id="join-sub">- enter the host's room code -</p>
+      <div class="input-row">
+        <input type="text" id="nameInput" maxlength="10" placeholder="YOUR NAME" autocomplete="off" spellcheck="false" style="letter-spacing:2px">
+      </div>
+      <div class="input-row">
+        <input type="text" id="joinInput" maxlength="4" placeholder="CODE" autocomplete="off" spellcheck="false">
+        <button id="joinBtn">GO</button>
+      </div>
+      <p class="hint">[ESC] BACK</p>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <script>
+(() => {
+'use strict';
+
+// =====================================================================
+// MINECRAWL: DEPTHS — roguelike descent + PeerJS co-op
+//
+// Multiplayer model (per "minecrawl multiplayer v2/PLAN.md", adapted to
+// P2P): the HOST'S BROWSER is the authoritative server. It runs the
+// fixed 20Hz tick() and broadcasts a full snapshot every tick over a
+// reliable/ordered WebRTC data channel. Guests never simulate: they
+// render snapshots, interpolate, and send inputs. Full snapshots every
+// 50ms make durable desync structurally impossible (v2 §4g) — no
+// checksum layer needed. Cosmetic effects travel as events (fx()).
+// Guests predict only their own movement (seq echo, v2 §3-lite).
+// Boards, loot, draft offers, hatch types derive from keyed RNG, so the
+// snapshot only carries dynamic state.
+// =====================================================================
+
+const GAME_VER = 'v0.4';
+const TILE = 32;
+let HUD_H = 64;   // grows one 16px row per teammate (party status board)
+const TICK_MS = 50, TICK_DT = TICK_MS / 1000;   // 20Hz fixed sim step
+const MAX_DEPTH = 8;
+const CLEAR_R = 2;
+const BULLET_SPEED = 18;
+const EXPLODE_EGG = 0.04;
+const CHAIN_DELAY = 150;
+const MAX_PLAYERS = 4;
+const NUM_CLR = ['','#4a9eff','#4aff7a','#ff4a6a','#9a4aff','#ff8a4a','#4affff','#ff4aff','#c0c0c0'];
+const COLORS = ['#00ff88', '#4a9eff', '#ff8a3d', '#ff4aff'];
+const SPAWN_OFFS = [[0, 0], [-1, -1], [1, -1], [-1, 1]];
+const ENEMY_COLORS = {
+  normal: { body: '#ff2d55', glow: '#ff2d5518', eye: '#1a0008', d1: '#ff2d55', d2: '#ff8888' },
+  fast:   { body: '#22dd55', glow: '#22dd5518', eye: '#001a08', d1: '#22dd55', d2: '#88ffaa' },
+  shooter:{ body: '#66aaff', glow: '#66aaff18', eye: '#001030', d1: '#66aaff', d2: '#aaddff' },
+  charger:{ body: '#aa44ff', glow: '#aa44ff18', eye: '#0a0020', d1: '#aa44ff', d2: '#dd88ff' },
+  bloater: { body: '#c9e04a', glow: '#c9e04a18', eye: '#1a1a00', d1: '#c9e04a', d2: '#eaff88' },
+  brood:   { body: '#ff9e2c', glow: '#ff9e2c18', eye: '#201000', d1: '#ff9e2c', d2: '#ffcf88' },
+  magpie:  { body: '#cfd8ff', glow: '#cfd8ff18', eye: '#101030', d1: '#cfd8ff', d2: '#ffffff' },
+  burrower:{ body: '#b07a4a', glow: '#b07a4a18', eye: '#150a00', d1: '#b07a4a', d2: '#d9aa77' },
+  pyro:    { body: '#ff7a00', glow: '#ff7a0018', eye: '#200800', d1: '#ff7a00', d2: '#ffcc44' },
+};
+// move-cooldown multiplier vs conf.espeed
+const SPEED_MUL = { normal: 1, fast: 0.5, shooter: 1, charger: 1,
+  bloater: 1.5, brood: 1.7, magpie: 0.6, burrower: 1.4, pyro: 0.85 };
+
+// ---- depth scaling ----
+function depthConf(d) {
+  const size = Math.min(9 + d, 14);
+  return {
+    cols: size, rows: size,
+    mineRate: 0.09 + d * 0.006,
+    megaRate: d < 3 ? 0 : 0.05 + (d - 3) * 0.025,
+    hatch: Math.max(2800, 5200 - d * 300),
+    espeed: Math.max(650, 950 - d * 35),
+    lootBullet: 0.20,
+    lootHeart: 0.03,
+    lootEgg: 0.07 + d * 0.006,
+  };
+}
+
+function rollType(d, r) {
+  const w = [
+    ['normal',   Math.max(1, 5 - d * 0.4)],
+    ['fast',     d >= 2 ? 0.9 + d * 0.12 : 0],
+    ['magpie',   d >= 2 ? 0.8 : 0],
+    ['shooter',  d >= 3 ? 0.8 + d * 0.10 : 0],
+    ['bloater',  d >= 3 ? 0.8 : 0],
+    ['charger',  d >= 4 ? 0.7 + d * 0.12 : 0],
+    ['burrower', d >= 4 ? 0.7 : 0],
+    ['pyro',     d >= 5 ? 0.7 : 0],
+    ['brood',    d >= 5 ? 0.5 : 0],
+  ];
+  let tot = 0;
+  for (const [, x] of w) tot += x;
+  let left = (r === undefined ? Math.random() : r) * tot;
+  for (const [t, x] of w) { left -= x; if (left <= 0) return t; }
+  return 'normal';
+}
+
+// ---- seeded RNG ----
+function mulberry32(a) {
+  return function() {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+// Keyed RNG streams: gameplay rolls guests can reproduce are derived from
+// (runSeed, depth, entity/tile key, salt) instead of Math.random.
+// Salts: 1=hatch type, 2=prospector, 3=explode-egg, 4=omelette, 5=draft.
+function mix(a, b) { return (a ^ Math.imul(b + 1, 0x9e3779b9)) >>> 0; }
+function keyedRng(seed, ...ks) {
+  let s = seed >>> 0;
+  for (const k of ks) s = mix(s, k);
+  return mulberry32(s);
+}
+
+// ---- perks ----
+const PERKS = [
+  { id: 'vest',       name: 'PLATED VEST',     tag: '+♥', clr: '#ff6b6b', stack: true,  desc: '+1 max HP and heal 1 heart.' },
+  { id: 'medic',      name: 'FIELD MEDIC',     tag: 'FM', clr: '#ff9ecb', stack: false, desc: 'Heal to full now. Hearts drop far more often.' },
+  { id: 'swift',      name: 'SWIFT BOOTS',     tag: 'SB', clr: '#4affd0', stack: true,  desc: 'Move 20% faster.' },
+  { id: 'bandolier',  name: 'BANDOLIER',       tag: 'BD', clr: '#ffd700', stack: true,  desc: '+4 ammo now. Ammo pickups give +1 extra.' },
+  { id: 'pierce',     name: 'PIERCING ROUNDS', tag: 'PR', clr: '#ffaa4a', stack: false, desc: 'Bullets punch through and reveal 2 tiles.' },
+  { id: 'slayer',     name: 'SLAYER ROUNDS',   tag: 'SR', clr: '#ff4a6a', stack: false, desc: 'Your bullets kill enemies on contact.' },
+  { id: 'eggcrush',   name: 'EGG CRUSHER',     tag: 'EC', clr: '#ff8a4a', stack: false, desc: 'Bullets and footsteps destroy eggs.' },
+  { id: 'sapper',     name: 'SAPPER KIT',      tag: 'SK', clr: '#4a9eff', stack: false, desc: 'Polling a mine defuses it. 2 charges per depth.' },
+  { id: 'radar',      name: 'RADAR PULSE',     tag: 'RP', clr: '#4affff', stack: false, desc: 'Mines near spawn are marked on each new depth.' },
+  { id: 'blastsuit',  name: 'BLAST SUIT',      tag: 'BS', clr: '#c0c0c0', stack: false, desc: 'Explosions deal at most 1 damage. Longer i-frames.' },
+  { id: 'secondwind', name: 'SECOND WIND',     tag: 'SW', clr: '#00ff88', stack: false, desc: 'Once per run, survive a killing blow at 1 HP.' },
+  { id: 'scavenger',  name: 'SCAVENGER',       tag: 'SC', clr: '#9a4aff', stack: true,  desc: '+50% loot spawns on future depths.' },
+  { id: 'adrenaline', name: 'ADRENALINE',      tag: 'AD', clr: '#4aff7a', stack: false, desc: 'Taking damage doubles your speed for 3s.' },
+  { id: 'demo',       name: 'DEMOLITION ROUNDS', tag: 'DR', clr: '#ff8c1a', stack: false, desc: 'Bullets blast open a plus-shape of 5 tiles.' },
+  { id: 'ricochet',   name: 'RICOCHET',        tag: 'RC', clr: '#8adfff', stack: false, desc: 'Bullets bounce off the board edge once.' },
+  { id: 'lucky',      name: 'LUCKY RABBIT',    tag: 'LR', clr: '#aef78e', stack: false, desc: '30% chance a shot costs no ammo.' },
+  { id: 'trap',       name: 'TRAP LAYER',      tag: 'TL', clr: '#7dff9a', stack: false, desc: 'Q plants a trap (2 ammo). Enemies that step on it die.' },
+  { id: 'sixth',      name: 'SIXTH SENSE',     tag: 'SS', clr: '#ff5a8a', stack: false, desc: 'Your reticle glows red when facing a mine.' },
+  { id: 'prospector', name: 'PROSPECTOR',      tag: 'PS', clr: '#e0c060', stack: false, desc: 'Craters have a 35% chance to hold loot.' },
+  { id: 'omelette',   name: 'OMELETTE',        tag: 'OM', clr: '#ffe08a', stack: false, desc: 'Destroyed eggs drop loot.' },
+  { id: 'bloodlust',  name: 'BLOODLUST',       tag: 'BL', clr: '#ff3355', stack: false, desc: 'Enemy kills heal half a heart.' },
+  { id: 'bombsquad',  name: 'BOMB SQUAD',      tag: 'BQ', clr: '#66c2ff', stack: false, requires: 'sapper', desc: 'Defused mines turn into ammo pickups.' },
+  { id: 'dms',        name: "DEAD MAN'S SWITCH", tag: 'DM', clr: '#dddddd', stack: false, desc: 'Whenever you take damage, the nearest enemy dies.' },
+  { id: 'magnet',     name: 'MAGNET',          tag: 'MG', clr: '#c77dff', stack: false, desc: 'Loot within 2 tiles is pulled to you.' },
+];
+
+// ---- advancements (persistent achievements; evaluated on the sim side) ----
+const ACH = [
+  { id: 'depth3',    name: 'SPELUNKER',   desc: 'Reach depth 3' },
+  { id: 'depth5',    name: 'DELVER',      desc: 'Reach depth 5' },
+  { id: 'conqueror', name: 'CONQUEROR',   desc: 'Clear all 8 depths' },
+  { id: 'pacifist',  name: 'PACIFIST',    desc: 'Clear a depth without shooting' },
+  { id: 'untouched', name: 'UNTOUCHED',   desc: 'Clear a depth taking no damage' },
+  { id: 'chain5',    name: 'CHAIN MASTER',desc: 'Set off a 5-mine cascade' },
+  { id: 'slayer3',   name: 'EXTERMINATOR',desc: 'Kill 3 enemies on one depth' },
+  { id: 'hoard',     name: 'HOARDER',     desc: 'Hold 12 ammo at once' },
+];
+let achEarned = {};
+try { achEarned = JSON.parse(localStorage.getItem('mcrogue-adv') || '{}'); } catch (e) {}
+function award(id) {
+  if (achEarned[id]) return;
+  achEarned[id] = true;
+  try { localStorage.setItem('mcrogue-adv', JSON.stringify(achEarned)); } catch (e) {}
+  const a = ACH.find(a => a.id === id);
+  toasts.push({ text: 'ADVANCEMENT · ' + (a ? a.name : id), t: performance.now() });
+}
+
+// ---- canvas ----
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+let COLS = 20, ROWS = 20, W = COLS * TILE, H = ROWS * TILE + HUD_H;
+function setBoardSize(cols, rows) {
+  COLS = cols; ROWS = rows;
+  W = COLS * TILE; H = ROWS * TILE + HUD_H;
+  canvas.width = W; canvas.height = H;
+  fitCanvas();
+}
+function fitCanvas() {
+  const s = Math.min(window.innerWidth / W, window.innerHeight / H) * 0.95;
+  canvas.style.width = (W * s) + 'px';
+  canvas.style.height = (H * s) + 'px';
+}
+window.addEventListener('resize', fitCanvas);
+setBoardSize(20, 20);
+
+// ---- state ----
+let grid = null, enemies = [], eggs = [], projectiles = [], enemyBullets = [], traps = [];
+let particles = [], toasts = [];
+let players = [], myIdx = 0, player = null;
+let tilesLeft = 0, totalSafe = 0, gameState, shake = { x: 0, y: 0, i: 0 }, lastTime = 0;
+let explosionQueue = [];
+let conf = depthConf(1);
+let run = null;
+let gameTime = 0, finalTime = 0;
+let acc = 0, simTick = 0, simNow = 0, playTicks = 0;
+let nextEid = 1;
+let shotsThisFloor = 0, damagedThisFloor = false, killsThisFloor = 0;
+let chainCount = 0, lastBoom = -1e9;
+let borderSpawnTimer = 0, borderCrack = null;
+let draftChoices = [], draftPicked = [], draftWaiting = false;
+let netMsgTitle = null, lobbyMsg = null, lobbyCount = 1, lobbyNames = [];
+let gacc = 0, mySeq = 0, gTapQueue = [];
+let dlgMode = 'join';
+let myName = '';
+try { myName = localStorage.getItem('mcrogue-name') || ''; } catch (e) {}
+const keys = new Set();
+
+const overlay = document.getElementById('overlay');
+const draftEl = document.getElementById('draft');
+const joinEl = document.getElementById('join');
+const joinInput = document.getElementById('joinInput');
+const joinBtn = document.getElementById('joinBtn');
+const nameInput = document.getElementById('nameInput');
+
+function sanitizeName(s) {
+  return String(s || '').replace(/[^\w \-'!.]/g, '').trim().slice(0, 10);
+}
+
+function fmtTime(s) {
+  const m = Math.floor(s / 60), sec = Math.floor(s % 60);
+  return m + ':' + (sec < 10 ? '0' : '') + sec;
+}
+function esc(s) { const d = document.createElement('div'); d.textContent = String(s); return d.innerHTML; }
+
+function makePlayer(idx) {
+  return { idx, color: COLORS[idx % COLORS.length], name: 'P' + (idx + 1),
+    x: 0, y: 0, fx: 0, fy: 0, dir: { x: 1, y: 0 },
+    downed: false, left: false,
+    hp: 3, maxHp: 3, bullets: 3, perks: {}, sapperLeft: 0,
+    iframeUntil: 0, adrenalineUntil: 0, moveBudget: 1,
+    taps: [], acts: [], lastSeq: 0 };
+}
+function resetPlayerRun(pl) {
+  pl.hp = 3; pl.maxHp = 3; pl.bullets = 3; pl.perks = {}; pl.sapperLeft = 0;
+  pl.downed = false; pl.iframeUntil = 0; pl.adrenalineUntil = 0;
+  pl.moveBudget = 1; pl.taps = []; pl.acts = []; pl.lastSeq = 0;
+}
+function updateHudH() {
+  HUD_H = 64 + Math.max(0, players.filter(p => !p.left).length - 1) * 16;
+}
+function livePlayers() { return players.filter(p => !p.left && !p.downed); }
+function nearestPlayer(x, y) {
+  let best = null, bd = Infinity;
+  for (const p of livePlayers()) {
+    const d = Math.abs(p.x - x) + Math.abs(p.y - y);
+    if (d < bd) { bd = d; best = p; }
+  }
+  return best;
+}
+function anyPerk(id) { return players.some(p => !p.left && p.perks[id]); }
+function teamPerkCount(id) { return players.reduce((s, p) => s + (p.left ? 0 : (p.perks[id] || 0)), 0); }
+
+// ---- end overlay ----
+function showEnd(won) {
+  const box = document.getElementById('endBox');
+  box.classList.toggle('lost', !won);
+  document.getElementById('ov-title').textContent = won ? 'DEPTHS CONQUERED' : 'RUN OVER';
+  document.getElementById('ov-sub').textContent = won
+    ? '- you cleared all 8 depths -'
+    : `- the mines claimed you on depth ${run.depth} -`;
+  document.getElementById('ov-time').textContent =
+    (won ? 'ALL 8 DEPTHS' : 'DEPTH ' + run.depth + ' / ' + MAX_DEPTH) +
+    '  //  ' + fmtTime(finalTime);
+  const me = players[myIdx];
+  const perkList = me ? PERKS.filter(p => me.perks[p.id])
+    .map(p => p.name + (me.perks[p.id] > 1 ? ' ×' + me.perks[p.id] : '')) : [];
+  document.getElementById('ov-stats').innerHTML =
+    'TIME&nbsp;&nbsp;&nbsp;&nbsp;' + fmtTime(finalTime) + '<br>' +
+    'BUILD&nbsp;&nbsp;&nbsp;' + (perkList.length ? esc(perkList.join(' · ')) : 'no advancements');
+  document.getElementById('ov-hint').textContent =
+    net.mode === 'guest' ? 'WAITING FOR HOST TO RESTART' : '[R] NEW RUN';
+  overlay.classList.add('show');
+}
+function hideOverlay() { overlay.classList.remove('show'); }
+
+// =====================================================================
+// COSMETIC EFFECTS — every visual the sim triggers goes through fx().
+// On the host, fx() also queues the event into the outgoing snapshot so
+// guests replay the same visual. FXR handlers are pure-cosmetic.
+// boom/edeath/eggdeath/burst take TILE coords; the rest take PIXELS.
+// =====================================================================
+const FXR = {
+  boom: (x, y, mega) => { emitExplosion(x, y, mega); shake.i = Math.max(shake.i, mega ? 20 : 12); },
+  edeath: (x, y, type) => emitEnemyDeath(x, y, type),
+  eggdeath: (x, y) => emitEggDeath(x, y),
+  burst: (x, y, clr) => lootBurst(x, y, clr),
+  flash: (x, y, clr, sz) => particles.push({ x, y, vx: 0, vy: 0, life: 0.15, ml: 0.15, clr, sz, flash: true }),
+  spark: (x, y, clr) => {
+    for (let i = 0; i < 5; i++)
+      particles.push({ x, y, vx: (Math.random() - 0.5) * 80, vy: (Math.random() - 0.5) * 80,
+        life: 0.25, ml: 0.25, clr, sz: 2 });
+  },
+  ptext: (x, y, s, clr) => particles.push({ x, y, vx: 0, vy: -26, life: 0.9, ml: 0.9, clr, sz: 0, text: s }),
+  streak: (x, y, tx, ty, clr) => {
+    for (let i = 0; i < 6; i++)
+      particles.push({ x, y, vx: (tx - x) * (2 + Math.random()), vy: (ty - y) * (2 + Math.random()),
+        life: 0.3, ml: 0.3, clr, sz: 2 });
+  },
+  dmg: (x, y) => {
+    for (let i = 0; i < 12; i++) {
+      const a = Math.random() * Math.PI * 2, sp = 40 + Math.random() * 80;
+      particles.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+        life: 0.4 + Math.random() * 0.3, ml: 0.4 + Math.random() * 0.3,
+        clr: Math.random() > 0.4 ? '#ff2d55' : '#ff8888', sz: 2 + Math.random() * 3 });
+    }
+    shake.i = Math.max(shake.i, 10);
+  },
+  kburst: (x, y) => {
+    for (let i = 0; i < 24; i++) {
+      const a = Math.random() * Math.PI * 2, sp = 40 + Math.random() * 90;
+      particles.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+        life: 0.5 + Math.random() * 0.6, ml: 0.5 + Math.random() * 0.6,
+        clr: Math.random() > 0.4 ? '#00ff88' : '#ff2d55', sz: 2 + Math.random() * 4 });
+    }
+    shake.i = Math.max(shake.i, 18);
+  },
+  wburst: (x, y) => {
+    for (let i = 0; i < 30; i++) {
+      const a = Math.random() * Math.PI * 2, sp = 60 + Math.random() * 100;
+      particles.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+        life: 0.8 + Math.random() * 0.8, ml: 0.8 + Math.random() * 0.8,
+        clr: ['#ffd700', '#00ff88', '#4a9eff', '#ff6b00'][i % 4], sz: 2 + Math.random() * 3 });
+    }
+  },
+  crack: (x, y) => {
+    for (let i = 0; i < 12; i++) {
+      const a = (Math.PI * 2 / 12) * i + Math.random() * 0.3;
+      const sp = 50 + Math.random() * 70;
+      particles.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+        life: 0.5, ml: 0.5, clr: Math.random() > 0.5 ? '#2d333b' : '#21262d', sz: 3 + Math.random() * 3 });
+    }
+    shake.i = Math.max(shake.i, 5);
+  },
+  toast: (s) => toasts.push({ text: s, t: performance.now() }),
+};
+function fx(kind, ...a) {
+  if (FXR[kind]) FXR[kind](...a);
+  if (net.mode === 'host') net.events.push([kind, ...a]);
+}
+
+function emitExplosion(gx, gy, mega) {
+  const cx = gx * TILE + TILE / 2, cy = gy * TILE + TILE / 2 + HUD_H;
+  const count = mega ? 28 : 14;
+  const spMul = mega ? 1.8 : 1, lifeMul = mega ? 1.6 : 1, szMul = mega ? 1.5 : 1;
+  for (let i = 0; i < count; i++) {
+    const a = (Math.PI * 2 / count) * i + Math.random() * 0.4;
+    const sp = (70 + Math.random() * 120) * spMul;
+    particles.push({ x: cx, y: cy, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+      life: (0.3 + Math.random() * 0.4) * lifeMul, ml: (0.3 + Math.random() * 0.4) * lifeMul,
+      clr: mega ? (Math.random() > 0.4 ? '#ffd700' : '#ff4400') : (Math.random() > 0.3 ? '#ff6b00' : '#ffcc00'),
+      sz: (2 + Math.random() * 3) * szMul });
+  }
+  particles.push({ x: cx, y: cy, vx: 0, vy: 0,
+    life: mega ? 0.25 : 0.12, ml: mega ? 0.25 : 0.12,
+    clr: mega ? '#ffd700' : '#ffffff', sz: TILE * (mega ? 3.5 : 1.6), flash: true });
+}
+
+function emitEnemyDeath(fx2, fy2, etype) {
+  const cx = fx2 * TILE + TILE / 2, cy = fy2 * TILE + TILE / 2 + HUD_H;
+  const ec = ENEMY_COLORS[etype] || ENEMY_COLORS.normal;
+  for (let i = 0; i < 16; i++) {
+    const a = (Math.PI * 2 / 16) * i + Math.random() * 0.3;
+    const sp = 50 + Math.random() * 100;
+    particles.push({ x: cx, y: cy, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+      life: 0.4 + Math.random() * 0.4, ml: 0.4 + Math.random() * 0.4,
+      clr: Math.random() > 0.4 ? ec.d1 : ec.d2, sz: 2 + Math.random() * 3 });
+  }
+  particles.push({ x: cx, y: cy, vx: 0, vy: 0, life: 0.15, ml: 0.15,
+    clr: ec.d1, sz: TILE * 1.2, flash: true });
+}
+
+function emitEggDeath(ex, ey) {
+  const cx = ex * TILE + TILE / 2, cy = ey * TILE + TILE / 2 + HUD_H;
+  for (let i = 0; i < 8; i++) {
+    const a = (Math.PI * 2 / 8) * i + Math.random() * 0.4;
+    const sp = 30 + Math.random() * 60;
+    particles.push({ x: cx, y: cy, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+      life: 0.3 + Math.random() * 0.3, ml: 0.3 + Math.random() * 0.3,
+      clr: Math.random() > 0.5 ? '#ff6b35' : '#ffaa55', sz: 1.5 + Math.random() * 2 });
+  }
+}
+
+function lootBurst(nx, ny, clr) {
+  const px = (nx + 0.5) * TILE, py = (ny + 0.5) * TILE + HUD_H;
+  for (let i = 0; i < 8; i++) {
+    const a = (Math.PI * 2 / 8) * i;
+    particles.push({ x: px, y: py, vx: Math.cos(a) * 50, vy: Math.sin(a) * 50,
+      life: 0.35, ml: 0.35, clr, sz: 2 });
+  }
+}
+
+// =====================================================================
+// RUN / FLOOR LIFECYCLE (host + solo only; guests receive snapshots)
+// =====================================================================
+function init() { gameState = 'title'; }
+
+function ensureSolo() {
+  if (net.mode === null && (players.length !== 1 || !players[0])) {
+    players = [makePlayer(0)];
+    myIdx = 0;
+    player = players[0];
+  }
+}
+
+function startRunShared() {
+  if (net.mode === 'guest') return;
+  if (net.mode === null) ensureSolo();
+  const seed = (Math.random() * 0xffffffff) >>> 0;
+  if (net.mode === 'host') {
+    // compact the roster: drop players whose connection died last run
+    players = [players[0]];
+    players[0].idx = 0; players[0].left = false;
+    net.conns.forEach((c, i) => {
+      c._idx = i + 1;
+      const np = makePlayer(i + 1);
+      if (c._name) np.name = c._name;
+      players.push(np);
+      try { c.send({ t: 'welcome', idx: i + 1 }); } catch (e) {}
+    });
+    net.sendAll({ t: 'start', seed, n: players.length });
+  }
+  newRun(seed);
+}
+
+function newRun(seed) {
+  hideOverlay();
+  run = { seed: seed >>> 0, depth: 1 };
+  playTicks = 0; gameTime = 0; finalTime = 0;
+  players.forEach(resetPlayerRun);
+  player = players[myIdx];
+  startFloor(1);
+}
+
+function startFloor(d) {
+  run.depth = d;
+  conf = depthConf(d);
+  updateHudH();
+  setBoardSize(conf.cols, conf.rows);
+  grid = []; enemies = []; eggs = []; projectiles = []; particles = [];
+  explosionQueue = []; enemyBullets = []; traps = [];
+  shake = { x: 0, y: 0, i: 0 };
+  keys.clear(); gTapQueue = [];
+  shotsThisFloor = 0; damagedThisFloor = false; killsThisFloor = 0;
+  chainCount = 0; lastBoom = -1e9;
+  borderSpawnTimer = 0; borderCrack = null;
+  draftPicked = players.map(p => !!p.left);
+  draftWaiting = false;
+  draftEl.classList.remove('show');
+  const cx = COLS >> 1, cy = ROWS >> 1;
+  players.forEach((pl, i) => {
+    const o = SPAWN_OFFS[i % SPAWN_OFFS.length];
+    pl.x = cx + o[0]; pl.y = cy + o[1];
+    pl.fx = pl.x; pl.fy = pl.y;
+    pl.moveBudget = 1; pl.taps = []; pl.acts = [];
+    pl.sapperLeft = pl.perks.sapper ? 2 : 0;
+  });
+  const rng = mulberry32((run.seed ^ Math.imul(d, 0x9e3779b9)) >>> 0);
+  genBoard(cx, cy, rng);
+  if (anyPerk('radar')) {
+    for (let y = 0; y < ROWS; y++)
+      for (let x = 0; x < COLS; x++)
+        if (grid[y][x].mine && Math.max(Math.abs(x - cx), Math.abs(y - cy)) <= 4)
+          grid[y][x].marked = true;
+  }
+  if (d >= 3) award('depth3');
+  if (d >= 5) award('depth5');
+  gameState = 'playing';
+}
+
+function genBoard(cx, cy, rng) {
+  const scav = 1 + 0.5 * teamPerkCount('scavenger');
+  const heartRate = conf.lootHeart * scav * (anyPerk('medic') ? 2.5 : 1);
+  const bulletRate = conf.lootBullet * scav;
+  const eggRate = conf.lootEgg * scav;
+  for (let y = 0; y < ROWS; y++) {
+    grid[y] = [];
+    for (let x = 0; x < COLS; x++)
+      grid[y][x] = { mine: false, mega: false, rev: false, crater: false,
+        num: 0, nearMega: false, loot: null, rt: 0, marked: false };
+  }
+  for (let y = 0; y < ROWS; y++)
+    for (let x = 0; x < COLS; x++) {
+      if (Math.abs(x - cx) <= CLEAR_R && Math.abs(y - cy) <= CLEAR_R) continue;
+      if (rng() < conf.mineRate) {
+        grid[y][x].mine = true;
+        if (rng() < conf.megaRate) grid[y][x].mega = true;
+      }
+    }
+  recomputeNums();
+  for (let y = 0; y < ROWS; y++)
+    for (let x = 0; x < COLS; x++) {
+      const t = grid[y][x];
+      if (t.mine || t.num === 0) continue;
+      const r = rng();
+      if (r < bulletRate) t.loot = 'bullet';
+      else if (r < bulletRate + eggRate) t.loot = 'egg';
+      else if (r < bulletRate + eggRate + heartRate) t.loot = 'heart';
+    }
+  totalSafe = 0;
+  for (let y = 0; y < ROWS; y++)
+    for (let x = 0; x < COLS; x++)
+      if (!grid[y][x].mine) totalSafe++;
+  tilesLeft = totalSafe;
+  reveal(cx, cy);
+  for (let y = 0; y < ROWS; y++)
+    for (let x = 0; x < COLS; x++)
+      if (grid[y][x].rev) grid[y][x].loot = null;
+}
+
+function recomputeNums() {
+  for (let y = 0; y < ROWS; y++)
+    for (let x = 0; x < COLS; x++) {
+      const t = grid[y][x];
+      t.nearMega = false;
+      if (t.mine) continue;
+      let n = 0;
+      for (let dy = -1; dy <= 1; dy++)
+        for (let dx = -1; dx <= 1; dx++) {
+          if (!dx && !dy) continue;
+          const nx = x + dx, ny = y + dy;
+          if (!ib(nx, ny)) continue;
+          if (grid[ny][nx].mine) n++;
+          if (grid[ny][nx].mega) t.nearMega = true;
+        }
+      t.num = n;
+    }
+}
+
+function ib(x, y) { return x >= 0 && x < COLS && y >= 0 && y < ROWS; }
+
+function reveal(x, y) {
+  if (!ib(x, y)) return;
+  const t = grid[y][x];
+  if (t.rev || t.crater) return;
+  if (t.mine) { doExplosion(x, y); return; }
+  t.rev = true; t.rt = simNow; tilesLeft--;
+  if (t.loot === 'egg') { spawnEgg(x, y); t.loot = null; }
+  if (t.num === 0)
+    for (let dy = -1; dy <= 1; dy++)
+      for (let dx = -1; dx <= 1; dx++)
+        if (dx || dy) reveal(x + dx, y + dy);
+  if (tilesLeft <= 0 && explosionQueue.length === 0 && gameState === 'playing') floorCleared();
+}
+
+function doExplosion(mx, my) {
+  const mt = grid[my][mx];
+  if (!mt.mine) return;
+  const now = simNow;
+  if (now - lastBoom > 600) chainCount = 0;
+  chainCount++; lastBoom = now;
+  if (chainCount >= 5) award('chain5');
+  const isMega = mt.mega;
+  const rad = isMega ? 2 : 1;
+  mt.crater = true; mt.rev = true; mt.mine = false; mt.mega = false; mt.loot = null; mt.marked = false;
+
+  const hitPlayers = [];
+  for (let dy = -rad; dy <= rad; dy++)
+    for (let dx = -rad; dx <= rad; dx++) {
+      const nx = mx + dx, ny = my + dy;
+      if (!ib(nx, ny)) continue;
+      players.forEach(pl => {
+        if (!pl.left && !pl.downed && pl.x === nx && pl.y === ny) hitPlayers.push(pl);
+      });
+      enemies.forEach(e => { if (!e.dead && e.x === nx && e.y === ny) killEnemy(e, 'explosion', null); });
+      eggs.slice().forEach(e => { if (e.x === nx && e.y === ny) killEgg(e); });
+      const nt = grid[ny][nx];
+      if (nt.mine && !nt.crater) {
+        explosionQueue.push({ x: nx, y: ny, time: now + CHAIN_DELAY });
+      } else if (!nt.rev && !nt.crater) {
+        nt.rev = true; nt.rt = now; nt.loot = null; nt.marked = false; tilesLeft--;
+        if (keyedRng(run.seed, run.depth, ny * COLS + nx, 3)() < EXPLODE_EGG) spawnEgg(nx, ny);
+      }
+    }
+  enemies = enemies.filter(e => !e.dead);
+
+  if (anyPerk('prospector')) {
+    const kr = keyedRng(run.seed, run.depth, my * COLS + mx, 2);
+    if (kr() < 0.35) mt.loot = kr() < 0.75 ? 'bullet' : 'heart';
+  }
+  fx('boom', mx, my, isMega);
+  hitPlayers.forEach(pl => damagePlayer(pl, isMega ? 2 : 1, 'explosion'));
+
+  if (explosionQueue.length === 0 && tilesLeft <= 0 && gameState === 'playing') floorCleared();
+}
+
+// ---- enemy/egg lifecycle ----
+function makeEnemy(type, x, y, now) {
+  return { id: nextEid++, x, y, fx: x, fy: y,
+    lm: now, cd: conf.espeed * (SPEED_MUL[type] || 1) + (Math.random() - 0.5) * 200,
+    type, hp: type === 'brood' ? 2 : 1,
+    lastShot: now, shootState: null, shootDir: null, shootStart: 0,
+    chargeState: null, chargeDir: null, chargeStart: 0,
+    lastLay: now, fleeUntil: 0, stealCd: 0,
+    pyroState: null, igniteStart: 0, igniteTarget: null };
+}
+
+function killEnemy(e, cause, credit) {
+  if (e.dead) return;
+  e.dead = true;
+  fx('edeath', e.fx, e.fy, e.type || 'normal');
+  killsThisFloor++;
+  if (killsThisFloor >= 3) award('slayer3');
+  const healTargets = credit ? [credit] : (cause === 'explosion' ? livePlayers() : []);
+  healTargets.forEach(pl => {
+    if (pl.perks.bloodlust && pl.hp < pl.maxHp) {
+      pl.hp = Math.min(pl.maxHp, pl.hp + 0.5);
+      fx('ptext', (e.x + 0.5) * TILE, e.y * TILE + HUD_H, '+½', '#ff3355');
+    }
+  });
+  if (e.type === 'bloater') bloaterBoom(e.x, e.y);
+}
+
+function bloaterBoom(bx, by) {
+  const now = simNow;
+  fx('boom', bx, by, false);
+  for (let dy = -1; dy <= 1; dy++)
+    for (let dx = -1; dx <= 1; dx++) {
+      const nx = bx + dx, ny = by + dy;
+      if (!ib(nx, ny)) continue;
+      players.forEach(pl => {
+        if (!pl.left && !pl.downed && pl.x === nx && pl.y === ny) damagePlayer(pl, 1, 'explosion');
+      });
+      enemies.forEach(e => { if (!e.dead && e.x === nx && e.y === ny) killEnemy(e, 'explosion', null); });
+      eggs.slice().forEach(e => { if (e.x === nx && e.y === ny) killEgg(e); });
+      const nt = grid[ny][nx];
+      if (nt.mine && !nt.crater) {
+        explosionQueue.push({ x: nx, y: ny, time: now + CHAIN_DELAY });
+      } else if (!nt.rev && !nt.crater) {
+        nt.rev = true; nt.rt = now; nt.loot = null; nt.marked = false; tilesLeft--;
+      }
+    }
+  if (explosionQueue.length === 0 && tilesLeft <= 0 && gameState === 'playing') floorCleared();
+}
+
+function killEgg(egg) {
+  fx('eggdeath', egg.x, egg.y);
+  eggs = eggs.filter(e => e !== egg);
+  if (anyPerk('omelette')) {
+    const t = grid[egg.y][egg.x];
+    if (t.rev && !t.loot)
+      t.loot = keyedRng(run.seed, run.depth, egg.id, 4)() < 0.7 ? 'bullet' : 'heart';
+  }
+}
+
+function spawnEgg(x, y) { eggs.push({ id: nextEid++, x, y, t: simNow }); }
+
+// ---- damage / down / death ----
+function damagePlayer(pl, n, src) {
+  if (gameState !== 'playing' || !pl || pl.downed || pl.left) return;
+  const now = simNow;
+  if (now < pl.iframeUntil) return;
+  if (pl.perks.blastsuit && src === 'explosion') n = Math.min(n, 1);
+  pl.hp -= n;
+  damagedThisFloor = true;
+  const px = (pl.x + 0.5) * TILE, py = (pl.y + 0.5) * TILE + HUD_H;
+  fx('dmg', px, py);
+  if (pl.hp <= 0) {
+    if (pl.perks.secondwind) {
+      delete pl.perks.secondwind;
+      pl.hp = 1;
+      fx('toast', 'SECOND WIND!');
+      fx('flash', px, py, '#00ff88', TILE * 2.5);
+    } else {
+      pl.hp = 0;
+      pl.downed = true;
+      fx('kburst', px, py);
+      if (players.every(p => p.left || p.downed)) { loseRun(); return; }
+      fx('toast', 'PLAYER DOWN — revive on floor clear');
+      return;
+    }
+  }
+  pl.iframeUntil = now + (pl.perks.blastsuit && src === 'explosion' ? 2000 : 1000);
+  if (pl.perks.adrenaline) pl.adrenalineUntil = now + 3000;
+  if (pl.perks.dms && enemies.length) {
+    let best = null, bd = Infinity;
+    enemies.forEach(e => {
+      if (e.dead) return;
+      const d = Math.abs(e.x - pl.x) + Math.abs(e.y - pl.y);
+      if (d < bd) { bd = d; best = e; }
+    });
+    if (best) {
+      fx('flash', (best.fx + 0.5) * TILE, (best.fy + 0.5) * TILE + HUD_H, '#ffffff', TILE * 1.4);
+      killEnemy(best, 'dms', pl);
+      enemies = enemies.filter(e => !e.dead);
+    }
+  }
+}
+
+function loseRun() {
+  if (gameState !== 'playing') return;
+  gameState = 'lost';
+  finalTime = gameTime;
+  showEnd(false);
+}
+
+function floorCleared() {
+  if (gameState !== 'playing') return;
+  if (shotsThisFloor === 0) award('pacifist');
+  if (!damagedThisFloor) award('untouched');
+  players.forEach(pl => {
+    if (pl.left) return;
+    if (pl.downed) { pl.downed = false; pl.hp = Math.max(1, Math.ceil(pl.maxHp / 2)); }
+    fx('wburst', (pl.x + 0.5) * TILE, (pl.y + 0.5) * TILE + HUD_H);
+  });
+  if (run.depth >= MAX_DEPTH) {
+    gameState = 'won';
+    finalTime = gameTime;
+    award('conqueror');
+    showEnd(true);
+    return;
+  }
+  gameState = 'draft';
+  draftPicked = players.map(p => !!p.left);
+  buildDraft();
+}
+
+// ---- perk draft (offers are seed-derived per player; host validates picks) ----
+function computeOffers(idx) {
+  const pl = players[idx];
+  if (!pl) return [];
+  const pool = PERKS.filter(p =>
+    (p.stack || !pl.perks[p.id]) && (!p.requires || pl.perks[p.requires]));
+  const dr = keyedRng(run.seed, run.depth, idx, 5);
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(dr() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  return pool.slice(0, 3);
+}
+
+function buildDraft() {
+  draftChoices = computeOffers(myIdx);
+  draftWaiting = false;
+  document.getElementById('draft-title').textContent = 'DEPTH ' + run.depth + ' CLEARED';
+  document.getElementById('draft-wait').style.display = 'none';
+  const box = document.getElementById('draft-cards');
+  box.classList.remove('picked');
+  box.innerHTML = '';
+  const me = players[myIdx];
+  draftChoices.forEach((p, i) => {
+    const d = document.createElement('div');
+    d.className = 'dcard';
+    d.style.setProperty('--pc', p.clr);
+    const owned = me && me.perks[p.id] ? `<div class="owned">OWNED ×${me.perks[p.id]}</div>` : '';
+    d.innerHTML = `<div class="key">[${i + 1}]</div><div class="tag">${esc(p.tag)}</div>` +
+      `<div class="pname">${esc(p.name)}</div><div class="pdesc">${esc(p.desc)}</div>${owned}`;
+    d.addEventListener('click', () => pickPerk(i));
+    box.appendChild(d);
+  });
+  draftEl.classList.add('show');
+}
+
+function setDraftWaiting() {
+  draftWaiting = true;
+  document.getElementById('draft-cards').classList.add('picked');
+  document.getElementById('draft-wait').style.display = 'block';
+}
+
+function pickPerk(i) {
+  if (gameState !== 'draft' || draftWaiting || !draftChoices[i]) return;
+  if (net.mode === 'guest') {
+    net.sendHost({ t: 'pick', i });
+    setDraftWaiting();
+    return;
+  }
+  applyPick(myIdx, i);
+  if (gameState === 'draft') setDraftWaiting();
+}
+
+function applyPick(idx, i) {
+  if (gameState !== 'draft' || draftPicked[idx]) return;
+  const offers = computeOffers(idx);
+  const p = offers[i] || offers[0];
+  if (!p) return;
+  const pl = players[idx];
+  pl.perks[p.id] = (pl.perks[p.id] || 0) + 1;
+  if (p.id === 'vest') { pl.maxHp++; pl.hp = Math.min(pl.hp + 1, pl.maxHp); }
+  if (p.id === 'medic') pl.hp = pl.maxHp;
+  if (p.id === 'bandolier') { pl.bullets += 4; if (pl.bullets >= 12 && idx === myIdx) award('hoard'); }
+  draftPicked[idx] = true;
+  if (players.every(q => q.left || draftPicked[q.idx])) {
+    draftEl.classList.remove('show');
+    startFloor(run.depth + 1);
+  }
+}
+
+// ---- player actions ----
+// Effective move cooldown in ms. The tick loop accrues moveBudget at
+// TICK_MS/moveCd() per tick, so fractional cooldowns (Swift 80ms, 64ms…)
+// keep their exact rate under the 50ms step. Cap: one move per tick.
+function moveCd(pl, now) {
+  let cd = 125 * Math.pow(0.8, pl.perks.swift || 0);
+  if (now < pl.adrenalineUntil) cd *= 0.5;
+  return cd;
+}
+
+function movePlayer(pl, dx, dy) {
+  if (!pl || pl.downed || pl.left) return;
+  pl.dir = { x: dx, y: dy };
+  const nx = pl.x + dx, ny = pl.y + dy;
+  if (!ib(nx, ny) || !grid[ny][nx].rev) return;
+  const egg = eggs.find(e => e.x === nx && e.y === ny);
+  if (egg && pl.perks.eggcrush) killEgg(egg);
+  pl.x = nx; pl.y = ny;
+  const t = grid[ny][nx];
+  if (t.loot === 'bullet') {
+    pl.bullets += 1 + (pl.perks.bandolier || 0);
+    if (pl.bullets >= 12 && pl.idx === myIdx) award('hoard');
+    t.loot = null;
+    fx('burst', nx, ny, '#ffd700');
+  } else if (t.loot === 'heart' && pl.hp < pl.maxHp) {
+    pl.hp = Math.min(pl.maxHp, pl.hp + 1);
+    t.loot = null;
+    fx('burst', nx, ny, '#ff6b6b');
+  }
+}
+
+function poll(pl) {
+  if (gameState !== 'playing' || !pl || pl.downed) return;
+  const tx = pl.x + pl.dir.x, ty = pl.y + pl.dir.y;
+  if (!ib(tx, ty)) return;
+  const t = grid[ty][tx];
+  if (t.rev || t.crater) return;
+  if (t.mine && pl.sapperLeft > 0) {
+    pl.sapperLeft--;
+    t.mine = false; t.mega = false; t.marked = false;
+    recomputeNums();
+    totalSafe++; tilesLeft++;
+    fx('burst', tx, ty, '#4a9eff');
+    reveal(tx, ty);
+    if (pl.perks.bombsquad && grid[ty][tx].rev && !grid[ty][tx].crater)
+      grid[ty][tx].loot = 'bullet';
+    return;
+  }
+  reveal(tx, ty);
+}
+
+function shoot(pl) {
+  if (gameState !== 'playing' || !pl || pl.downed || pl.bullets <= 0) return;
+  if (!(pl.perks.lucky && Math.random() < 0.3)) pl.bullets--;
+  shotsThisFloor++;
+  projectiles.push({ x: pl.x + 0.5, y: pl.y + 0.5,
+    dx: pl.dir.x, dy: pl.dir.y, active: true, reveals: 0, bounced: false,
+    owner: pl.idx, slayer: !!pl.perks.slayer, pierce: !!pl.perks.pierce,
+    demo: !!pl.perks.demo, ricochet: !!pl.perks.ricochet, eggcrush: !!pl.perks.eggcrush });
+}
+
+function placeTrap(pl) {
+  if (gameState !== 'playing' || !pl || pl.downed || !pl.perks.trap || pl.bullets < 2) return;
+  if (traps.some(t => t.x === pl.x && t.y === pl.y)) return;
+  pl.bullets -= 2;
+  traps.push({ id: nextEid++, x: pl.x, y: pl.y, owner: pl.idx });
+  fx('burst', pl.x, pl.y, '#7dff9a');
+}
+
+// ---- pathing + enemy brains ----
+function bfsWith(sx, sy, isGoal, passable) {
+  const queue = [{ x: sx, y: sy, path: [] }];
+  const vis = new Set([sx + ',' + sy]);
+  while (queue.length) {
+    const { x, y, path } = queue.shift();
+    for (const [dx, dy] of [[0,-1],[0,1],[-1,0],[1,0]]) {
+      const nx = x + dx, ny = y + dy, k = nx + ',' + ny;
+      if (!ib(nx, ny) || vis.has(k) || !passable(grid[ny][nx])) continue;
+      vis.add(k);
+      const np = [...path, { x: nx, y: ny }];
+      if (isGoal(nx, ny)) return np;
+      queue.push({ x: nx, y: ny, path: np });
+    }
+  }
+  return null;
+}
+
+function defaultStep(en, occupied, randomChance) {
+  if (Math.random() < randomChance) {
+    const dirs = [[0,-1],[0,1],[-1,0],[1,0]].filter(([dx, dy]) => {
+      const nx = en.x + dx, ny = en.y + dy;
+      return ib(nx, ny) && grid[ny][nx].rev && !occupied.has(nx + ',' + ny);
+    });
+    if (dirs.length) {
+      const [dx, dy] = dirs[Math.floor(Math.random() * dirs.length)];
+      return { x: en.x + dx, y: en.y + dy };
+    }
+  }
+  const tgt = nearestPlayer(en.x, en.y);
+  if (!tgt) return null;
+  const path = bfsWith(en.x, en.y, (x, y) => x === tgt.x && y === tgt.y, t => t.rev);
+  if (path && path.length > 0) return path[0];
+  return null;
+}
+
+function burrowerStep(en, occupied) {
+  const pass = t => !t.crater && !t.mine;
+  const tgt = nearestPlayer(en.x, en.y);
+  if (tgt) {
+    const path = bfsWith(en.x, en.y, (x, y) => x === tgt.x && y === tgt.y, pass);
+    if (path && path.length > 0 && !occupied.has(path[0].x + ',' + path[0].y)) return path[0];
+  }
+  const dirs = [[0,-1],[0,1],[-1,0],[1,0]].filter(([dx, dy]) => {
+    const nx = en.x + dx, ny = en.y + dy;
+    return ib(nx, ny) && pass(grid[ny][nx]) && !occupied.has(nx + ',' + ny);
+  });
+  if (dirs.length) {
+    const [dx, dy] = dirs[Math.floor(Math.random() * dirs.length)];
+    return { x: en.x + dx, y: en.y + dy };
+  }
+  return null;
+}
+
+function magpieStep(en, now, occupied) {
+  if (now < en.fleeUntil) {
+    const tgt = nearestPlayer(en.x, en.y);
+    const opts = [[0,-1],[0,1],[-1,0],[1,0]]
+      .map(([dx, dy]) => ({ x: en.x + dx, y: en.y + dy }))
+      .filter(p => ib(p.x, p.y) && grid[p.y][p.x].rev && !occupied.has(p.x + ',' + p.y));
+    if (!opts.length || !tgt) return opts[0] || null;
+    opts.sort((a, b) =>
+      (Math.abs(b.x - tgt.x) + Math.abs(b.y - tgt.y)) -
+      (Math.abs(a.x - tgt.x) + Math.abs(a.y - tgt.y)));
+    return opts[0];
+  }
+  const path = bfsWith(en.x, en.y,
+    (x, y) => !!(grid[y][x].rev && grid[y][x].loot), t => t.rev);
+  if (path && path.length > 0 && !occupied.has(path[0].x + ',' + path[0].y)) return path[0];
+  return defaultStep(en, occupied, 1);
+}
+
+function pyroStep(en, now, occupied) {
+  const adjMine = (x, y) => [[0,-1],[0,1],[-1,0],[1,0]].find(([dx, dy]) => {
+    const nx = x + dx, ny = y + dy;
+    return ib(nx, ny) && grid[ny][nx].mine && !grid[ny][nx].crater;
+  });
+  const here = adjMine(en.x, en.y);
+  if (here) {
+    en.pyroState = 'igniting';
+    en.igniteStart = now;
+    en.igniteTarget = { x: en.x + here[0], y: en.y + here[1] };
+    return null;
+  }
+  const path = bfsWith(en.x, en.y, (x, y) => !!adjMine(x, y), t => t.rev);
+  if (path && path.length > 0 && !occupied.has(path[0].x + ',' + path[0].y)) return path[0];
+  return defaultStep(en, occupied, 0.3);
+}
+
+function broodStep(en, now, occupied) {
+  return defaultStep(en, occupied, 0.8);
+}
+
+// ---- INPUT ----
+function heldDir() {
+  if (keys.has('w') || keys.has('arrowup')) return [0, -1];
+  if (keys.has('s') || keys.has('arrowdown')) return [0, 1];
+  if (keys.has('a') || keys.has('arrowleft')) return [-1, 0];
+  if (keys.has('d') || keys.has('arrowright')) return [1, 0];
+  return null;
+}
+function localTap(d) {
+  if (net.mode === 'guest') { if (gTapQueue.length < 2) gTapQueue.push(d); }
+  else if (player && player.taps.length < 2) player.taps.push(d);
+}
+function localAct(a) {
+  if (net.mode === 'guest') net.sendHost({ t: 'act', a });
+  else if (player && player.acts.length < 4) player.acts.push(a);
+}
+
+document.addEventListener('keydown', (e) => {
+  if (document.activeElement === joinInput || document.activeElement === nameInput) return;
+  const k = e.key.toLowerCase();
+  if (['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright',' ','e','q'].includes(k))
+    e.preventDefault();
+  if (e.repeat) return;
+  if (gameState === 'title') {
+    if (joinEl.classList.contains('show')) return;
+    if (k === 'h') { e.preventDefault(); showDialog('host'); return; }
+    if (k === 'j') { e.preventDefault(); showDialog('join'); return; }
+    if (k === 't') { webrtcSelfTest(); return; }
+    startRunShared();
+    return;
+  }
+  if (gameState === 'lobby') {
+    if (k === 'escape') { netReset(null); return; }
+    if (k === 'enter' && net.mode === 'host') startRunShared();
+    return;
+  }
+  if (gameState === 'draft') {
+    if (k === '1' || k === '2' || k === '3') pickPerk(+k - 1);
+    return;
+  }
+  if (gameState !== 'playing') {
+    if (k === 'r' && net.mode !== 'guest') { hideOverlay(); startRunShared(); }
+    return;
+  }
+  keys.add(k);
+  const DKEY = { w: [0,-1], arrowup: [0,-1], s: [0,1], arrowdown: [0,1],
+                 a: [-1,0], arrowleft: [-1,0], d: [1,0], arrowright: [1,0] };
+  if (DKEY[k]) localTap(DKEY[k]);
+  else if (k === ' ') localAct('poll');
+  else if (k === 'e') localAct('shoot');
+  else if (k === 'q') localAct('trap');
+});
+document.addEventListener('keyup', (e) => keys.delete(e.key.toLowerCase()));
+window.addEventListener('blur', () => keys.clear());
+
+// =====================================================================
+// SIM TICK — fixed 20Hz, host/solo only. No rendering, no wall clock.
+// =====================================================================
+function tick() {
+  const dt = TICK_DT, now = simNow;
+  if (gameState !== 'playing') return;
+  playTicks++;
+  gameTime = playTicks * TICK_DT;
+
+  for (let i = explosionQueue.length - 1; i >= 0; i--) {
+    if (now >= explosionQueue[i].time) {
+      const eq = explosionQueue.splice(i, 1)[0];
+      if (grid[eq.y][eq.x].mine) doExplosion(eq.x, eq.y);
+    }
+  }
+  if (explosionQueue.length === 0 && tilesLeft <= 0 && gameState === 'playing') floorCleared();
+  if (gameState !== 'playing') return;
+
+  // queued actions (local player's + guests' via 'act' messages)
+  players.forEach(pl => {
+    if (pl.left || pl.downed) { pl.acts.length = 0; return; }
+    while (pl.acts.length) {
+      const a = pl.acts.shift();
+      if (a === 'poll') poll(pl);
+      else if (a === 'shoot') shoot(pl);
+      else if (a === 'trap') placeTrap(pl);
+    }
+  });
+  if (gameState !== 'playing') return;
+
+  // local player movement via move budget (guests are client-driven: their
+  // 'move' messages apply on arrival and are budget-limited on their end)
+  const me = players[myIdx];
+  if (me && !me.downed && !me.left) {
+    me.moveBudget = Math.min(1, me.moveBudget + TICK_MS / moveCd(me, now));
+    if (me.moveBudget >= 1) {
+      const d = me.taps.shift() || heldDir();
+      if (d) { movePlayer(me, d[0], d[1]); me.moveBudget -= 1; }
+    }
+  }
+  if (gameState !== 'playing') return;
+
+  // player bullets
+  projectiles.forEach(p => {
+    if (!p.active) return;
+    p.x += p.dx * BULLET_SPEED * dt;
+    p.y += p.dy * BULLET_SPEED * dt;
+    let gx = Math.floor(p.x), gy = Math.floor(p.y);
+    if (!ib(gx, gy)) {
+      if (p.ricochet && !p.bounced) {
+        p.bounced = true;
+        p.dx = -p.dx; p.dy = -p.dy;
+        p.x = Math.min(Math.max(p.x, 0.01), COLS - 0.01);
+        p.y = Math.min(Math.max(p.y, 0.01), ROWS - 0.01);
+        gx = Math.floor(p.x); gy = Math.floor(p.y);
+      } else { p.active = false; return; }
+    }
+    if (p.slayer) {
+      const foe = enemies.find(e => !e.dead && e.x === gx && e.y === gy &&
+        !(e.type === 'burrower' && !grid[gy][gx].rev));
+      if (foe) {
+        if ((foe.hp || 1) > 1) {
+          foe.hp--;
+          fx('flash', (gx + 0.5) * TILE, (gy + 0.5) * TILE + HUD_H, '#ffffff', TILE * 0.8);
+        } else {
+          killEnemy(foe, 'bullet', players[p.owner]);
+          enemies = enemies.filter(e => !e.dead);
+        }
+        p.active = false;
+        return;
+      }
+    }
+    if (p.eggcrush) {
+      const egg = eggs.find(e => e.x === gx && e.y === gy);
+      if (egg) killEgg(egg);
+    }
+    if (!grid[gy][gx].rev && !grid[gy][gx].crater) {
+      if (p.demo) {
+        reveal(gx, gy);
+        for (const [ddx, ddy] of [[0,-1],[0,1],[-1,0],[1,0]]) reveal(gx + ddx, gy + ddy);
+        p.active = false;
+      } else {
+        reveal(gx, gy);
+        p.reveals++;
+        const pierced = p.pierce && p.reveals < 2 && grid[gy][gx].rev && !grid[gy][gx].crater;
+        if (!pierced) p.active = false;
+      }
+      fx('spark', p.x * TILE, p.y * TILE + HUD_H, '#ffd700');
+    }
+  });
+  projectiles = projectiles.filter(p => p.active);
+  if (gameState !== 'playing') return;
+
+  // eggs hatch (type keyed by egg id: guests can derive it from the seed)
+  eggs = eggs.filter(egg => {
+    if (now - egg.t >= conf.hatch) {
+      const etype = rollType(run.depth, keyedRng(run.seed, run.depth, egg.id, 1)());
+      const ec = ENEMY_COLORS[etype] || ENEMY_COLORS.normal;
+      enemies.push(makeEnemy(etype, egg.x, egg.y, now));
+      fx('burst', egg.x, egg.y, ec.body);
+      return false;
+    }
+    return true;
+  });
+
+  // Border spawn when the board goes quiet
+  if (enemies.length === 0 && eggs.length === 0 && tilesLeft > 0) {
+    if (borderCrack) {
+      if (now - borderCrack.t > 2000) {
+        const pick = borderCrack; borderCrack = null; borderSpawnTimer = 0;
+        const pt = grid[pick.y][pick.x];
+        if (!pt.rev && !pt.crater && !pt.mine) {
+          pt.rev = true; pt.rt = now; pt.loot = null; pt.marked = false; tilesLeft--;
+          fx('crack', (pick.x + 0.5) * TILE, (pick.y + 0.5) * TILE + HUD_H);
+          spawnEgg(pick.x, pick.y);
+          if (tilesLeft <= 0 && gameState === 'playing') floorCleared();
+        }
+      }
+    } else {
+      if (!borderSpawnTimer) { borderSpawnTimer = now; }
+      else if (now - borderSpawnTimer > 3000) {
+        const candidates = [];
+        for (let y = 0; y < ROWS; y++)
+          for (let x = 0; x < COLS; x++) {
+            const t = grid[y][x];
+            if (t.rev || t.crater || t.mine) continue;
+            let adj = false;
+            for (const [dx, dy] of [[0,-1],[0,1],[-1,0],[1,0]]) {
+              const nx = x + dx, ny = y + dy;
+              if (ib(nx, ny) && grid[ny][nx].rev) { adj = true; break; }
+            }
+            if (adj) candidates.push({ x, y });
+          }
+        if (candidates.length) {
+          const pick = candidates[Math.floor(Math.random() * candidates.length)];
+          borderCrack = { x: pick.x, y: pick.y, t: now };
+        }
+      }
+    }
+  } else { borderSpawnTimer = 0; borderCrack = null; }
+  if (gameState !== 'playing') return;
+
+  // Charger charge updates (dash = one cell per tick, v2 §4b alignment)
+  enemies.forEach(en => {
+    if (en.dead || en.type !== 'charger' || !en.chargeState) return;
+    if (en.chargeState === 'winding') {
+      if (now - en.chargeStart > 600) en.chargeState = 'charging';
+    } else if (en.chargeState === 'charging') {
+      const nx = en.x + en.chargeDir.x, ny = en.y + en.chargeDir.y;
+      if (!ib(nx, ny)) {
+        en.chargeState = 'stunned'; en.stunStart = now;
+        fx('spark', (en.x + 0.5) * TILE, (en.y + 0.5) * TILE + HUD_H, '#aa44ff');
+        return;
+      }
+      players.forEach(pl => {
+        if (!pl.left && !pl.downed && pl.x === nx && pl.y === ny) damagePlayer(pl, 1, 'contact');
+      });
+      en.x = nx; en.y = ny;
+      const t = grid[ny][nx];
+      if (!t.rev && !t.crater) {
+        if (t.mine) {
+          killEnemy(en, 'self', null);
+          reveal(nx, ny);
+          return;
+        }
+        reveal(nx, ny);
+      }
+    } else if (en.chargeState === 'stunned') {
+      if (now - en.stunStart > conf.espeed) {
+        en.chargeState = null; en.chargeDir = null;
+      }
+    }
+  });
+  enemies = enemies.filter(e => !e.dead);
+  if (gameState !== 'playing') return;
+
+  // Pyro ignition
+  enemies.forEach(en => {
+    if (en.dead || en.type !== 'pyro' || en.pyroState !== 'igniting') return;
+    const tgt = en.igniteTarget;
+    if (!tgt || !grid[tgt.y][tgt.x].mine || grid[tgt.y][tgt.x].crater) {
+      en.pyroState = null; en.igniteTarget = null;
+      return;
+    }
+    if (now - en.igniteStart > 800) {
+      en.pyroState = null;
+      killEnemy(en, 'self', null);
+      doExplosion(tgt.x, tgt.y);
+    }
+  });
+  enemies = enemies.filter(e => !e.dead);
+  if (gameState !== 'playing') return;
+
+  // Shooter fire check
+  enemies.forEach(en => {
+    if (en.dead || en.type !== 'shooter') return;
+    if (en.shootState === 'charging') {
+      if (now - en.shootStart > 500) {
+        en.shootState = null; en.lastShot = now;
+        const dir = en.shootDir;
+        enemyBullets.push({ x: en.x + 0.5, y: en.y + 0.5, dx: dir.x, dy: dir.y, active: true });
+        fx('flash', (en.x + 0.5) * TILE, (en.y + 0.5) * TILE + HUD_H, '#66aaff', TILE * 0.9);
+      }
+      return;
+    }
+    if (now - en.lastShot < 2500) return;
+    for (const pl of livePlayers()) {
+      const dx = pl.x - en.x, dy = pl.y - en.y;
+      if ((dx !== 0 && dy !== 0) || (dx === 0 && dy === 0)) continue;
+      en.shootState = 'charging';
+      en.shootStart = now;
+      en.shootDir = { x: Math.sign(dx), y: Math.sign(dy) };
+      break;
+    }
+  });
+
+  // Enemy bullets
+  enemyBullets.forEach(b => {
+    if (!b.active) return;
+    b.x += b.dx * 12 * dt;
+    b.y += b.dy * 12 * dt;
+    const gx = Math.floor(b.x), gy = Math.floor(b.y);
+    if (!ib(gx, gy)) { b.active = false; return; }
+    const hit = livePlayers().find(pl => pl.x === gx && pl.y === gy);
+    if (hit) { damagePlayer(hit, 1, 'bullet'); b.active = false; return; }
+    if (!grid[gy][gx].rev && !grid[gy][gx].crater) {
+      reveal(gx, gy); b.active = false;
+      fx('spark', b.x * TILE, b.y * TILE + HUD_H, '#66aaff');
+    }
+  });
+  enemyBullets = enemyBullets.filter(b => b.active);
+  if (gameState !== 'playing') return;
+
+  // Enemy movement — per-type brains. Enemies never block players;
+  // overlap damage/theft is handled in the contact pass below.
+  const occupied = new Set(enemies.map(e => e.x + ',' + e.y));
+  enemies.forEach(en => {
+    if (en.dead) return;
+    if (en.type === 'charger' && en.chargeState) return;
+    if (en.type === 'shooter' && en.shootState) return;
+    if (en.type === 'pyro' && en.pyroState) return;
+    if (now - en.lm < en.cd) return;
+    en.lm = now;
+    en.cd = conf.espeed * (SPEED_MUL[en.type] || 1) + (Math.random() - 0.5) * 200;
+    occupied.delete(en.x + ',' + en.y);
+
+    let target = null;
+    if (en.type === 'burrower') target = burrowerStep(en, occupied);
+    else if (en.type === 'magpie') target = magpieStep(en, now, occupied);
+    else if (en.type === 'pyro') target = pyroStep(en, now, occupied);
+    else if (en.type === 'brood') target = broodStep(en, now, occupied);
+    else target = defaultStep(en, occupied, 0.3);
+
+    if (target && !occupied.has(target.x + ',' + target.y)) {
+      en.x = target.x; en.y = target.y;
+    }
+    occupied.add(en.x + ',' + en.y);
+
+    if (en.type === 'magpie') {
+      const t = grid[en.y][en.x];
+      if (t.rev && t.loot) {
+        t.loot = null;
+        fx('ptext', (en.x + 0.5) * TILE, en.y * TILE + HUD_H, 'nom', '#cfd8ff');
+      }
+    }
+
+    // Charger: check alignment to start winding
+    if (en.type === 'charger' && !en.chargeState) {
+      for (const pl of livePlayers()) {
+        const dx = pl.x - en.x, dy = pl.y - en.y;
+        if ((dx === 0) !== (dy === 0)) {
+          en.chargeState = 'winding';
+          en.chargeDir = { x: Math.sign(dx), y: Math.sign(dy) };
+          en.chargeStart = now;
+          break;
+        }
+      }
+    }
+  });
+
+  // Brood egg-laying
+  enemies.forEach(en => {
+    if (en.dead || en.type !== 'brood') return;
+    if (now - en.lastLay < 6000) return;
+    en.lastLay = now;
+    if (eggs.length >= 6) return;
+    const t = grid[en.y][en.x];
+    if (t.rev && !eggs.some(e => e.x === en.x && e.y === en.y)) {
+      spawnEgg(en.x, en.y);
+      fx('burst', en.x, en.y, '#ff9e2c');
+    }
+  });
+
+  // Traps
+  if (traps.length) {
+    traps = traps.filter(tr => {
+      const victim = enemies.find(e => !e.dead && e.x === tr.x && e.y === tr.y &&
+        !(e.type === 'burrower' && !grid[e.y][e.x].rev));
+      if (victim) {
+        fx('flash', (tr.x + 0.5) * TILE, (tr.y + 0.5) * TILE + HUD_H, '#7dff9a', TILE * 1.3);
+        killEnemy(victim, 'trap', players[tr.owner]);
+        return false;
+      }
+      return true;
+    });
+    enemies = enemies.filter(e => !e.dead);
+  }
+
+  // Magnet: pull loot within 2 tiles of each magnet owner
+  players.forEach(pl => {
+    if (pl.left || pl.downed || !pl.perks.magnet) return;
+    for (let mdy = -2; mdy <= 2; mdy++)
+      for (let mdx = -2; mdx <= 2; mdx++) {
+        if (!mdx && !mdy) continue;
+        const nx = pl.x + mdx, ny = pl.y + mdy;
+        if (!ib(nx, ny)) continue;
+        const t = grid[ny][nx];
+        if (!t.rev || !t.loot) continue;
+        if (t.loot === 'heart' && pl.hp >= pl.maxHp) continue;
+        const loot = t.loot;
+        t.loot = null;
+        if (loot === 'bullet') {
+          pl.bullets += 1 + (pl.perks.bandolier || 0);
+          if (pl.bullets >= 12 && pl.idx === myIdx) award('hoard');
+        } else if (loot === 'heart') pl.hp = Math.min(pl.maxHp, pl.hp + 1);
+        fx('streak', (nx + 0.5) * TILE, (ny + 0.5) * TILE + HUD_H,
+          (pl.x + 0.5) * TILE, (pl.y + 0.5) * TILE + HUD_H,
+          loot === 'heart' ? '#ff6b6b' : '#ffd700');
+      }
+  });
+
+  // Contact pass: overlap = damage (or magpie theft); never blocks movement
+  enemies.forEach(e => {
+    if (e.dead) return;
+    for (const pl of livePlayers()) {
+      if (e.x !== pl.x || e.y !== pl.y) continue;
+      if (e.type === 'magpie') {
+        if (now >= e.stealCd) {
+          e.stealCd = now + 2000;
+          e.fleeUntil = now + 3000;
+          const steal = Math.min(2, pl.bullets);
+          if (steal > 0) {
+            pl.bullets -= steal;
+            fx('ptext', (pl.x + 0.5) * TILE, pl.y * TILE + HUD_H, '-' + steal + '◆', '#ffd700');
+          }
+        }
+      } else damagePlayer(pl, 1, 'contact');
+    }
+  });
+  enemies = enemies.filter(e => !e.dead);
+}
+
+// ---- COSMETIC UPDATE (frame-rate, wall-clock; never touches sim state) ----
+function updateFx(dt, wall) {
+  if (gameState === 'title' || gameState === 'lobby') return;
+  players.forEach(pl => {
+    const lp = 1 - Math.exp(-15 * dt);
+    pl.fx += (pl.x - pl.fx) * lp;
+    pl.fy += (pl.y - pl.fy) * lp;
+    if (Math.abs(pl.x - pl.fx) < 0.01) pl.fx = pl.x;
+    if (Math.abs(pl.y - pl.fy) < 0.01) pl.fy = pl.y;
+  });
+  const lp = 1 - Math.exp(-15 * dt);
+  enemies.forEach(e => {
+    e.fx += (e.x - e.fx) * lp;
+    e.fy += (e.y - e.fy) * lp;
+    if (Math.abs(e.x - e.fx) < 0.01) e.fx = e.x;
+    if (Math.abs(e.y - e.fy) < 0.01) e.fy = e.y;
+    // locally-generated ambience (host and guest alike): dig rumble, dash trail
+    if (grid && e.type === 'burrower' && ib(e.x, e.y) && !grid[e.y][e.x].rev && Math.random() < dt * 10) {
+      const dpx = (e.x + 0.5) * TILE, dpy = (e.y + 0.5) * TILE + HUD_H;
+      particles.push({ x: dpx + (Math.random() - 0.5) * 14, y: dpy + (Math.random() - 0.5) * 14,
+        vx: (Math.random() - 0.5) * 30, vy: -20 - Math.random() * 30,
+        life: 0.35, ml: 0.35, clr: Math.random() > 0.5 ? '#5a4630' : '#2d333b',
+        sz: 2 + Math.random() * 2 });
+    }
+    if (e.type === 'charger' && e.chargeState === 'charging' && Math.random() < dt * 30) {
+      particles.push({ x: (e.fx + 0.5) * TILE, y: (e.fy + 0.5) * TILE + HUD_H,
+        vx: 0, vy: 0, life: 0.2, ml: 0.2, clr: '#aa44ff60', sz: 8, flash: true });
+    }
+  });
+  particles.forEach(p => {
+    p.x += p.vx * dt; p.y += p.vy * dt;
+    p.vx *= 0.94; p.vy *= 0.94; p.life -= dt;
+  });
+  particles = particles.filter(p => p.life > 0);
+  if (particles.length > 1500) particles.splice(0, particles.length - 1500);
+  if (shake.i > 0.5) {
+    shake.x = (Math.random() - 0.5) * shake.i * 2;
+    shake.y = (Math.random() - 0.5) * shake.i * 2;
+    shake.i *= Math.exp(-8 * dt);
+  } else { shake.i = 0; shake.x = 0; shake.y = 0; }
+  toasts = toasts.filter(t => wall - t.t < 3000);
+}
+
+// ---- RENDER ----
+// `now` is smoothed sim time (host: simNow+acc; guest: snapshot-anchored
+// clock); `wall` is the rAF clock, used only for pure-UI animation.
+function render(now, wall) {
+  ctx.save();
+  ctx.fillStyle = '#0d1117';
+  ctx.fillRect(0, 0, W, H);
+
+  if (gameState === 'title') { drawTitle(wall); ctx.restore(); return; }
+  if (gameState === 'lobby') { drawLobby(wall); ctx.restore(); return; }
+  if (!grid) {
+    ctx.fillStyle = '#00ff88';
+    ctx.font = 'bold 16px Courier New';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('SYNCING…', W / 2, H / 2);
+    ctx.restore();
+    return;
+  }
+
+  ctx.translate(shake.x, shake.y);
+
+  for (let y = 0; y < ROWS; y++)
+    for (let x = 0; x < COLS; x++)
+      drawTile(x, y, now);
+
+  if (gameState === 'playing' && player && !player.downed) {
+    const tx = player.x + player.dir.x, ty = player.y + player.dir.y;
+    if (ib(tx, ty) && !grid[ty][tx].rev && !grid[ty][tx].crater) {
+      const tt = grid[ty][tx];
+      let rc = '#00ff8850';
+      if (player.perks.sixth && tt.mine) rc = Math.sin(now / 130) > 0 ? '#ff2d55cc' : '#ff2d5560';
+      else if (tt.mine && player.sapperLeft > 0 && tt.marked) rc = '#4a9eff80';
+      ctx.strokeStyle = rc;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(tx * TILE + 2, ty * TILE + HUD_H + 2, TILE - 4, TILE - 4);
+    }
+  }
+
+  for (let y = 0; y < ROWS; y++)
+    for (let x = 0; x < COLS; x++) {
+      const t = grid[y][x];
+      if (t.rev && t.loot === 'bullet') drawLoot(x, y, now);
+      else if (t.rev && t.loot === 'heart') drawHeart(x, y, now);
+    }
+
+  traps.forEach(t => drawTrap(t, now));
+  eggs.forEach(e => drawEgg(e, now));
+  enemies.forEach(e => drawEnemy(e, now));
+  players.forEach(pl => { if (!pl.left) drawPlayer(pl, now, pl === player); });
+  projectiles.forEach(p => drawProj(p));
+  enemyBullets.forEach(b => drawEnemyBullet(b));
+  particles.forEach(p => drawParticle(p));
+  drawHUD(now);
+  drawToasts(wall);
+
+  if (gameState === 'lost') {
+    ctx.fillStyle = '#0d111799';
+    ctx.fillRect(0, 0, W, H);
+  } else if (gameState === 'won') {
+    ctx.fillStyle = '#0d111730';
+    ctx.fillRect(0, 0, W, H);
+  } else if (gameState === 'draft') {
+    ctx.fillStyle = '#0d111760';
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  // guest: snapshot stream stalled → host tabbed away / froze / hiccup
+  if (net.mode === 'guest' && (gameState === 'playing' || gameState === 'draft') &&
+      performance.now() - net.lastSnapWall > 700) {
+    ctx.fillStyle = '#0d1117cc';
+    ctx.fillRect(0, 0, W, H);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.save();
+    ctx.shadowBlur = 16;
+    ctx.shadowColor = '#ffd700';
+    ctx.fillStyle = '#ffd700';
+    ctx.font = 'bold 26px Courier New';
+    ctx.fillText('HOST PAUSED', W / 2, H * 0.44);
+    ctx.restore();
+    ctx.fillStyle = '#8b949e';
+    ctx.font = '12px Courier New';
+    ctx.fillText('no signal from the host — did they tab away?', W / 2, H * 0.44 + 30);
+    if (Math.sin(wall / 500) > 0) {
+      ctx.fillStyle = '#00ff88';
+      ctx.font = 'bold 12px Courier New';
+      ctx.fillText('the run resumes automatically', W / 2, H * 0.44 + 54);
+    }
+  }
+
+  ctx.restore();
+}
+
+function drawTile(x, y, now) {
+  const t = grid[y][x], px = x * TILE, py = y * TILE + HUD_H;
+  if (t.crater) {
+    ctx.fillStyle = '#070a0e';
+    ctx.fillRect(px, py, TILE, TILE);
+    ctx.strokeStyle = '#ff3a0018';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(px + 0.5, py + 0.5, TILE - 1, TILE - 1);
+    ctx.fillStyle = '#0a0d12';
+    ctx.beginPath();
+    ctx.arc(px + TILE / 2, py + TILE / 2, TILE * 0.35, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (t.rev) {
+    ctx.fillStyle = '#161b22';
+    ctx.fillRect(px, py, TILE, TILE);
+    ctx.strokeStyle = '#1e2329';
+    ctx.lineWidth = 0.5;
+    ctx.strokeRect(px + 0.5, py + 0.5, TILE - 1, TILE - 1);
+    const age = now - (t.rt || 0);
+    if (age < 350 && age >= 0) {
+      const g = 1 - age / 350;
+      ctx.fillStyle = `rgba(0,255,136,${g * 0.35})`;
+      ctx.fillRect(px, py, TILE, TILE);
+    }
+    if (t.num > 0) {
+      const nc = t.nearMega ? '#ffd700' : NUM_CLR[t.num];
+      ctx.save();
+      ctx.shadowBlur = t.nearMega ? 10 : 6;
+      ctx.shadowColor = nc;
+      ctx.fillStyle = nc;
+      ctx.font = 'bold 15px Courier New';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(t.num, px + TILE / 2, py + TILE / 2 + 1);
+      ctx.restore();
+    }
+  } else {
+    ctx.fillStyle = '#21262d';
+    ctx.fillRect(px, py, TILE, TILE);
+    ctx.fillStyle = '#2d333b';
+    ctx.fillRect(px, py, TILE, 2);
+    ctx.fillRect(px, py, 2, TILE);
+    ctx.fillStyle = '#171b21';
+    ctx.fillRect(px, py + TILE - 2, TILE, 2);
+    ctx.fillRect(px + TILE - 2, py, 2, TILE);
+
+    if (t.marked) {
+      const pulse = 0.5 + Math.sin(now / 400) * 0.25;
+      ctx.save();
+      ctx.globalAlpha = pulse;
+      ctx.fillStyle = '#4affff';
+      ctx.beginPath();
+      ctx.moveTo(px + TILE / 2, py + 8);
+      ctx.lineTo(px + TILE / 2 + 7, py + 13);
+      ctx.lineTo(px + TILE / 2, py + 18);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillRect(px + TILE / 2 - 1, py + 8, 2, 16);
+      ctx.restore();
+    }
+
+    if (borderCrack && borderCrack.x === x && borderCrack.y === y) {
+      const prog = Math.min(Math.max((now - borderCrack.t) / 2000, 0), 1);
+      const wobble = prog > 0.7 ? Math.round((Math.random() - 0.5) * 2) : 0;
+      ctx.save();
+      ctx.translate(wobble, wobble);
+      ctx.fillStyle = `rgba(255,107,53,${0.3 + prog * 0.5})`;
+      const s = Math.floor(prog * 3);
+      const cx = px + TILE / 2, cy = py + TILE / 2;
+      ctx.fillRect(cx - 1, cy - 2 - s * 2, 2, 4 + s * 4);
+      if (s >= 1) {
+        ctx.fillRect(cx - 4, cy - 1, 3, 2);
+        ctx.fillRect(cx + 2, cy + 1, 3, 2);
+      }
+      if (s >= 2) {
+        ctx.fillRect(cx - 2, cy - 6, 2, 3);
+        ctx.fillRect(cx + 1, cy + 4, 2, 3);
+        ctx.fillRect(cx - 5, cy + 2, 2, 2);
+      }
+      ctx.restore();
+    }
+  }
+}
+
+function drawLoot(x, y, now) {
+  const cx = x * TILE + TILE / 2, cy = y * TILE + TILE / 2 + HUD_H;
+  const pulse = 0.8 + Math.sin(now / 300) * 0.2;
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(Math.PI / 4);
+  ctx.globalAlpha = pulse;
+  ctx.shadowBlur = 8;
+  ctx.shadowColor = '#ffd700';
+  ctx.fillStyle = '#ffd700';
+  ctx.fillRect(-4, -4, 8, 8);
+  ctx.restore();
+}
+
+function drawHeart(x, y, now) {
+  const cx = x * TILE + TILE / 2, cy = y * TILE + TILE / 2 + HUD_H;
+  const pulse = 0.8 + Math.sin(now / 250) * 0.2;
+  ctx.save();
+  ctx.globalAlpha = pulse;
+  ctx.shadowBlur = 8;
+  ctx.shadowColor = '#ff6b6b';
+  ctx.fillStyle = '#ff6b6b';
+  ctx.font = 'bold 14px Courier New';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('♥', cx, cy + 1);
+  ctx.restore();
+}
+
+function drawTrap(tr, now) {
+  const cx = tr.x * TILE + TILE / 2, cy = tr.y * TILE + TILE / 2 + HUD_H;
+  const pulse = 0.6 + Math.sin(now / 250) * 0.3;
+  ctx.save();
+  ctx.globalAlpha = pulse;
+  ctx.strokeStyle = '#7dff9a';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(cx, cy, 6, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.fillStyle = '#7dff9a';
+  ctx.fillRect(cx - 1.5, cy - 1.5, 3, 3);
+  ctx.restore();
+}
+
+function drawEgg(egg, now) {
+  const cx = egg.x * TILE + TILE / 2, cy = egg.y * TILE + TILE / 2 + HUD_H;
+  const prog = Math.min(Math.max((now - egg.t) / conf.hatch, 0), 1);
+  const wobble = Math.sin(now / (200 - prog * 150)) * prog * 5;
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(wobble * Math.PI / 180);
+  ctx.fillStyle = `hsl(${18 + prog * 25},90%,${52 + prog * 12}%)`;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, 6, 8, 0, 0, Math.PI * 2);
+  ctx.fill();
+  if (prog > 0.5) {
+    ctx.strokeStyle = '#1a1a1a';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(-3, -4); ctx.lineTo(0, -1); ctx.lineTo(2, -3);
+    ctx.stroke();
+    if (prog > 0.75) {
+      ctx.beginPath();
+      ctx.moveTo(-1, 1); ctx.lineTo(1, 4);
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+
+function drawEnemy(e, now) {
+  const ec = ENEMY_COLORS[e.type] || ENEMY_COLORS.normal;
+  let cx = e.fx * TILE + TILE / 2, cy = e.fy * TILE + TILE / 2 + HUD_H;
+
+  // Burrower underground: just a rumbling mound of dirt
+  if (e.type === 'burrower' && ib(e.x, e.y) && !grid[e.y][e.x].rev && !grid[e.y][e.x].crater) {
+    const wob = Math.sin(now / 60) * 1.5;
+    ctx.save();
+    ctx.translate(wob, 0);
+    ctx.fillStyle = '#171b21';
+    ctx.beginPath();
+    ctx.arc(cx, cy + 4, 9, Math.PI, 0);
+    ctx.fill();
+    ctx.fillStyle = '#5a4630';
+    ctx.beginPath();
+    ctx.arc(cx, cy + 4, 6, Math.PI, 0);
+    ctx.fill();
+    ctx.restore();
+    return;
+  }
+
+  const isWinding = e.type === 'charger' && e.chargeState === 'winding';
+  const isCharging = e.type === 'charger' && e.chargeState === 'charging';
+  const isStunned = e.type === 'charger' && e.chargeState === 'stunned';
+  const isAiming = e.type === 'shooter' && e.shootState === 'charging';
+  const isIgniting = e.type === 'pyro' && e.pyroState === 'igniting';
+  const pSpeed = e.type === 'fast' ? 100 : isWinding || isStunned ? 40 : isAiming || isIgniting ? 50 : 180;
+  const sSpeed = isCharging ? 80 : e.type === 'fast' ? 300 : e.type === 'pyro' ? 250 : 600;
+  const pAmp = isWinding || isAiming || isStunned || isIgniting ? 0.25 : 0.12;
+  const pulse = 1 + Math.sin(now / pSpeed) * pAmp;
+
+  if (isWinding || isIgniting) {
+    cx += (Math.random() - 0.5) * 3;
+    cy += (Math.random() - 0.5) * 3;
+  }
+
+  const SPIKES = { shooter: 6, magpie: 4, bloater: 10, brood: 12 };
+  const R1 = { bloater: 12, brood: 14, magpie: 9 };
+  const R2 = { bloater: 9, brood: 10, magpie: 5 };
+
+  if (isIgniting && e.igniteTarget) {
+    const prog = Math.min(Math.max((now - e.igniteStart) / 800, 0), 1);
+    const tx2 = e.igniteTarget.x * TILE + TILE / 2, ty2 = e.igniteTarget.y * TILE + TILE / 2 + HUD_H;
+    ctx.save();
+    ctx.globalAlpha = 0.25 + prog * 0.5;
+    ctx.strokeStyle = '#ff7a00';
+    ctx.lineWidth = 2 + prog * 3;
+    ctx.shadowBlur = 12 * prog;
+    ctx.shadowColor = '#ff7a00';
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(tx2, ty2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  ctx.fillStyle = ec.glow;
+  ctx.beginPath();
+  ctx.arc(cx, cy, (isCharging || isIgniting ? 20 : 16) * pulse, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = ec.body;
+  ctx.beginPath();
+  const spikes = SPIKES[e.type] || 8;
+  for (let i = 0; i < spikes; i++) {
+    const a = (Math.PI * 2 / spikes) * i + now / sSpeed;
+    const r = (i % 2 === 0 ? (R1[e.type] || 11) : (R2[e.type] || 7)) * pulse;
+    const sx = cx + Math.cos(a) * r, sy = cy + Math.sin(a) * r;
+    i === 0 ? ctx.moveTo(sx, sy) : ctx.lineTo(sx, sy);
+  }
+  ctx.closePath(); ctx.fill();
+
+  if (e.type === 'brood' && (e.hp || 1) > 1) {
+    ctx.strokeStyle = '#ffcf8880';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 15 * pulse, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  if (e.type === 'charger' && e.chargeState && e.chargeDir) {
+    const da = Math.atan2(e.chargeDir.y, e.chargeDir.x);
+    ctx.fillStyle = isCharging ? '#dd88ff' : '#aa44ff88';
+    ctx.beginPath();
+    ctx.moveTo(cx + Math.cos(da) * 14 * pulse, cy + Math.sin(da) * 14 * pulse);
+    ctx.lineTo(cx + Math.cos(da + 2.5) * 5, cy + Math.sin(da + 2.5) * 5);
+    ctx.lineTo(cx + Math.cos(da - 2.5) * 5, cy + Math.sin(da - 2.5) * 5);
+    ctx.closePath(); ctx.fill();
+  }
+
+  if (isAiming && e.shootDir) {
+    const prog = Math.min(Math.max((now - e.shootStart) / 500, 0), 1);
+    const da = Math.atan2(e.shootDir.y, e.shootDir.x);
+    ctx.save();
+    ctx.globalAlpha = 0.3 + prog * 0.5;
+    ctx.strokeStyle = '#66aaff';
+    ctx.lineWidth = 2 + prog * 2;
+    ctx.shadowBlur = 10 * prog;
+    ctx.shadowColor = '#66aaff';
+    ctx.beginPath();
+    ctx.moveTo(cx + Math.cos(da) * 10, cy + Math.sin(da) * 10);
+    ctx.lineTo(cx + Math.cos(da) * (14 + prog * 10), cy + Math.sin(da) * (14 + prog * 10));
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  ctx.fillStyle = ec.eye;
+  ctx.beginPath();
+  ctx.arc(cx, cy, 3, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawPlayer(pl, now, isMe) {
+  const cx = pl.fx * TILE + TILE / 2, cy = pl.fy * TILE + TILE / 2 + HUD_H;
+  if (pl.downed) {
+    ctx.save();
+    ctx.globalAlpha = 0.25;
+    ctx.strokeStyle = pl.color;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 9, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(cx - 5, cy - 5); ctx.lineTo(cx + 5, cy + 5);
+    ctx.moveTo(cx + 5, cy - 5); ctx.lineTo(cx - 5, cy + 5);
+    ctx.stroke();
+    ctx.restore();
+    return;
+  }
+  const blinking = now < pl.iframeUntil && Math.floor(now / 100) % 2 === 0;
+  const pulse = 1 + Math.sin(now / 500) * 0.04;
+  ctx.save();
+  if (blinking) ctx.globalAlpha = 0.35;
+  ctx.fillStyle = pl.color + '12';
+  ctx.beginPath();
+  ctx.arc(cx, cy, 18 * pulse, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = pl.color;
+  ctx.beginPath();
+  ctx.arc(cx, cy, 10 * pulse, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#00000030';
+  ctx.beginPath();
+  ctx.arc(cx, cy, 6, 0, Math.PI * 2);
+  ctx.fill();
+  const a = Math.atan2(pl.dir.y, pl.dir.x);
+  ctx.fillStyle = pl.color;
+  ctx.beginPath();
+  ctx.moveTo(cx + Math.cos(a) * 15, cy + Math.sin(a) * 15);
+  ctx.lineTo(cx + Math.cos(a + 2.6) * 7, cy + Math.sin(a + 2.6) * 7);
+  ctx.lineTo(cx + Math.cos(a - 2.6) * 7, cy + Math.sin(a - 2.6) * 7);
+  ctx.closePath(); ctx.fill();
+  if (!isMe) {
+    for (let i = 0; i < pl.maxHp; i++) {
+      ctx.fillStyle = pl.hp >= i + 1 ? '#ff4a6a' : pl.hp > i ? '#993048' : '#2a2f36';
+      ctx.fillRect(cx - pl.maxHp * 3 + i * 6, cy - 20, 4, 4);
+    }
+    if (pl.name) {
+      ctx.fillStyle = pl.color;
+      ctx.font = 'bold 9px Courier New';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(pl.name.toUpperCase(), cx, cy - 28);
+    }
+  }
+  ctx.restore();
+}
+
+function drawProj(p) {
+  const ex = p.x + p.dx * BULLET_SPEED * (acc / 1000);
+  const ey = p.y + p.dy * BULLET_SPEED * (acc / 1000);
+  const px = ex * TILE, py = ey * TILE + HUD_H;
+  ctx.strokeStyle = '#ffd70050';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(px, py);
+  ctx.lineTo(px - p.dx * TILE * 0.6, py - p.dy * TILE * 0.6);
+  ctx.stroke();
+  ctx.fillStyle = '#ffd700';
+  ctx.beginPath();
+  ctx.arc(px, py, 3.5, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawEnemyBullet(b) {
+  const ex = b.x + b.dx * 12 * (acc / 1000);
+  const ey = b.y + b.dy * 12 * (acc / 1000);
+  const px = ex * TILE, py = ey * TILE + HUD_H;
+  ctx.strokeStyle = '#66aaff40';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(px, py);
+  ctx.lineTo(px - b.dx * TILE * 0.8, py - b.dy * TILE * 0.8);
+  ctx.stroke();
+  ctx.save();
+  ctx.shadowBlur = 8;
+  ctx.shadowColor = '#66aaff';
+  ctx.fillStyle = '#66aaff';
+  ctx.beginPath();
+  ctx.arc(px, py, 4, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawParticle(p) {
+  const alpha = Math.max(0, p.life / p.ml);
+  ctx.globalAlpha = alpha * (p.flash ? 0.6 : 1);
+  ctx.fillStyle = p.clr;
+  if (p.text) {
+    ctx.font = 'bold 12px Courier New';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(p.text, p.x, p.y);
+  } else if (p.flash) {
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.sz * alpha, 0, Math.PI * 2);
+    ctx.fill();
+  } else {
+    ctx.fillRect(p.x - p.sz / 2, p.y - p.sz / 2, p.sz, p.sz);
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawHUD(now) {
+  ctx.fillStyle = '#0f1318';
+  ctx.fillRect(0, 0, W, HUD_H);
+  ctx.fillStyle = '#1e2329';
+  ctx.fillRect(0, HUD_H - 1, W, 1);
+  if (!player) return;
+
+  ctx.textBaseline = 'middle';
+  const y1 = 18, y2 = 45;
+
+  ctx.textAlign = 'left';
+  ctx.font = 'bold 15px Courier New';
+  let hx = 14;
+  for (let i = 0; i < player.maxHp; i++) {
+    const full = player.hp >= i + 1, half = !full && player.hp > i;
+    ctx.fillStyle = full ? '#ff4a6a' : half ? '#993048' : '#2a2f36';
+    ctx.fillText('♥', hx, y1);
+    hx += 16;
+  }
+  ctx.font = 'bold 13px Courier New';
+  ctx.fillStyle = '#ffd700';
+  ctx.fillText('◆ ' + player.bullets, hx + 10, y1);
+
+  const dispTime = gameState === 'playing' || gameState === 'draft' ? gameTime : finalTime;
+  ctx.fillStyle = '#c9d1d9';
+  ctx.textAlign = 'right';
+  ctx.fillText(fmtTime(dispTime), W - 14, y1);
+
+  ctx.fillStyle = '#ffd700';
+  ctx.textAlign = 'center';
+  ctx.font = 'bold 14px Courier New';
+  ctx.fillText('DEPTH ' + run.depth + ' / ' + MAX_DEPTH, W / 2, y1);
+
+  ctx.font = 'bold 12px Courier New';
+  const rev = totalSafe - tilesLeft;
+  ctx.fillStyle = '#7a828a';
+  ctx.textAlign = 'left';
+  ctx.fillText('TILES ' + rev + '/' + totalSafe, 14, y2);
+
+  // perk badges (truncated with +n if they'd run into the right-side counters)
+  let px = 118;
+  ctx.font = 'bold 11px Courier New';
+  let hidden = 0;
+  for (const p of PERKS) {
+    const n = player.perks[p.id];
+    if (!n) continue;
+    let label = p.tag + (p.stack && n > 1 ? '×' + n : '');
+    if (p.id === 'sapper') label = p.tag + ':' + player.sapperLeft;
+    const lw = ctx.measureText(label).width;
+    if (px + lw > W - 105) { hidden++; continue; }
+    ctx.fillStyle = p.clr;
+    ctx.fillText(label, px, y2);
+    px += lw + 10;
+  }
+  if (hidden) { ctx.fillStyle = '#586069'; ctx.fillText('+' + hidden, px, y2); }
+
+  ctx.textAlign = 'right';
+  let rx = W - 14;
+  if (eggs.length > 0) {
+    ctx.fillStyle = '#ff8a4a';
+    ctx.fillText('○ ' + eggs.length, rx, y2);
+    rx -= 46;
+  }
+  if (enemies.length > 0) {
+    ctx.fillStyle = '#ff2d55';
+    ctx.fillText('▲ ' + enemies.length, rx, y2);
+  }
+
+  // party status board: one row per teammate (name · hearts · ammo · build)
+  let row = 0;
+  players.forEach(pl => {
+    if (pl.idx === myIdx || pl.left) return;
+    const y = 72 + row * 16;
+    row++;
+    ctx.textAlign = 'left';
+    ctx.font = 'bold 11px Courier New';
+    ctx.fillStyle = pl.downed ? '#586069' : pl.color;
+    ctx.fillText((pl.name || 'P' + (pl.idx + 1)).toUpperCase().slice(0, 8), 14, y);
+    const hx2 = 92;
+    if (pl.downed) {
+      ctx.fillStyle = '#ff2d55';
+      ctx.fillText('DOWN', hx2, y);
+    } else {
+      let hx3 = hx2;
+      for (let i = 0; i < pl.maxHp; i++) {
+        const full = pl.hp >= i + 1, half = !full && pl.hp > i;
+        ctx.fillStyle = full ? '#ff4a6a' : half ? '#993048' : '#2a2f36';
+        ctx.fillText('♥', hx3, y);
+        hx3 += 11;
+      }
+    }
+    const ax = hx2 + Math.max(4, pl.maxHp) * 11 + 8;
+    ctx.fillStyle = '#ffd700';
+    ctx.fillText('◆' + pl.bullets, ax, y);
+    let px3 = ax + 42;
+    let hid = 0;
+    for (const p of PERKS) {
+      const n = pl.perks ? pl.perks[p.id] : 0;
+      if (!n) continue;
+      const label = p.tag + (p.stack && n > 1 ? '×' + n : '');
+      const lw2 = ctx.measureText(label).width;
+      if (px3 + lw2 > W - 26) { hid++; continue; }
+      ctx.fillStyle = p.clr;
+      ctx.fillText(label, px3, y);
+      px3 += lw2 + 8;
+    }
+    if (hid) { ctx.fillStyle = '#586069'; ctx.fillText('+' + hid, px3, y); }
+  });
+}
+
+function drawToasts(wall) {
+  toasts.forEach((t, i) => {
+    const age = wall - t.t;
+    const alpha = age < 300 ? age / 300 : age > 2400 ? Math.max(0, 1 - (age - 2400) / 600) : 1;
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, alpha);
+    ctx.fillStyle = '#ffd700';
+    ctx.font = 'bold 13px Courier New';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.shadowBlur = 10;
+    ctx.shadowColor = '#ffd700';
+    ctx.fillText(t.text, W / 2, HUD_H + 22 + i * 22);
+    ctx.restore();
+  });
+}
+
+function drawTitle(now) {
+  ctx.fillStyle = '#0d1117e0';
+  ctx.fillRect(0, 0, W, H);
+
+  const cy = H * 0.09;
+  const lx = W * 0.10;
+
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+
+  ctx.save();
+  ctx.shadowBlur = 20;
+  ctx.shadowColor = '#00ff88';
+  ctx.fillStyle = '#00ff88';
+  ctx.font = 'bold 34px Courier New';
+  ctx.fillText('MINECRAWL', lx, cy);
+  ctx.restore();
+  ctx.save();
+  ctx.shadowBlur = 16;
+  ctx.shadowColor = '#ffd700';
+  ctx.fillStyle = '#ffd700';
+  ctx.font = 'bold 22px Courier New';
+  ctx.fillText('· DEPTHS ·', lx + 218, cy + 4);
+  ctx.restore();
+
+  ctx.fillStyle = '#586069';
+  ctx.font = '12px Courier New';
+  ctx.fillText('roguelike descent · minesweeper × dungeon', lx, cy + 32);
+
+  ctx.fillStyle = '#c9d1d9';
+  ctx.font = '13px Courier New';
+  const lines = [
+    'WASD  ─  Move',
+    'SPACE ─  Poll (reveal tile ahead)',
+    'E     ─  Shoot (uses ammo)',
+    'Q     ─  Plant trap (Trap Layer)',
+  ];
+  lines.forEach((l, i) => ctx.fillText(l, lx, cy + 64 + i * 20));
+
+  ctx.save();
+  ctx.fillStyle = '#ffd700';
+  ctx.font = 'bold 13px Courier New';
+  ctx.fillText('[H] HOST CO-OP   [J] JOIN CO-OP   [T] NET TEST', lx, cy + 64 + 4 * 20 + 6);
+  ctx.restore();
+
+  ctx.fillStyle = '#586069';
+  ctx.font = '11px Courier New';
+  const tips = [
+    'Descend 8 depths. Clear every safe tile to advance.',
+    'Pick an advancement after each depth — build your run.',
+    'Co-op: shared board, own hearts & perks, downed friends',
+    'revive on floor clear. The whole party drafts each depth.',
+  ];
+  tips.forEach((t, i) => ctx.fillText(t, lx, cy + 182 + i * 17));
+
+  let ay = cy + 262;
+  ctx.fillStyle = '#484f58';
+  ctx.font = 'bold 10px Courier New';
+  ctx.fillText('─── ADVANCEMENTS ───', lx, ay);
+  ctx.font = '10px Courier New';
+  ACH.forEach((a, i) => {
+    const col = i % 2, row = Math.floor(i / 2);
+    const x = lx + col * (W * 0.42), y = ay + 18 + row * 16;
+    const got = !!achEarned[a.id];
+    ctx.fillStyle = got ? '#ffd700' : '#3a4048';
+    ctx.fillText((got ? '◆ ' : '◇ ') + a.name, x, y);
+  });
+  ay += 18 + 4 * 16 + 6;
+
+  if (netMsgTitle) {
+    ctx.fillStyle = '#ff2d55';
+    ctx.font = 'bold 12px Courier New';
+    ctx.fillText('⚠ ' + netMsgTitle, lx, ay + 8);
+    ay += 22;
+  }
+
+  if (Math.sin(now / 500) > 0) {
+    ctx.fillStyle = '#00ff88';
+    ctx.font = 'bold 14px Courier New';
+    ctx.fillText('Press any other key for a solo run', lx, ay + 18);
+  }
+
+  ctx.fillStyle = '#30363d';
+  ctx.font = 'bold 10px Courier New';
+  ctx.textAlign = 'right';
+  ctx.fillText(GAME_VER, W - 10, H - 12);
+  ctx.textAlign = 'left';
+}
+
+function drawLobby(now) {
+  ctx.fillStyle = '#0d1117e0';
+  ctx.fillRect(0, 0, W, H);
+  const cx2 = W / 2;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  ctx.save();
+  ctx.shadowBlur = 16;
+  ctx.shadowColor = '#00ff88';
+  ctx.fillStyle = '#00ff88';
+  ctx.font = 'bold 26px Courier New';
+  ctx.fillText('CO-OP LOBBY', cx2, H * 0.2);
+  ctx.restore();
+
+  if (net.mode === 'host' && net.code) {
+    ctx.fillStyle = '#586069';
+    ctx.font = '12px Courier New';
+    ctx.fillText('share this room code:', cx2, H * 0.3);
+    ctx.save();
+    ctx.shadowBlur = 20;
+    ctx.shadowColor = '#ffd700';
+    ctx.fillStyle = '#ffd700';
+    ctx.font = 'bold 52px Courier New';
+    ctx.fillText(net.code.split('').join(' '), cx2, H * 0.38);
+    ctx.restore();
+    ctx.font = 'bold 11px Courier New';
+    if (net.live) {
+      ctx.fillStyle = '#00ff88';
+      ctx.fillText('✓ ROOM IS LIVE ON THE PEER NETWORK', cx2, H * 0.44);
+    } else {
+      ctx.fillStyle = '#ff8a4a';
+      ctx.fillText('… REGISTERING ROOM (not joinable yet)', cx2, H * 0.44);
+    }
+  }
+  if (net.mode === 'guest' && net.hostConn && net.hostConn.peerConnection) {
+    ctx.fillStyle = '#586069';
+    ctx.font = 'bold 11px Courier New';
+    ctx.fillText('LINK: ' + net.hostConn.peerConnection.iceConnectionState, cx2, H * 0.42);
+  }
+
+  const n = net.mode === 'host' ? players.length : lobbyCount;
+  const names = net.mode === 'host' ? players.map(p => p.name) : lobbyNames;
+  for (let i = 0; i < n; i++) {
+    const px2 = cx2 + (i - (n - 1) / 2) * 84;
+    ctx.fillStyle = COLORS[i % COLORS.length];
+    ctx.beginPath();
+    ctx.arc(px2, H * 0.5, 10, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.font = 'bold 11px Courier New';
+    ctx.fillText((names[i] || 'P' + (i + 1)).toUpperCase(), px2, H * 0.5 + 24);
+  }
+  ctx.fillStyle = '#8b949e';
+  ctx.font = '12px Courier New';
+  ctx.fillText(n + ' PLAYER' + (n === 1 ? '' : 'S') + ' IN THE PARTY', cx2, H * 0.5 + 48);
+
+  if (lobbyMsg) {
+    ctx.fillStyle = '#4a9eff';
+    ctx.font = 'bold 13px Courier New';
+    ctx.fillText(lobbyMsg, cx2, H * 0.6);
+  }
+
+  if (Math.sin(now / 500) > 0) {
+    ctx.fillStyle = '#00ff88';
+    ctx.font = 'bold 13px Courier New';
+    ctx.fillText(net.mode === 'host'
+      ? '[ENTER] START THE DESCENT   ·   [ESC] CLOSE ROOM'
+      : (lobbyMsg ? '' : 'WAITING FOR THE HOST TO START   ·   [ESC] LEAVE'), cx2, H * 0.7);
+  }
+
+  ctx.fillStyle = '#30363d';
+  ctx.font = 'bold 10px Courier New';
+  ctx.textAlign = 'right';
+  ctx.fillText(GAME_VER, W - 10, H - 12);
+}
+
+// =====================================================================
+// NETWORKING — PeerJS host-authoritative co-op
+// =====================================================================
+// Force the secure cloud endpoint: PeerJS infers ws/wss from the page
+// protocol, and under file:// that means ws://0.peerjs.com:443 — which
+// never connects. Explicit secure:true makes file:// hosting work.
+// Extra ICE servers (e.g. a TURN relay for UDP-blocked networks) can be
+// injected without code changes:
+//   localStorage.setItem('mcrogue-ice', JSON.stringify([
+//     { urls: 'turn:…', username: '…', credential: '…' }]))
+function peerOpts() {
+  const ice = [{ urls: 'stun:stun.l.google.com:19302' }];
+  try {
+    const extra = JSON.parse(localStorage.getItem('mcrogue-ice') || 'null');
+    if (Array.isArray(extra)) ice.push(...extra);
+  } catch (e) {}
+  return { host: '0.peerjs.com', port: 443, secure: true, config: { iceServers: ice } };
+}
+
+// [T] on the title screen: in-page WebRTC loopback self-test. If two
+// RTCPeerConnections in the SAME page can't open a data channel, the
+// machine/network is blocking WebRTC (VPN / security software) and no
+// room code will ever connect without a TURN relay.
+function webrtcSelfTest() {
+  netMsgTitle = 'TESTING WEBRTC…';
+  try {
+    const cfg = peerOpts().config;
+    const a = new RTCPeerConnection(cfg), b = new RTCPeerConnection(cfg);
+    let done = false;
+    const finish = (msg) => {
+      if (done) return;
+      done = true;
+      netMsgTitle = msg;
+      try { a.close(); b.close(); } catch (e) {}
+    };
+    a.onicecandidate = e => { if (e.candidate) b.addIceCandidate(e.candidate).catch(() => {}); };
+    b.onicecandidate = e => { if (e.candidate) a.addIceCandidate(e.candidate).catch(() => {}); };
+    const ch = a.createDataChannel('t');
+    ch.onopen = () => finish('WEBRTC OK — LOOPBACK DATA CHANNEL OPENED');
+    a.createOffer()
+      .then(o => a.setLocalDescription(o))
+      .then(() => b.setRemoteDescription(a.localDescription))
+      .then(() => b.createAnswer())
+      .then(an => b.setLocalDescription(an))
+      .then(() => a.setRemoteDescription(b.localDescription))
+      .catch(err => finish('WEBRTC TEST ERROR: ' + err));
+    setTimeout(() => finish('WEBRTC BLOCKED (ICE ' + a.iceConnectionState + ') — UDP FILTERED? (VPN)'), 6000);
+  } catch (err) { netMsgTitle = 'WEBRTC UNAVAILABLE: ' + err; }
+}
+
+const net = {
+  mode: null,          // null | 'host' | 'guest'
+  peer: null, conns: [], hostConn: null,
+  code: null,
+  events: [],          // host: cosmetic events accumulated since last snap
+  clockOff: null,      // guest: hostSimMs - performance.now(), EMA-smoothed
+  snapSim: 0,          // guest: sim time of latest snapshot
+  lastSnapWall: 0,     // guest: wall time of latest snapshot (host-pause detection)
+  sendAll(m) { this.conns.forEach(c => { try { c.send(m); } catch (e) {} }); },
+  sendHost(m) { if (this.hostConn) { try { this.hostConn.send(m); } catch (e) {} } },
+};
+function grNow() {
+  return net.clockOff === null ? 0 : performance.now() + net.clockOff;
+}
+
+function showDialog(mode) {
+  dlgMode = mode;
+  document.getElementById('join-title').textContent = mode === 'host' ? 'HOST RUN' : 'JOIN RUN';
+  document.getElementById('join-sub').textContent = mode === 'host'
+    ? '- open a room for your party -' : "- enter the host's room code -";
+  joinInput.style.display = mode === 'host' ? 'none' : '';
+  joinBtn.textContent = mode === 'host' ? 'HOST' : 'GO';
+  nameInput.value = myName;
+  joinInput.value = '';
+  joinEl.classList.add('show');
+  // focus after this keydown fully resolves so the H/J keystroke can't
+  // leak a character into the input; if a name is already saved, jump
+  // straight to the room-code field
+  setTimeout(() => { (mode === 'join' && myName ? joinInput : nameInput).focus(); }, 0);
+}
+function hideJoin() { joinEl.classList.remove('show'); }
+function saveNameFromDialog() {
+  const n = sanitizeName(nameInput.value);
+  if (n) myName = n;
+  try { localStorage.setItem('mcrogue-name', myName); } catch (e) {}
+}
+joinBtn.addEventListener('click', () => {
+  saveNameFromDialog();
+  if (dlgMode === 'host') { hideJoin(); netHost(); return; }
+  const code = joinInput.value.trim().toUpperCase();
+  if (code.length < 3) { joinInput.focus(); return; }
+  hideJoin();
+  netJoin(code);
+});
+nameInput.addEventListener('keydown', (e) => {
+  e.stopPropagation();
+  if (e.key === 'Enter') { if (dlgMode === 'host') joinBtn.click(); else joinInput.focus(); }
+  if (e.key === 'Escape') hideJoin();
+});
+joinInput.addEventListener('keydown', (e) => {
+  e.stopPropagation();
+  if (e.key === 'Enter') joinBtn.click();
+  if (e.key === 'Escape') hideJoin();
+});
+
+function netReset(msg) {
+  try { if (net.peer) net.peer.destroy(); } catch (e) {}
+  if (net.joinTimer) { clearTimeout(net.joinTimer); net.joinTimer = null; }
+  if (net.hostTimer) { clearTimeout(net.hostTimer); net.hostTimer = null; }
+  net.peer = null; net.conns = []; net.hostConn = null;
+  net.mode = null; net.code = null; net.events = [];
+  net.clockOff = null; net.snapSim = 0; net.live = false;
+  netMsgTitle = msg || null;
+  lobbyMsg = null; lobbyCount = 1;
+  players = []; player = null; run = null; grid = null;
+  net.lastSnapWall = 0;
+  draftEl.classList.remove('show');
+  hideOverlay(); hideJoin();
+  updateHudH();
+  setBoardSize(20, 20);
+  gameState = 'title';
+}
+
+function broadcastLobby() {
+  net.sendAll({ t: 'lobby', n: players.length, names: players.map(p => p.name) });
+}
+
+function netHost() {
+  if (typeof Peer === 'undefined') { netMsgTitle = 'PEERJS FAILED TO LOAD — CHECK INTERNET'; return; }
+  netMsgTitle = null;
+  players = [makePlayer(0)];
+  players[0].name = myName || 'P1';
+  myIdx = 0; player = players[0];
+  net.mode = 'host';
+  net.code = Array.from({ length: 4 }, () =>
+    'ABCDEFGHJKLMNPQRSTUVWXYZ'[Math.floor(Math.random() * 24)]).join('');
+  net.peer = new Peer('mcd-' + net.code, peerOpts());
+  gameState = 'lobby';
+  lobbyMsg = 'OPENING ROOM…';
+  net.live = false;
+  net.peer.on('open', () => {
+    lobbyMsg = null;
+    net.live = true;
+    if (net.hostTimer) { clearTimeout(net.hostTimer); net.hostTimer = null; }
+  });
+  net.peer.on('disconnected', () => { try { net.peer.reconnect(); } catch (e) {} });
+  net.peer.on('error', (err) => {
+    if (err.type === 'unavailable-id') { try { net.peer.destroy(); } catch (e) {} netHost(); }
+    else if (gameState === 'lobby' && lobbyMsg) netReset('NETWORK ERROR: ' + err.type);
+  });
+  net.hostTimer = setTimeout(() => {
+    net.hostTimer = null;
+    if (net.mode === 'host' && lobbyMsg)
+      lobbyMsg = 'PEER NETWORK UNREACHABLE — ROOM NOT LIVE (still trying…)';
+  }, 10000);
+  net.peer.on('connection', (conn) => {
+    const setup = () => {
+      if (gameState !== 'lobby' || players.length >= MAX_PLAYERS) {
+        try { conn.send({ t: 'busy' }); } catch (e) {}
+        setTimeout(() => { try { conn.close(); } catch (e) {} }, 200);
+        return;
+      }
+      const idx = players.length;
+      const pl = makePlayer(idx);
+      if (conn._name) pl.name = conn._name;
+      players.push(pl);
+      conn._idx = idx;
+      net.conns.push(conn);
+      conn.send({ t: 'welcome', idx });
+      broadcastLobby();
+    };
+    conn.on('data', (m) => hostOnData(conn, m));
+    conn.on('close', () => hostDropConn(conn));
+    conn.on('error', () => hostDropConn(conn));
+    // PeerJS can hand us a connection that is already open, in which case
+    // 'open' never fires again — handle both paths
+    if (conn.open) setup(); else conn.on('open', setup);
+  });
+}
+
+function hostDropConn(conn) {
+  if (!net.conns.includes(conn)) return;
+  net.conns = net.conns.filter(c => c !== conn);
+  if (gameState === 'lobby') {
+    // rebuild roster so slots stay contiguous
+    players = [players[0]];
+    net.conns.forEach((c, i) => {
+      c._idx = i + 1;
+      const np = makePlayer(i + 1);
+      if (c._name) np.name = c._name;
+      players.push(np);
+      try { c.send({ t: 'welcome', idx: i + 1 }); } catch (e) {}
+    });
+    broadcastLobby();
+    return;
+  }
+  const pl = players[conn._idx];
+  if (!pl) return;
+  pl.left = true; pl.downed = true;
+  fx('toast', 'A PLAYER LEFT');
+  if (gameState === 'playing' && players.every(p => p.left || p.downed)) loseRun();
+  if (gameState === 'draft' && players.every(p => p.left || draftPicked[p.idx])) {
+    draftEl.classList.remove('show');
+    startFloor(run.depth + 1);
+  }
+}
+
+function hostOnData(conn, m) {
+  if (!m || typeof m !== 'object') return;
+  if (m.t === 'hi') {
+    conn._name = sanitizeName(m.name) || conn._name;
+    const hp = players[conn._idx];
+    if (hp && conn._name) { hp.name = conn._name; broadcastLobby(); }
+    return;
+  }
+  const pl = players[conn._idx];
+  if (!pl) return;
+  if (m.t === 'move') {
+    pl.lastSeq = m.seq | 0;
+    if (gameState === 'playing' && !pl.downed &&
+        (Math.abs(m.dx) + Math.abs(m.dy) === 1))
+      movePlayer(pl, m.dx | 0, m.dy | 0);
+  } else if (m.t === 'act') {
+    if (gameState === 'playing' && !pl.downed && pl.acts.length < 4 &&
+        ['poll', 'shoot', 'trap'].includes(m.a))
+      pl.acts.push(m.a);
+  } else if (m.t === 'pick') {
+    if (gameState === 'draft') applyPick(conn._idx, m.i | 0);
+  }
+}
+
+function netJoin(code) {
+  if (typeof Peer === 'undefined') { netMsgTitle = 'PEERJS FAILED TO LOAD — CHECK INTERNET'; return; }
+  netMsgTitle = null;
+  net.mode = 'guest';
+  net.code = code;
+  net.clockOff = null;
+  mySeq = 0; gacc = 0; gTapQueue = [];
+  gameState = 'lobby';
+  lobbyMsg = 'CONNECTING…';
+  let signalingUp = false;
+  net.peer = new Peer(peerOpts());
+  net.peer.on('open', () => {
+    signalingUp = true;
+    lobbyMsg = 'CONNECTING TO ROOM ' + code + '…';
+    const c = net.peer.connect('mcd-' + code, { reliable: true });
+    net.hostConn = c;
+    const onOpen = () => {
+      lobbyMsg = null;
+      if (net.joinTimer) { clearTimeout(net.joinTimer); net.joinTimer = null; }
+      c.send({ t: 'hi', name: myName });
+    };
+    c.on('data', guestOnData);
+    c.on('close', () => netReset('DISCONNECTED FROM HOST'));
+    c.on('error', () => netReset('CONNECTION ERROR'));
+    if (c.open) onOpen(); else c.on('open', onOpen);
+  });
+  net.peer.on('disconnected', () => { try { net.peer.reconnect(); } catch (e) {} });
+  net.peer.on('error', (err) =>
+    netReset(err.type === 'peer-unavailable' ? 'ROOM ' + code + ' NOT FOUND' : 'NETWORK ERROR: ' + err.type));
+  net.joinTimer = setTimeout(() => {
+    net.joinTimer = null;
+    if (net.mode === 'guest' && gameState === 'lobby' && lobbyMsg)
+      netReset(signalingUp
+        ? 'FOUND NETWORK BUT NOT ROOM ' + code + ' — IS THE HOST LOBBY OPEN?'
+        : 'PEER NETWORK UNREACHABLE — CHECK INTERNET/FIREWALL');
+  }, 10000);
+}
+
+function guestOnData(m) {
+  if (!m || typeof m !== 'object') return;
+  if (m.t === 'welcome') { myIdx = m.idx; }
+  else if (m.t === 'lobby') { lobbyCount = m.n; lobbyNames = m.names || []; }
+  else if (m.t === 'busy') { netReset('ROOM IS FULL OR ALREADY IN A RUN'); }
+  else if (m.t === 'start') {
+    run = { seed: m.seed >>> 0, depth: 0 };   // depth 0 → first snap rebuilds the floor
+    players = [];
+    for (let i = 0; i < m.n; i++) players.push(makePlayer(i));
+    player = players[myIdx];
+    grid = null; conf = depthConf(1);
+    enemies = []; eggs = []; projectiles = []; enemyBullets = []; traps = [];
+    particles = [];
+    mySeq = 0; gTapQueue = []; keys.clear();
+    finalTime = 0;
+    hideOverlay();
+    draftEl.classList.remove('show');
+    gameState = 'playing';
+  }
+  else if (m.t === 'snap') applySnap(m);
+}
+
+// ---- snapshot encode/decode ----
+// per-cell mixed radix: state(3) loot(3) marked(2) nearMega(2) num(9) mine(2) mega(2)
+function encodeGrid() {
+  let s = '';
+  for (let y = 0; y < ROWS; y++)
+    for (let x = 0; x < COLS; x++) {
+      const t = grid[y][x];
+      const st = t.crater ? 2 : t.rev ? 1 : 0;
+      const lo = t.loot === 'bullet' ? 1 : t.loot === 'heart' ? 2 : 0;
+      const v = st + 3 * (lo + 3 * ((t.marked ? 1 : 0) + 2 * ((t.nearMega ? 1 : 0) +
+        2 * (t.num + 9 * ((t.mine ? 1 : 0) + 2 * (t.mega ? 1 : 0))))));
+      s += String.fromCharCode(48 + v);
+    }
+  return s;
+}
+
+function buildSnap() {
+  return {
+    t: 'snap', tick: simTick, gs: gameState, depth: run.depth,
+    cols: COLS, rows: ROWS,
+    grid: encodeGrid(),
+    tl: tilesLeft, ts: totalSafe, gt: gameTime, ft: finalTime,
+    dp: draftPicked,
+    bc: borderCrack ? { x: borderCrack.x, y: borderCrack.y, t: borderCrack.t } : null,
+    pl: players.map(p => ({ i: p.idx, c: p.color, nm: p.name, x: p.x, y: p.y,
+      dx: p.dir.x, dy: p.dir.y, hp: p.hp, mh: p.maxHp, b: p.bullets,
+      dn: p.downed ? 1 : 0, iu: p.iframeUntil, au: p.adrenalineUntil,
+      pk: p.perks, sl: p.sapperLeft, ls: p.lastSeq, lf: p.left ? 1 : 0 })),
+    en: enemies.map(e => ({ id: e.id, ty: e.type, x: e.x, y: e.y, hp: e.hp,
+      cs: e.chargeState || 0, cdx: e.chargeDir ? e.chargeDir.x : 0, cdy: e.chargeDir ? e.chargeDir.y : 0, ct: e.chargeStart || 0,
+      ss: e.shootState || 0, sdx: e.shootDir ? e.shootDir.x : 0, sdy: e.shootDir ? e.shootDir.y : 0, st: e.shootStart || 0,
+      ps: e.pyroState || 0, itx: e.igniteTarget ? e.igniteTarget.x : 0, ity: e.igniteTarget ? e.igniteTarget.y : 0, it: e.igniteStart || 0 })),
+    eg: eggs.map(e => ({ id: e.id, x: e.x, y: e.y, t: e.t })),
+    pr: projectiles.map(p => ({ x: p.x, y: p.y, dx: p.dx, dy: p.dy })),
+    eb: enemyBullets.map(b => ({ x: b.x, y: b.y, dx: b.dx, dy: b.dy })),
+    tr: traps.map(t => ({ x: t.x, y: t.y })),
+    ev: net.events.splice(0),
+  };
+}
+
+function applySnap(s) {
+  if (!run) run = { seed: 0, depth: 0 };
+  const newFloor = !grid || s.depth !== run.depth || s.cols !== COLS || s.rows !== ROWS;
+  run.depth = s.depth;
+  if (newFloor) {
+    conf = depthConf(s.depth);
+    updateHudH();
+    setBoardSize(s.cols, s.rows);
+    grid = [];
+    for (let y = 0; y < s.rows; y++) {
+      grid[y] = [];
+      for (let x = 0; x < s.cols; x++)
+        grid[y][x] = { mine: false, mega: false, rev: false, crater: false,
+          num: 0, nearMega: false, loot: null, rt: 0, marked: false };
+    }
+    particles = []; enemies = []; eggs = []; projectiles = []; enemyBullets = []; traps = [];
+  }
+  // guest clock: anchor render time to the snapshot stream
+  if (net.mode === 'guest') {
+    const target = s.tick * TICK_MS - performance.now();
+    net.clockOff = net.clockOff === null ? target : net.clockOff + (target - net.clockOff) * 0.15;
+    net.snapSim = s.tick * TICK_MS;
+    net.lastSnapWall = performance.now();
+  }
+  const gn = net.mode === 'guest' ? grNow() : simNow;
+
+  let i = 0;
+  for (let y = 0; y < ROWS; y++)
+    for (let x = 0; x < COLS; x++, i++) {
+      let v = s.grid.charCodeAt(i) - 48;
+      const t = grid[y][x];
+      const st = v % 3; v = (v - st) / 3;
+      const lo = v % 3; v = (v - lo) / 3;
+      const mk = v % 2; v = (v - mk) / 2;
+      const nm = v % 2; v = (v - nm) / 2;
+      const num = v % 9; v = (v - num) / 9;
+      const mine = v % 2; v = (v - mine) / 2;
+      const mega = v % 2;
+      const wasOpen = t.rev || t.crater;
+      t.rev = st >= 1; t.crater = st === 2;
+      if (!wasOpen && st >= 1) t.rt = gn;
+      t.loot = lo === 1 ? 'bullet' : lo === 2 ? 'heart' : null;
+      t.marked = !!mk; t.nearMega = !!nm; t.num = num;
+      t.mine = !!mine; t.mega = !!mega;
+    }
+
+  s.pl.forEach(sp => {
+    let pl = players[sp.i];
+    if (!pl) { pl = makePlayer(sp.i); pl.fx = sp.x; pl.fy = sp.y; players[sp.i] = pl; }
+    const isMe = sp.i === myIdx && net.mode === 'guest';
+    if (!isMe) { pl.x = sp.x; pl.y = sp.y; pl.dir = { x: sp.dx, y: sp.dy }; }
+    else if (sp.ls >= mySeq) { pl.x = sp.x; pl.y = sp.y; }
+    pl.hp = sp.hp; pl.maxHp = sp.mh; pl.bullets = sp.b; pl.downed = !!sp.dn;
+    pl.iframeUntil = sp.iu; pl.adrenalineUntil = sp.au;
+    pl.perks = sp.pk || {}; pl.sapperLeft = sp.sl;
+    pl.left = !!sp.lf; pl.color = sp.c; pl.lastSeq = sp.ls;
+    if (sp.nm) pl.name = sp.nm;
+  });
+  player = players[myIdx];
+
+  const em = new Map(enemies.map(e => [e.id, e]));
+  enemies = s.en.map(se => {
+    let e = em.get(se.id);
+    if (!e) e = { id: se.id, type: se.ty, x: se.x, y: se.y, fx: se.x, fy: se.y };
+    e.type = se.ty; e.x = se.x; e.y = se.y; e.hp = se.hp;
+    e.chargeState = se.cs || null;
+    e.chargeDir = (se.cdx || se.cdy) ? { x: se.cdx, y: se.cdy } : null;
+    e.chargeStart = se.ct;
+    e.shootState = se.ss || null;
+    e.shootDir = (se.sdx || se.sdy) ? { x: se.sdx, y: se.sdy } : null;
+    e.shootStart = se.st;
+    e.pyroState = se.ps || null;
+    e.igniteTarget = se.ps ? { x: se.itx, y: se.ity } : null;
+    e.igniteStart = se.it;
+    return e;
+  });
+  eggs = s.eg;
+  projectiles = s.pr;
+  enemyBullets = s.eb;
+  traps = s.tr;
+  tilesLeft = s.tl; totalSafe = s.ts; gameTime = s.gt; finalTime = s.ft;
+  draftPicked = s.dp || [];
+  borderCrack = s.bc;
+
+  const prev = gameState;
+  gameState = s.gs;
+  if (gameState === 'draft' && prev !== 'draft') buildDraft();
+  if (prev === 'draft' && gameState !== 'draft') draftEl.classList.remove('show');
+  if ((gameState === 'lost' || gameState === 'won') && prev !== gameState) showEnd(gameState === 'won');
+  if (gameState === 'playing' && (prev === 'lost' || prev === 'won')) hideOverlay();
+
+  (s.ev || []).forEach(e => {
+    const [k, ...a] = e;
+    if (FXR[k]) FXR[k](...a);
+  });
+}
+
+// guest mini-tick: own move budget + prediction + input send
+function guestTick() {
+  if (gameState !== 'playing' || !player || player.downed || player.left || !grid) return;
+  const gn = grNow();
+  player.moveBudget = Math.min(1, player.moveBudget + TICK_MS / moveCd(player, gn));
+  if (player.moveBudget >= 1) {
+    const d = gTapQueue.shift() || heldDir();
+    if (d) {
+      player.moveBudget -= 1;
+      player.dir = { x: d[0], y: d[1] };
+      const nx = player.x + d[0], ny = player.y + d[1];
+      if (ib(nx, ny) && grid[ny][nx].rev) { player.x = nx; player.y = ny; }
+      net.sendHost({ t: 'move', seq: ++mySeq, dx: d[0], dy: d[1] });
+    }
+  }
+}
+
+// ---- LOOP ----
+// Host/solo: fixed 20Hz sim via accumulator; host broadcasts a snapshot
+// after each batch of ticks. Guest: no sim — snapshot-anchored render
+// clock, 20Hz prediction/input tick, interpolation via updateFx.
+function loop(ts) {
+  let dt = (ts - lastTime) / 1000;
+  lastTime = ts;
+  if (dt > 0.25) dt = 0.25;
+  if (net.mode === 'guest') {
+    gacc += dt * 1000;
+    while (gacc >= TICK_MS) { gacc -= TICK_MS; guestTick(); }
+    const rn = grNow();
+    acc = Math.max(0, Math.min(150, rn - net.snapSim));
+    updateFx(dt, ts);
+    render(rn, ts);
+  } else {
+    acc += dt * 1000;
+    let ticked = false;
+    while (acc >= TICK_MS) {
+      acc -= TICK_MS;
+      simTick++; simNow = simTick * TICK_MS;
+      tick();
+      ticked = true;
+    }
+    if (net.mode === 'host' && ticked && run && gameState !== 'lobby' && gameState !== 'title')
+      net.sendAll(buildSnap());
+    updateFx(dt, ts);
+    render(simNow + acc, ts);
+  }
+  requestAnimationFrame(loop);
+}
+
+init();
+requestAnimationFrame(loop);
+
+// Debug / headless-test hook (tests/mcrogue-smoke.js, console tinkering)
+window.__mc = {
+  get state() {
+    const me = players[myIdx] || {};
+    return {
+      gameState,
+      depth: run ? run.depth : 0,
+      hp: me.hp || 0, maxHp: me.maxHp || 0, bullets: me.bullets || 0,
+      perks: me.perks ? { ...me.perks } : {},
+      tilesLeft, totalSafe,
+      cols: COLS, rows: ROWS,
+      enemies: enemies ? enemies.length : 0,
+      eggs: eggs ? eggs.length : 0,
+      players: players.length,
+    };
+  },
+  get grid() { return grid; },
+  get simTick() { return simTick; },
+  get keys() { return keys; },
+  get draftChoices() { return draftChoices.map(p => p.id); },
+  startRun: startRunShared,
+  startRunSeeded(s) { ensureSolo(); newRun(s >>> 0); },
+  startFloor,
+  pickPerk,
+  movePlayer: (dx, dy) => movePlayer(players[myIdx], dx, dy),
+  poll: () => poll(players[myIdx]),
+  shoot: () => shoot(players[myIdx]),
+  placeTrap: () => placeTrap(players[myIdx]),
+  damagePlayer: (n, src) => damagePlayer(players[myIdx], n, src),
+  moveCd: () => moveCd(players[myIdx], simNow),
+  grantPerk(id) { players[myIdx].perks[id] = (players[myIdx].perks[id] || 0) + 1; },
+  forceClear() { if (gameState === 'playing') { tilesLeft = 0; floorCleared(); } },
+  spawnEnemy(type, x, y) { enemies.push(makeEnemy(type, x, y, simNow)); },
+  killEnemyAt(x, y) {
+    const e = enemies.find(e => !e.dead && e.x === x && e.y === y);
+    if (e) { killEnemy(e, 'bullet', players[myIdx]); enemies = enemies.filter(en => !en.dead); }
+  },
+  buildSnap, applySnap,
+};
+})();
+  </script>
+</body>
+</html>
