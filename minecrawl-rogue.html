@@ -202,7 +202,7 @@
 // snapshot only carries dynamic state.
 // =====================================================================
 
-const GAME_VER = 'v0.4';
+const GAME_VER = 'v0.5';
 const TILE = 32;
 let HUD_H = 64;   // grows one 16px row per teammate (party status board)
 const TICK_MS = 50, TICK_DT = TICK_MS / 1000;   // 20Hz fixed sim step
@@ -210,7 +210,6 @@ const MAX_DEPTH = 8;
 const CLEAR_R = 2;
 const BULLET_SPEED = 18;
 const EXPLODE_EGG = 0.04;
-const CHAIN_DELAY = 150;
 const MAX_PLAYERS = 4;
 const NUM_CLR = ['','#4a9eff','#4aff7a','#ff4a6a','#9a4aff','#ff8a4a','#4affff','#ff4aff','#c0c0c0'];
 const COLORS = ['#00ff88', '#4a9eff', '#ff8a3d', '#ff4aff'];
@@ -231,18 +230,38 @@ const SPEED_MUL = { normal: 1, fast: 0.5, shooter: 1, charger: 1,
   bloater: 1.5, brood: 1.7, magpie: 0.6, burrower: 1.4, pyro: 0.85 };
 
 // ---- depth scaling ----
-function depthConf(d) {
+// Depths 1–8: fixed mine counts 10→17 on small boards. Depths 9+ are the
+// ABYSS: endless, mines keep climbing, and every floor rolls a seeded
+// modifier (every 4th Abyss floor is a BOUNTIFUL breather).
+function depthConf(d, seed) {
   const size = Math.min(9 + d, 14);
-  return {
+  const abyss = d > MAX_DEPTH;
+  const c = {
     cols: size, rows: size,
-    mineRate: 0.09 + d * 0.006,
-    megaRate: d < 3 ? 0 : 0.05 + (d - 3) * 0.025,
-    hatch: Math.max(2800, 5200 - d * 300),
-    espeed: Math.max(650, 950 - d * 35),
+    mines: d <= MAX_DEPTH ? 9 + d : Math.min(17 + (d - MAX_DEPTH) * 2, 36),
+    megaRate: d < 3 ? 0 : Math.min(0.05 + (d - 3) * 0.025, 0.4),
+    hatch: Math.max(abyss ? 2200 : 2800, 5200 - d * 300),
+    espeed: Math.max(abyss ? 550 : 650, 950 - d * 35),
     lootBullet: 0.20,
     lootHeart: 0.03,
-    lootEgg: 0.07 + d * 0.006,
+    lootEgg: Math.min(0.07 + d * 0.006, 0.16),
+    chainDelay: 150,
+    borderQuiet: 3000,
+    dark: false,
+    mod: null,
   };
+  if (abyss && seed !== undefined && seed !== null) {
+    const MODS = ['VOLATILE', 'DARK', 'INFESTED', 'SWARMING'];
+    const mod = (d - MAX_DEPTH) % 4 === 0 ? 'BOUNTIFUL'
+      : MODS[Math.floor(keyedRng(seed, d, 0, 6)() * MODS.length)];
+    c.mod = mod;
+    if (mod === 'VOLATILE') { c.megaRate = Math.max(0.15, c.megaRate * 1.6); c.chainDelay = 80; }
+    else if (mod === 'DARK') c.dark = true;
+    else if (mod === 'INFESTED') { c.lootEgg = Math.min(0.3, c.lootEgg * 2); c.hatch = Math.floor(c.hatch * 0.75); }
+    else if (mod === 'SWARMING') c.borderQuiet = 1200;
+    else if (mod === 'BOUNTIFUL') { c.lootBullet *= 1.5; c.lootHeart *= 2.5; }
+  }
+  return c;
 }
 
 function rollType(d, r) {
@@ -392,14 +411,14 @@ function esc(s) { const d = document.createElement('div'); d.textContent = Strin
 function makePlayer(idx) {
   return { idx, color: COLORS[idx % COLORS.length], name: 'P' + (idx + 1),
     x: 0, y: 0, fx: 0, fy: 0, dir: { x: 1, y: 0 },
-    downed: false, left: false,
+    downed: false, left: false, noDraft: false,
     hp: 3, maxHp: 3, bullets: 3, perks: {}, sapperLeft: 0,
     iframeUntil: 0, adrenalineUntil: 0, moveBudget: 1,
     taps: [], acts: [], lastSeq: 0 };
 }
 function resetPlayerRun(pl) {
   pl.hp = 3; pl.maxHp = 3; pl.bullets = 3; pl.perks = {}; pl.sapperLeft = 0;
-  pl.downed = false; pl.iframeUntil = 0; pl.adrenalineUntil = 0;
+  pl.downed = false; pl.noDraft = false; pl.iframeUntil = 0; pl.adrenalineUntil = 0;
   pl.moveBudget = 1; pl.taps = []; pl.acts = []; pl.lastSeq = 0;
 }
 function updateHudH() {
@@ -421,12 +440,15 @@ function teamPerkCount(id) { return players.reduce((s, p) => s + (p.left ? 0 : (
 function showEnd(won) {
   const box = document.getElementById('endBox');
   box.classList.toggle('lost', !won);
+  const inAbyss = run.depth > MAX_DEPTH;
   document.getElementById('ov-title').textContent = won ? 'DEPTHS CONQUERED' : 'RUN OVER';
   document.getElementById('ov-sub').textContent = won
     ? '- you cleared all 8 depths -'
-    : `- the mines claimed you on depth ${run.depth} -`;
+    : inAbyss
+      ? `- the abyss claimed you at depth ${run.depth} -`
+      : `- the mines claimed you on depth ${run.depth} -`;
   document.getElementById('ov-time').textContent =
-    (won ? 'ALL 8 DEPTHS' : 'DEPTH ' + run.depth + ' / ' + MAX_DEPTH) +
+    (won ? 'ALL 8 DEPTHS' : (inAbyss ? 'ABYSS — DEPTH ' + run.depth : 'DEPTH ' + run.depth + ' / ' + MAX_DEPTH)) +
     '  //  ' + fmtTime(finalTime);
   const me = players[myIdx];
   const perkList = me ? PERKS.filter(p => me.perks[p.id])
@@ -434,8 +456,9 @@ function showEnd(won) {
   document.getElementById('ov-stats').innerHTML =
     'TIME&nbsp;&nbsp;&nbsp;&nbsp;' + fmtTime(finalTime) + '<br>' +
     'BUILD&nbsp;&nbsp;&nbsp;' + (perkList.length ? esc(perkList.join(' · ')) : 'no advancements');
-  document.getElementById('ov-hint').textContent =
-    net.mode === 'guest' ? 'WAITING FOR HOST TO RESTART' : '[R] NEW RUN';
+  document.getElementById('ov-hint').textContent = won
+    ? (net.mode === 'guest' ? 'THE HOST CHOOSES: ABYSS OR NEW RUN' : '[ENTER] DESCEND INTO THE ABYSS   ·   [R] NEW RUN')
+    : (net.mode === 'guest' ? 'WAITING FOR HOST TO RESTART' : '[R] NEW RUN');
   overlay.classList.add('show');
 }
 function hideOverlay() { overlay.classList.remove('show'); }
@@ -598,9 +621,18 @@ function newRun(seed) {
   startFloor(1);
 }
 
+function enterAbyss() {
+  if (gameState !== 'won' || net.mode === 'guest') return;
+  run.abyss = true;
+  hideOverlay();
+  gameState = 'draft';
+  draftPicked = players.map(p => !!p.left || !!p.noDraft);
+  buildDraft();
+}
+
 function startFloor(d) {
   run.depth = d;
-  conf = depthConf(d);
+  conf = depthConf(d, run.seed);
   updateHudH();
   setBoardSize(conf.cols, conf.rows);
   grid = []; enemies = []; eggs = []; projectiles = []; particles = [];
@@ -645,14 +677,22 @@ function genBoard(cx, cy, rng) {
       grid[y][x] = { mine: false, mega: false, rev: false, crater: false,
         num: 0, nearMega: false, loot: null, rt: 0, marked: false };
   }
+  // exact mine count: shuffle eligible cells with the floor rng, take N
+  const cand = [];
   for (let y = 0; y < ROWS; y++)
     for (let x = 0; x < COLS; x++) {
       if (Math.abs(x - cx) <= CLEAR_R && Math.abs(y - cy) <= CLEAR_R) continue;
-      if (rng() < conf.mineRate) {
-        grid[y][x].mine = true;
-        if (rng() < conf.megaRate) grid[y][x].mega = true;
-      }
+      cand.push({ x, y });
     }
+  for (let i = cand.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [cand[i], cand[j]] = [cand[j], cand[i]];
+  }
+  const nMines = Math.min(conf.mines, cand.length);
+  for (let i = 0; i < nMines; i++) {
+    grid[cand[i].y][cand[i].x].mine = true;
+    if (rng() < conf.megaRate) grid[cand[i].y][cand[i].x].mega = true;
+  }
   recomputeNums();
   for (let y = 0; y < ROWS; y++)
     for (let x = 0; x < COLS; x++) {
@@ -732,7 +772,7 @@ function doExplosion(mx, my) {
       eggs.slice().forEach(e => { if (e.x === nx && e.y === ny) killEgg(e); });
       const nt = grid[ny][nx];
       if (nt.mine && !nt.crater) {
-        explosionQueue.push({ x: nx, y: ny, time: now + CHAIN_DELAY });
+        explosionQueue.push({ x: nx, y: ny, time: now + conf.chainDelay });
       } else if (!nt.rev && !nt.crater) {
         nt.rev = true; nt.rt = now; nt.loot = null; nt.marked = false; tilesLeft--;
         if (keyedRng(run.seed, run.depth, ny * COLS + nx, 3)() < EXPLODE_EGG) spawnEgg(nx, ny);
@@ -791,7 +831,7 @@ function bloaterBoom(bx, by) {
       eggs.slice().forEach(e => { if (e.x === nx && e.y === ny) killEgg(e); });
       const nt = grid[ny][nx];
       if (nt.mine && !nt.crater) {
-        explosionQueue.push({ x: nx, y: ny, time: now + CHAIN_DELAY });
+        explosionQueue.push({ x: nx, y: ny, time: now + conf.chainDelay });
       } else if (!nt.rev && !nt.crater) {
         nt.rev = true; nt.rt = now; nt.loot = null; nt.marked = false; tilesLeft--;
       }
@@ -866,10 +906,16 @@ function floorCleared() {
   if (!damagedThisFloor) award('untouched');
   players.forEach(pl => {
     if (pl.left) return;
-    if (pl.downed) { pl.downed = false; pl.hp = Math.max(1, Math.ceil(pl.maxHp / 2)); }
+    pl.noDraft = false;
+    if (pl.downed) {
+      // revived, but the fallen don't get an advancement this depth
+      pl.downed = false;
+      pl.hp = Math.max(1, Math.ceil(pl.maxHp / 2));
+      pl.noDraft = true;
+    }
     fx('wburst', (pl.x + 0.5) * TILE, (pl.y + 0.5) * TILE + HUD_H);
   });
-  if (run.depth >= MAX_DEPTH) {
+  if (run.depth >= MAX_DEPTH && !run.abyss) {
     gameState = 'won';
     finalTime = gameTime;
     award('conqueror');
@@ -877,7 +923,7 @@ function floorCleared() {
     return;
   }
   gameState = 'draft';
-  draftPicked = players.map(p => !!p.left);
+  draftPicked = players.map(p => !!p.left || !!p.noDraft);
   buildDraft();
 }
 
@@ -896,7 +942,6 @@ function computeOffers(idx) {
 }
 
 function buildDraft() {
-  draftChoices = computeOffers(myIdx);
   draftWaiting = false;
   document.getElementById('draft-title').textContent = 'DEPTH ' + run.depth + ' CLEARED';
   document.getElementById('draft-wait').style.display = 'none';
@@ -904,6 +949,18 @@ function buildDraft() {
   box.classList.remove('picked');
   box.innerHTML = '';
   const me = players[myIdx];
+  if (me && me.noDraft) {
+    // you went down this depth — revived, but no advancement
+    draftChoices = [];
+    box.innerHTML = '<div style="color:#ff2d55;font:bold 13px \'Courier New\',monospace;' +
+      'letter-spacing:2px;padding:24px 16px;border:2px dashed #30363d;">' +
+      'YOU FELL — NO ADVANCEMENT THIS DEPTH</div>';
+    draftWaiting = true;
+    document.getElementById('draft-wait').style.display = 'block';
+    draftEl.classList.add('show');
+    return;
+  }
+  draftChoices = computeOffers(myIdx);
   draftChoices.forEach((p, i) => {
     const d = document.createElement('div');
     d.className = 'dcard';
@@ -1155,6 +1212,7 @@ document.addEventListener('keydown', (e) => {
   }
   if (gameState !== 'playing') {
     if (k === 'r' && net.mode !== 'guest') { hideOverlay(); startRunShared(); }
+    else if (k === 'enter' && gameState === 'won') enterAbyss();
     return;
   }
   keys.add(k);
@@ -1288,7 +1346,7 @@ function tick() {
       }
     } else {
       if (!borderSpawnTimer) { borderSpawnTimer = now; }
-      else if (now - borderSpawnTimer > 3000) {
+      else if (now - borderSpawnTimer > conf.borderQuiet) {
         const candidates = [];
         for (let y = 0; y < ROWS; y++)
           for (let x = 0; x < COLS; x++) {
@@ -1681,7 +1739,13 @@ function drawTile(x, y, now) {
       ctx.fillStyle = `rgba(0,255,136,${g * 0.35})`;
       ctx.fillRect(px, py, TILE, TILE);
     }
-    if (t.num > 0) {
+    let showNum = t.num > 0;
+    if (showNum && conf.dark) {
+      // DARK floors: numbers only legible within 3 tiles of a live player
+      showNum = players.some(p => !p.left && !p.downed &&
+        Math.max(Math.abs(p.x - x), Math.abs(p.y - y)) <= 3);
+    }
+    if (showNum) {
       const nc = t.nearMega ? '#ffd700' : NUM_CLR[t.num];
       ctx.save();
       ctx.shadowBlur = t.nearMega ? 10 : 6;
@@ -2061,10 +2125,15 @@ function drawHUD(now) {
   ctx.textAlign = 'right';
   ctx.fillText(fmtTime(dispTime), W - 14, y1);
 
-  ctx.fillStyle = '#ffd700';
   ctx.textAlign = 'center';
   ctx.font = 'bold 14px Courier New';
-  ctx.fillText('DEPTH ' + run.depth + ' / ' + MAX_DEPTH, W / 2, y1);
+  if (run.depth > MAX_DEPTH) {
+    ctx.fillStyle = '#c77dff';
+    ctx.fillText('ABYSS ' + run.depth + (conf.mod ? ' · ' + conf.mod : ''), W / 2, y1);
+  } else {
+    ctx.fillStyle = '#ffd700';
+    ctx.fillText('DEPTH ' + run.depth + ' / ' + MAX_DEPTH, W / 2, y1);
+  }
 
   ctx.font = 'bold 12px Courier New';
   const rev = totalSafe - tilesLeft;
@@ -2617,15 +2686,15 @@ function guestOnData(m) {
 }
 
 // ---- snapshot encode/decode ----
-// per-cell mixed radix: state(3) loot(3) marked(2) nearMega(2) num(9) mine(2) mega(2)
+// per-cell mixed radix: state(3) loot(4) marked(2) nearMega(2) num(9) mine(2) mega(2)
 function encodeGrid() {
   let s = '';
   for (let y = 0; y < ROWS; y++)
     for (let x = 0; x < COLS; x++) {
       const t = grid[y][x];
       const st = t.crater ? 2 : t.rev ? 1 : 0;
-      const lo = t.loot === 'bullet' ? 1 : t.loot === 'heart' ? 2 : 0;
-      const v = st + 3 * (lo + 3 * ((t.marked ? 1 : 0) + 2 * ((t.nearMega ? 1 : 0) +
+      const lo = t.loot === 'bullet' ? 1 : t.loot === 'heart' ? 2 : t.loot === 'egg' ? 3 : 0;
+      const v = st + 3 * (lo + 4 * ((t.marked ? 1 : 0) + 2 * ((t.nearMega ? 1 : 0) +
         2 * (t.num + 9 * ((t.mine ? 1 : 0) + 2 * (t.mega ? 1 : 0))))));
       s += String.fromCharCode(48 + v);
     }
@@ -2642,7 +2711,7 @@ function buildSnap() {
     bc: borderCrack ? { x: borderCrack.x, y: borderCrack.y, t: borderCrack.t } : null,
     pl: players.map(p => ({ i: p.idx, c: p.color, nm: p.name, x: p.x, y: p.y,
       dx: p.dir.x, dy: p.dir.y, hp: p.hp, mh: p.maxHp, b: p.bullets,
-      dn: p.downed ? 1 : 0, iu: p.iframeUntil, au: p.adrenalineUntil,
+      dn: p.downed ? 1 : 0, nd: p.noDraft ? 1 : 0, iu: p.iframeUntil, au: p.adrenalineUntil,
       pk: p.perks, sl: p.sapperLeft, ls: p.lastSeq, lf: p.left ? 1 : 0 })),
     en: enemies.map(e => ({ id: e.id, ty: e.type, x: e.x, y: e.y, hp: e.hp,
       cs: e.chargeState || 0, cdx: e.chargeDir ? e.chargeDir.x : 0, cdy: e.chargeDir ? e.chargeDir.y : 0, ct: e.chargeStart || 0,
@@ -2661,7 +2730,7 @@ function applySnap(s) {
   const newFloor = !grid || s.depth !== run.depth || s.cols !== COLS || s.rows !== ROWS;
   run.depth = s.depth;
   if (newFloor) {
-    conf = depthConf(s.depth);
+    conf = depthConf(s.depth, run.seed);
     updateHudH();
     setBoardSize(s.cols, s.rows);
     grid = [];
@@ -2688,7 +2757,7 @@ function applySnap(s) {
       let v = s.grid.charCodeAt(i) - 48;
       const t = grid[y][x];
       const st = v % 3; v = (v - st) / 3;
-      const lo = v % 3; v = (v - lo) / 3;
+      const lo = v % 4; v = (v - lo) / 4;
       const mk = v % 2; v = (v - mk) / 2;
       const nm = v % 2; v = (v - nm) / 2;
       const num = v % 9; v = (v - num) / 9;
@@ -2697,7 +2766,7 @@ function applySnap(s) {
       const wasOpen = t.rev || t.crater;
       t.rev = st >= 1; t.crater = st === 2;
       if (!wasOpen && st >= 1) t.rt = gn;
-      t.loot = lo === 1 ? 'bullet' : lo === 2 ? 'heart' : null;
+      t.loot = lo === 1 ? 'bullet' : lo === 2 ? 'heart' : lo === 3 ? 'egg' : null;
       t.marked = !!mk; t.nearMega = !!nm; t.num = num;
       t.mine = !!mine; t.mega = !!mega;
     }
@@ -2709,6 +2778,7 @@ function applySnap(s) {
     if (!isMe) { pl.x = sp.x; pl.y = sp.y; pl.dir = { x: sp.dx, y: sp.dy }; }
     else if (sp.ls >= mySeq) { pl.x = sp.x; pl.y = sp.y; }
     pl.hp = sp.hp; pl.maxHp = sp.mh; pl.bullets = sp.b; pl.downed = !!sp.dn;
+    pl.noDraft = !!sp.nd;
     pl.iframeUntil = sp.iu; pl.adrenalineUntil = sp.au;
     pl.perks = sp.pk || {}; pl.sapperLeft = sp.sl;
     pl.left = !!sp.lf; pl.color = sp.c; pl.lastSeq = sp.ls;
@@ -2745,7 +2815,7 @@ function applySnap(s) {
   if (gameState === 'draft' && prev !== 'draft') buildDraft();
   if (prev === 'draft' && gameState !== 'draft') draftEl.classList.remove('show');
   if ((gameState === 'lost' || gameState === 'won') && prev !== gameState) showEnd(gameState === 'won');
-  if (gameState === 'playing' && (prev === 'lost' || prev === 'won')) hideOverlay();
+  if ((gameState === 'playing' || gameState === 'draft') && (prev === 'lost' || prev === 'won')) hideOverlay();
 
   (s.ev || []).forEach(e => {
     const [k, ...a] = e;
@@ -2825,6 +2895,8 @@ window.__mc = {
   get simTick() { return simTick; },
   get keys() { return keys; },
   get draftChoices() { return draftChoices.map(p => p.id); },
+  get conf() { return conf; },
+  enterAbyss,
   startRun: startRunShared,
   startRunSeeded(s) { ensureSolo(); newRun(s >>> 0); },
   startFloor,
