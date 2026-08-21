@@ -221,7 +221,7 @@
 // snapshot only carries dynamic state.
 // =====================================================================
 
-const GAME_VER = 'v0.11';
+const GAME_VER = 'v0.12';
 const TILE = 32;
 let HUD_H = 64;   // grows one 16px row per teammate (party status board)
 const TICK_MS = 50, TICK_DT = TICK_MS / 1000;   // 20Hz fixed sim step
@@ -351,7 +351,7 @@ const PERKS = [
   { id: 'sixth',      name: 'SIXTH SENSE',     tag: 'SS', clr: '#ff5a8a', stack: false, desc: 'Your reticle glows red when facing a mine.' },
   { id: 'prospector', name: 'PROSPECTOR',      tag: 'PS', clr: '#e0c060', stack: false, desc: 'Craters have a 35% chance to hold loot.' },
   { id: 'omelette',   name: 'OMELETTE',        tag: 'OM', clr: '#ffe08a', stack: false, desc: 'Destroyed eggs drop loot.' },
-  { id: 'bloodlust',  name: 'BLOODLUST',       tag: 'BL', clr: '#ff3355', stack: false, desc: 'Enemy kills heal half a heart.' },
+  { id: 'bloodlust',  name: 'BLOODLUST',       tag: 'BL', clr: '#ff3355', stack: false, desc: 'Enemy kills heal a quarter heart.' },
   { id: 'bombsquad',  name: 'BOMB SQUAD',      tag: 'BQ', clr: '#66c2ff', stack: false, requires: 'sapper', desc: 'Defused mines turn into ammo pickups.' },
   { id: 'dms',        name: "DEAD MAN'S SWITCH", tag: 'DM', clr: '#dddddd', stack: false, desc: 'Whenever you take damage, the nearest enemy dies.' },
   { id: 'magnet',     name: 'MAGNET',          tag: 'MG', clr: '#c77dff', stack: false, desc: 'Loot within 2 tiles is pulled to you.' },
@@ -982,7 +982,7 @@ function doExplosion(mx, my) {
 
   if (anyPerk('prospector')) {
     const kr = keyedRng(run.seed, run.depth, my * COLS + mx, 2);
-    if (kr() < 0.35) mt.loot = kr() < 0.75 ? 'bullet' : 'heart';
+    if (kr() < 0.35) mt.loot = kr() < 0.9 ? 'bullet' : 'heart';
   }
   fx('boom', mx, my, isMega);
   hitPlayers.forEach(pl => damagePlayer(pl, isMega ? 2 : 1, 'explosion'));
@@ -1010,8 +1010,8 @@ function killEnemy(e, cause, credit) {
   const healTargets = credit ? [credit] : (cause === 'explosion' ? livePlayers() : []);
   healTargets.forEach(pl => {
     if (pl.perks.bloodlust && pl.hp < pl.maxHp) {
-      pl.hp = Math.min(pl.maxHp, pl.hp + 0.5);
-      fx('ptext', (e.x + 0.5) * TILE, e.y * TILE + HUD_H, '+½', '#ff3355');
+      pl.hp = Math.min(pl.maxHp, pl.hp + 0.25);
+      fx('ptext', (e.x + 0.5) * TILE, e.y * TILE + HUD_H, '+¼', '#ff3355');
     }
   });
   if (e.type === 'bloater') bloaterBoom(e.x, e.y);
@@ -1045,7 +1045,7 @@ function killEgg(egg) {
   if (anyPerk('omelette')) {
     const t = grid[egg.y][egg.x];
     if (t.rev && !t.loot)
-      t.loot = keyedRng(run.seed, run.depth, egg.id, 4)() < 0.7 ? 'bullet' : 'heart';
+      t.loot = keyedRng(run.seed, run.depth, egg.id, 4)() < 0.9 ? 'bullet' : 'heart';
   }
 }
 
