@@ -202,7 +202,7 @@
 // snapshot only carries dynamic state.
 // =====================================================================
 
-const GAME_VER = 'v0.7';
+const GAME_VER = 'v0.9';
 const TILE = 32;
 let HUD_H = 64;   // grows one 16px row per teammate (party status board)
 const TICK_MS = 50, TICK_DT = TICK_MS / 1000;   // 20Hz fixed sim step
@@ -236,8 +236,11 @@ const SPEED_MUL = { normal: 1, fast: 0.5, shooter: 1, charger: 1,
 function depthConf(d, seed, nPlayers) {
   // +1 board size per extra player in the party; mines scale via `eligible`
   const extra = Math.max(0, (nPlayers || 1) - 1);
-  const size = Math.min(9 + d, 17) + extra;   // solo: 10x10 → 17x17 (d8+)
   const abyss = d > MAX_DEPTH;
+  // solo: 10x10 → 17x17 by d8; the abyss keeps growing +1 every 2 depths (cap 22)
+  const size = (abyss
+    ? Math.min(17 + Math.floor((d - MAX_DEPTH) / 2), 22)
+    : Math.min(9 + d, 17)) + extra;
   // mine count tracks board growth AND ramps in density: ~13% of eligible
   // tiles at depth 1 (10 mines) up to ~15.7% at depth 8 (41), abyss caps at 21%
   const eligible = size * size - (CLEAR_R * 2 + 1) * (CLEAR_R * 2 + 1);
@@ -248,11 +251,11 @@ function depthConf(d, seed, nPlayers) {
     hatch: Math.max(abyss ? 2200 : 2800, 5200 - d * 300),
     espeed: Math.max(abyss ? 550 : 650, 950 - d * 35),
     lootBullet: 0.20,
-    lootHeart: 0.03,
     lootEgg: Math.min(0.07 + d * 0.006, 0.16),
     chainDelay: 150,
     borderQuiet: 3000,
     dark: false,
+    bonusHeart: false,
     mod: null,
   };
   if (abyss && seed !== undefined && seed !== null) {
@@ -264,7 +267,7 @@ function depthConf(d, seed, nPlayers) {
     else if (mod === 'DARK') c.dark = true;
     else if (mod === 'INFESTED') { c.lootEgg = Math.min(0.3, c.lootEgg * 2); c.hatch = Math.floor(c.hatch * 0.75); }
     else if (mod === 'SWARMING') c.borderQuiet = 1200;
-    else if (mod === 'BOUNTIFUL') { c.lootBullet *= 1.5; c.lootHeart *= 2.5; }
+    else if (mod === 'BOUNTIFUL') { c.lootBullet *= 1.5; c.bonusHeart = true; }
   }
   return c;
 }
@@ -310,7 +313,7 @@ function keyedRng(seed, ...ks) {
 // ---- perks ----
 const PERKS = [
   { id: 'vest',       name: 'PLATED VEST',     tag: '+♥', clr: '#ff6b6b', stack: true,  desc: '+1 max HP and heal 1 heart.' },
-  { id: 'medic',      name: 'FIELD MEDIC',     tag: 'FM', clr: '#ff9ecb', stack: false, desc: 'Heal to full now. Hearts drop far more often.' },
+  { id: 'medic',      name: 'FIELD MEDIC',     tag: 'FM', clr: '#ff9ecb', stack: false, desc: 'Heal to full now. One extra heart spawns each depth.' },
   { id: 'swift',      name: 'SWIFT BOOTS',     tag: 'SB', clr: '#4affd0', stack: true,  desc: 'Move 20% faster.' },
   { id: 'bandolier',  name: 'BANDOLIER',       tag: 'BD', clr: '#ffd700', stack: true,  desc: '+4 ammo now. Ammo pickups give +1 extra.' },
   { id: 'pierce',     name: 'PIERCING ROUNDS', tag: 'PR', clr: '#ffaa4a', stack: false, desc: 'Bullets punch through and reveal 2 tiles.' },
@@ -673,7 +676,6 @@ function startFloor(d) {
 
 function genBoard(cx, cy, rng) {
   const scav = 1 + 0.5 * teamPerkCount('scavenger');
-  const heartRate = conf.lootHeart * scav * (anyPerk('medic') ? 2.5 : 1);
   const bulletRate = conf.lootBullet * scav;
   const eggRate = conf.lootEgg * scav;
   for (let y = 0; y < ROWS; y++) {
@@ -706,7 +708,6 @@ function genBoard(cx, cy, rng) {
       const r = rng();
       if (r < bulletRate) t.loot = 'bullet';
       else if (r < bulletRate + eggRate) t.loot = 'egg';
-      else if (r < bulletRate + eggRate + heartRate) t.loot = 'heart';
     }
   totalSafe = 0;
   for (let y = 0; y < ROWS; y++)
@@ -717,6 +718,64 @@ function genBoard(cx, cy, rng) {
   for (let y = 0; y < ROWS; y++)
     for (let x = 0; x < COLS; x++)
       if (grid[y][x].rev) grid[y][x].loot = null;
+
+  // deterministic hearts: exactly one per living player, placed away from
+  // spawn on still-hidden tiles (+1 for Field Medic, +1 on BOUNTIFUL floors)
+  const nHearts = players.filter(p => !p.left).length +
+    (anyPerk('medic') ? 1 : 0) + (conf.bonusHeart ? 1 : 0);
+  // buried as deep as possible: rank hidden tiles by distance from the
+  // initially exposed area (multi-source 8-way BFS from all revealed tiles),
+  // seeded shuffle for tie-breaks, numbered tiles preferred, and spread
+  // multiple hearts at least 4 apart when the board allows it
+  const hd = [];
+  const hq = [];
+  for (let y = 0; y < ROWS; y++) {
+    hd[y] = [];
+    for (let x = 0; x < COLS; x++) {
+      if (grid[y][x].rev) { hd[y][x] = 0; hq.push([x, y]); }
+      else hd[y][x] = -1;
+    }
+  }
+  for (let qi = 0; qi < hq.length; qi++) {
+    const [x, y] = hq[qi];
+    for (let dy = -1; dy <= 1; dy++)
+      for (let dx = -1; dx <= 1; dx++) {
+        if (!dx && !dy) continue;
+        const nx = x + dx, ny = y + dy;
+        if (!ib(nx, ny) || hd[ny][nx] !== -1) continue;
+        hd[ny][nx] = hd[y][x] + 1;
+        hq.push([nx, ny]);
+      }
+  }
+  const cand2 = [];
+  for (let y = 0; y < ROWS; y++)
+    for (let x = 0; x < COLS; x++) {
+      const t = grid[y][x];
+      if (t.mine || t.rev || t.loot) continue;
+      cand2.push({ t, x, y, d: hd[y][x] === -1 ? 999 : hd[y][x], n: t.num > 0 ? 1 : 0 });
+    }
+  for (let i = cand2.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [cand2[i], cand2[j]] = [cand2[j], cand2[i]];
+  }
+  cand2.sort((a, b) => b.n - a.n);   // prefer numbered tiles (won't flood open)
+  const placedH = [];
+  // random spot at least minD from the exposed area (edges are fine),
+  // relaxing the depth requirement — then the spread rule — as needed
+  const tryPlace = (minD, spread) => {
+    for (const c2 of cand2) {
+      if (placedH.length >= nHearts) break;
+      if (c2.t.loot || c2.d < minD) continue;
+      if (spread && placedH.some(p =>
+        Math.max(Math.abs(p.x - c2.x), Math.abs(p.y - c2.y)) < 4)) continue;
+      c2.t.loot = 'heart';
+      placedH.push(c2);
+    }
+  };
+  tryPlace(3, true);
+  tryPlace(2, true);
+  tryPlace(0, true);
+  tryPlace(0, false);
 }
 
 function recomputeNums() {
@@ -875,6 +934,19 @@ function damagePlayer(pl, n, src) {
     } else {
       pl.hp = 0;
       pl.downed = true;
+      // your stash dies with you: up to 3 bullets scatter where you fell
+      let drop = Math.min(3, pl.bullets);
+      pl.bullets = 0;
+      const spots = [[0,0],[0,-1],[0,1],[-1,0],[1,0],[-1,-1],[1,-1],[-1,1],[1,1]];
+      for (const [sx2, sy2] of spots) {
+        if (drop <= 0) break;
+        const nx = pl.x + sx2, ny = pl.y + sy2;
+        if (!ib(nx, ny)) continue;
+        const t = grid[ny][nx];
+        if (!t.rev || t.crater || t.loot) continue;
+        t.loot = 'bullet';
+        drop--;
+      }
       fx('kburst', px, py);
       if (players.every(p => p.left || p.downed)) { loseRun(); return; }
       fx('toast', 'PLAYER DOWN — revive on floor clear');
@@ -913,9 +985,10 @@ function floorCleared() {
     if (pl.left) return;
     pl.noDraft = false;
     if (pl.downed) {
-      // revived, but the fallen don't get an advancement this depth
+      // revived at half hearts with a fixed 3 bullets, and no advancement
       pl.downed = false;
       pl.hp = Math.max(1, Math.ceil(pl.maxHp / 2));
+      pl.bullets = 3;
       pl.noDraft = true;
     }
     fx('wburst', (pl.x + 0.5) * TILE, (pl.y + 0.5) * TILE + HUD_H);
@@ -925,6 +998,13 @@ function floorCleared() {
     finalTime = gameTime;
     award('conqueror');
     showEnd(true);
+    return;
+  }
+  // the abyss only offers a draft after even depths — power gain slows
+  // while the floors keep growing
+  if (run.abyss && run.depth % 2 === 1) {
+    fx('toast', 'THE ABYSS OFFERS NOTHING — DESCEND');
+    startFloor(run.depth + 1);
     return;
   }
   gameState = 'draft';
@@ -1771,6 +1851,26 @@ function drawTile(x, y, now) {
     ctx.fillStyle = '#171b21';
     ctx.fillRect(px, py + TILE - 2, TILE, 2);
     ctx.fillRect(px + TILE - 2, py, 2, TILE);
+
+    if (t.loot === 'heart') {
+      // faint pulse marking a buried heart — a destination worth digging to
+      let show = true;
+      if (conf.dark)
+        show = players.some(p => !p.left && !p.downed &&
+          Math.max(Math.abs(p.x - x), Math.abs(p.y - y)) <= 3);
+      if (show) {
+        const hp2 = 0.3 + Math.sin(now / 400) * 0.18;
+        ctx.save();
+        ctx.globalAlpha = hp2;
+        ctx.shadowBlur = 6;
+        ctx.shadowColor = '#ff6b6b';
+        ctx.fillStyle = '#ff6b6b';
+        ctx.beginPath();
+        ctx.arc(px + TILE / 2, py + TILE / 2, 3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+    }
 
     if (t.marked) {
       const pulse = 0.5 + Math.sin(now / 400) * 0.25;
