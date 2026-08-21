@@ -202,7 +202,7 @@
 // snapshot only carries dynamic state.
 // =====================================================================
 
-const GAME_VER = 'v0.5';
+const GAME_VER = 'v0.7';
 const TILE = 32;
 let HUD_H = 64;   // grows one 16px row per teammate (party status board)
 const TICK_MS = 50, TICK_DT = TICK_MS / 1000;   // 20Hz fixed sim step
@@ -233,12 +233,17 @@ const SPEED_MUL = { normal: 1, fast: 0.5, shooter: 1, charger: 1,
 // Depths 1–8: fixed mine counts 10→17 on small boards. Depths 9+ are the
 // ABYSS: endless, mines keep climbing, and every floor rolls a seeded
 // modifier (every 4th Abyss floor is a BOUNTIFUL breather).
-function depthConf(d, seed) {
-  const size = Math.min(9 + d, 14);
+function depthConf(d, seed, nPlayers) {
+  // +1 board size per extra player in the party; mines scale via `eligible`
+  const extra = Math.max(0, (nPlayers || 1) - 1);
+  const size = Math.min(9 + d, 17) + extra;   // solo: 10x10 → 17x17 (d8+)
   const abyss = d > MAX_DEPTH;
+  // mine count tracks board growth AND ramps in density: ~13% of eligible
+  // tiles at depth 1 (10 mines) up to ~15.7% at depth 8 (41), abyss caps at 21%
+  const eligible = size * size - (CLEAR_R * 2 + 1) * (CLEAR_R * 2 + 1);
   const c = {
     cols: size, rows: size,
-    mines: d <= MAX_DEPTH ? 9 + d : Math.min(17 + (d - MAX_DEPTH) * 2, 36),
+    mines: Math.round(eligible * Math.min(0.125 + d * 0.004, 0.21)),
     megaRate: d < 3 ? 0 : Math.min(0.05 + (d - 3) * 0.025, 0.4),
     hatch: Math.max(abyss ? 2200 : 2800, 5200 - d * 300),
     espeed: Math.max(abyss ? 550 : 650, 950 - d * 35),
@@ -632,7 +637,7 @@ function enterAbyss() {
 
 function startFloor(d) {
   run.depth = d;
-  conf = depthConf(d, run.seed);
+  conf = depthConf(d, run.seed, players.filter(p => !p.left).length);
   updateHudH();
   setBoardSize(conf.cols, conf.rows);
   grid = []; enemies = []; eggs = []; projectiles = []; particles = [];
@@ -2730,7 +2735,7 @@ function applySnap(s) {
   const newFloor = !grid || s.depth !== run.depth || s.cols !== COLS || s.rows !== ROWS;
   run.depth = s.depth;
   if (newFloor) {
-    conf = depthConf(s.depth, run.seed);
+    conf = depthConf(s.depth, run.seed, players.filter(p => !p.left).length);
     updateHudH();
     setBoardSize(s.cols, s.rows);
     grid = [];
