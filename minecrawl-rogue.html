@@ -93,6 +93,20 @@
       color: #30363d; font: bold 11px 'Courier New', monospace;
       margin-top: 16px; letter-spacing: 1px;
     }
+    .ob .lb-title {
+      color: #ffd700; font: bold 10px 'Courier New', monospace;
+      letter-spacing: 3px; margin: 12px 0 6px; text-transform: uppercase;
+      text-shadow: 0 0 6px #ffd70040;
+    }
+    .ob .lb-row {
+      display: flex; justify-content: space-between; gap: 12px;
+      font: bold 11px 'Courier New', monospace; color: #586069;
+      padding: 2px 0; border-bottom: 1px solid #1a1a2a; text-align: left;
+    }
+    .ob .lb-status {
+      font: bold 10px 'Courier New', monospace; color: #8b949e;
+      letter-spacing: 1px; margin-top: 10px;
+    }
     /* ---- perk draft ---- */
     .draft-box { text-align: center; }
     .draft-title {
@@ -154,6 +168,11 @@
       <p class="time-line" id="ov-time"></p>
       <hr class="sep">
       <div id="ov-stats" style="font:bold 12px 'Courier New',monospace;color:#8b949e;text-align:left;line-height:1.9"></div>
+      <div class="input-row" id="ov-name-row" style="display:none;margin-top:14px">
+        <input type="text" id="endNameInput" maxlength="10" placeholder="YOUR NAME" autocomplete="off" spellcheck="false">
+        <button id="endNameBtn">SAVE</button>
+      </div>
+      <div id="ov-lb"></div>
       <p class="hint" id="ov-hint">[R] NEW RUN</p>
     </div>
   </div>
@@ -202,7 +221,7 @@
 // snapshot only carries dynamic state.
 // =====================================================================
 
-const GAME_VER = 'v0.9';
+const GAME_VER = 'v0.11';
 const TILE = 32;
 let HUD_H = 64;   // grows one 16px row per teammate (party status board)
 const TICK_MS = 50, TICK_DT = TICK_MS / 1000;   // 20Hz fixed sim step
@@ -405,6 +424,8 @@ const joinEl = document.getElementById('join');
 const joinInput = document.getElementById('joinInput');
 const joinBtn = document.getElementById('joinBtn');
 const nameInput = document.getElementById('nameInput');
+const endNameInput = document.getElementById('endNameInput');
+const endNameBtn = document.getElementById('endNameBtn');
 
 function sanitizeName(s) {
   return String(s || '').replace(/[^\w \-'!.]/g, '').trim().slice(0, 10);
@@ -444,6 +465,93 @@ function nearestPlayer(x, y) {
 function anyPerk(id) { return players.some(p => !p.left && p.perks[id]); }
 function teamPerkCount(id) { return players.reduce((s, p) => s + (p.left ? 0 : (p.perks[id] || 0)), 0); }
 
+// ---- AIRTABLE LEADERBOARD ----
+// One row per run, upserted on RunId: a win that continues into the abyss
+// UPDATES its record (deeper Cleared/Score) instead of adding a duplicate.
+// Host/solo submits automatically at run end, on behalf of the whole party.
+const AT_BASE  = 'appsvu3ApgrBKyAx6';
+const AT_TABLE = 'Minecrawl Rogue';
+const AT_TOKEN = 'patxeMh9t8lsRlU9l.973e131b2895f6b1e921cb91959264ec16e1a9c5e1d481e7ae18bd2c2e73881b';
+const AT_URL   = `https://api.airtable.com/v0/${AT_BASE}/${encodeURIComponent(AT_TABLE)}`;
+let leaderboard = [], lbStatus = '', pendingSubmitWon = null;
+
+function fetchLeaderboard() {
+  return fetch(AT_URL + '?maxRecords=10&sort%5B0%5D%5Bfield%5D=Score&sort%5B0%5D%5Bdirection%5D=desc',
+    { headers: { Authorization: 'Bearer ' + AT_TOKEN } })
+    .then(r => r.json())
+    .then(d => { leaderboard = (d.records || []).map(r => r.fields); })
+    .catch(() => {});
+}
+
+function submitRun(won) {
+  if (net.mode === 'guest' || !run || !run.rid) return;
+  if (!myName) {
+    // no stored name — the end overlay prompts once so the run gets credited
+    pendingSubmitWon = won;
+    lbStatus = 'need-name';
+    return;
+  }
+  if (players[myIdx]) players[myIdx].name = myName;
+  const cleared = won ? MAX_DEPTH : Math.max(0, run.depth - 1);
+  const secs = Math.floor(finalTime);
+  const party = players.filter(p => !p.left);
+  lbStatus = 'sending';
+  fetch(AT_URL, {
+    method: 'PATCH',
+    headers: { Authorization: 'Bearer ' + AT_TOKEN, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      performUpsert: { fieldsToMergeOn: ['RunId'] },
+      typecast: true,
+      records: [{ fields: {
+        RunId: run.rid,
+        Name: myName || 'ANON',
+        Party: party.map(p => p.name).join(', '),
+        Players: party.length,
+        Depth: run.depth,
+        Cleared: cleared,
+        Win: cleared >= MAX_DEPTH,
+        Time: secs,
+        Score: cleared * 1000000 - secs,
+        Date: new Date().toISOString().slice(0, 10),
+        Version: GAME_VER,
+      } }],
+    }),
+  }).then(r => r.json()).then(d => {
+    if (d.error) throw d.error;
+    lbStatus = 'ok';
+    return fetchLeaderboard();
+  }).then(() => renderEndLb())
+    .catch(() => { lbStatus = 'err'; renderEndLb(); });
+}
+
+function lbWho(r) {
+  return (r.Players > 1 && r.Party) ? r.Party : (r.Name || '???');
+}
+function lbTag(r) {
+  if ((r.Cleared || 0) >= MAX_DEPTH)
+    return (r.Depth || 0) > MAX_DEPTH ? 'A' + r.Depth : 'WIN';
+  return 'D' + (r.Depth || 1);
+}
+
+function renderEndLb() {
+  const el = document.getElementById('ov-lb');
+  let html = '';
+  if (lbStatus === 'need-name') html += '<div class="lb-status" style="color:#ffd700">ENTER A NAME TO RECORD THIS RUN</div>';
+  else if (lbStatus === 'sending') html += '<div class="lb-status">SUBMITTING RUN…</div>';
+  else if (lbStatus === 'ok') html += '<div class="lb-status" style="color:#00ff88">RUN RECORDED ✓</div>';
+  else if (lbStatus === 'err') html += '<div class="lb-status" style="color:#ff2d55">SUBMIT FAILED — LEADERBOARD TABLE MISSING?</div>';
+  if (leaderboard.length) {
+    html += '<div class="lb-title">Deepest Runs</div>';
+    leaderboard.slice(0, 5).forEach((r, i) => {
+      html += '<div class="lb-row"><span>' + (i + 1) + '. ' +
+        esc(String(lbWho(r)).toUpperCase().slice(0, 20)) + '</span><span>' +
+        esc(lbTag(r)) + ' ' + fmtTime(r.Time || 0) +
+        (r.Players > 1 ? ' ×' + r.Players : '') + '</span></div>';
+    });
+  }
+  el.innerHTML = html;
+}
+
 // ---- end overlay ----
 function showEnd(won) {
   const box = document.getElementById('endBox');
@@ -467,8 +575,33 @@ function showEnd(won) {
   document.getElementById('ov-hint').textContent = won
     ? (net.mode === 'guest' ? 'THE HOST CHOOSES: ABYSS OR NEW RUN' : '[ENTER] DESCEND INTO THE ABYSS   ·   [R] NEW RUN')
     : (net.mode === 'guest' ? 'WAITING FOR HOST TO RESTART' : '[R] NEW RUN');
+  renderEndLb();
+  const needName = lbStatus === 'need-name' && net.mode !== 'guest';
+  document.getElementById('ov-name-row').style.display = needName ? 'flex' : 'none';
+  if (needName) setTimeout(() => endNameInput.focus(), 0);
+  // guests don't submit — refetch shortly so the host's fresh entry shows
+  if (net.mode === 'guest')
+    setTimeout(() => { fetchLeaderboard().then(renderEndLb); }, 2500);
   overlay.classList.add('show');
 }
+
+endNameBtn.addEventListener('click', () => {
+  const n = sanitizeName(endNameInput.value);
+  if (!n) { endNameInput.focus(); return; }
+  myName = n;
+  try { localStorage.setItem('mcrogue-name', myName); } catch (e) {}
+  document.getElementById('ov-name-row').style.display = 'none';
+  if (pendingSubmitWon !== null) {
+    const w = pendingSubmitWon;
+    pendingSubmitWon = null;
+    submitRun(w);
+    renderEndLb();
+  }
+});
+endNameInput.addEventListener('keydown', (e) => {
+  e.stopPropagation();
+  if (e.key === 'Enter') endNameBtn.click();
+});
 function hideOverlay() { overlay.classList.remove('show'); }
 
 // =====================================================================
@@ -590,7 +723,7 @@ function lootBurst(nx, ny, clr) {
 // =====================================================================
 // RUN / FLOOR LIFECYCLE (host + solo only; guests receive snapshots)
 // =====================================================================
-function init() { gameState = 'title'; }
+function init() { gameState = 'title'; fetchLeaderboard(); }
 
 function ensureSolo() {
   if (net.mode === null && (players.length !== 1 || !players[0])) {
@@ -622,7 +755,10 @@ function startRunShared() {
 
 function newRun(seed) {
   hideOverlay();
-  run = { seed: seed >>> 0, depth: 1 };
+  run = { seed: seed >>> 0, depth: 1,
+    rid: (seed >>> 0).toString(36) + '-' + Math.random().toString(36).slice(2, 8) };
+  lbStatus = '';
+  pendingSubmitWon = null;
   playTicks = 0; gameTime = 0; finalTime = 0;
   players.forEach(resetPlayerRun);
   player = players[myIdx];
@@ -974,6 +1110,7 @@ function loseRun() {
   if (gameState !== 'playing') return;
   gameState = 'lost';
   finalTime = gameTime;
+  submitRun(false);
   showEnd(false);
 }
 
@@ -997,6 +1134,7 @@ function floorCleared() {
     gameState = 'won';
     finalTime = gameTime;
     award('conqueror');
+    submitRun(true);
     showEnd(true);
     return;
   }
@@ -1273,7 +1411,8 @@ function localAct(a) {
 }
 
 document.addEventListener('keydown', (e) => {
-  if (document.activeElement === joinInput || document.activeElement === nameInput) return;
+  if (document.activeElement === joinInput || document.activeElement === nameInput ||
+      document.activeElement === endNameInput) return;
   const k = e.key.toLowerCase();
   if (['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright',' ','e','q'].includes(k))
     e.preventDefault();
@@ -2402,6 +2541,20 @@ function drawTitle(now) {
     ctx.fillText((got ? '◆ ' : '◇ ') + a.name, x, y);
   });
   ay += 18 + 4 * 16 + 6;
+
+  if (leaderboard.length) {
+    ctx.fillStyle = '#484f58';
+    ctx.font = 'bold 10px Courier New';
+    ctx.fillText('─── DEEPEST RUNS ───', lx, ay + 8);
+    ctx.font = '11px Courier New';
+    leaderboard.slice(0, 5).forEach((r, i) => {
+      ctx.fillStyle = i === 0 ? '#ffd700' : i === 1 ? '#c0c0c0' : i === 2 ? '#cd7f32' : '#586069';
+      const row = (i + 1) + '. ' + String(lbWho(r)).toUpperCase().padEnd(16).slice(0, 16) +
+        '  ' + lbTag(r) + ' ' + fmtTime(r.Time || 0) + (r.Players > 1 ? ' ×' + r.Players : '');
+      ctx.fillText(row, lx, ay + 26 + i * 15);
+    });
+    ay += 26 + Math.min(leaderboard.length, 5) * 15 + 2;
+  }
 
   if (netMsgTitle) {
     ctx.fillStyle = '#ff2d55';
