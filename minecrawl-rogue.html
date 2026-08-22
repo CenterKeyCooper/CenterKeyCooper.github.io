@@ -221,7 +221,7 @@
 // snapshot only carries dynamic state.
 // =====================================================================
 
-const GAME_VER = 'v0.12';
+const GAME_VER = 'v0.13';
 const TILE = 32;
 let HUD_H = 64;   // grows one 16px row per teammate (party status board)
 const TICK_MS = 50, TICK_DT = TICK_MS / 1000;   // 20Hz fixed sim step
@@ -2272,8 +2272,14 @@ function drawPlayer(pl, now, isMe) {
   ctx.closePath(); ctx.fill();
   if (!isMe) {
     for (let i = 0; i < pl.maxHp; i++) {
-      ctx.fillStyle = pl.hp >= i + 1 ? '#ff4a6a' : pl.hp > i ? '#993048' : '#2a2f36';
-      ctx.fillRect(cx - pl.maxHp * 3 + i * 6, cy - 20, 4, 4);
+      const frac = Math.max(0, Math.min(1, pl.hp - i));
+      const bx = cx - pl.maxHp * 3 + i * 6;
+      ctx.fillStyle = '#2a2f36';
+      ctx.fillRect(bx, cy - 20, 4, 4);
+      if (frac > 0) {
+        ctx.fillStyle = '#ff4a6a';
+        ctx.fillRect(bx, cy - 20, 4 * frac, 4);
+      }
     }
     if (pl.name) {
       ctx.fillStyle = pl.color;
@@ -2341,6 +2347,23 @@ function drawParticle(p) {
   ctx.globalAlpha = 1;
 }
 
+// partial heart: dark glyph with the left fraction clipped in bright red,
+// so a quarter heart actually reads as a quarter
+function drawHeartGlyph(x, y, frac, size) {
+  ctx.font = 'bold ' + size + 'px Courier New';
+  ctx.fillStyle = '#2a2f36';
+  ctx.fillText('♥', x, y);
+  if (frac <= 0) return;
+  const w = ctx.measureText('♥').width;
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(x - 1, y - size, w * Math.min(1, frac) + 1, size * 2);
+  ctx.clip();
+  ctx.fillStyle = '#ff4a6a';
+  ctx.fillText('♥', x, y);
+  ctx.restore();
+}
+
 function drawHUD(now) {
   ctx.fillStyle = '#0f1318';
   ctx.fillRect(0, 0, W, HUD_H);
@@ -2352,12 +2375,9 @@ function drawHUD(now) {
   const y1 = 18, y2 = 45;
 
   ctx.textAlign = 'left';
-  ctx.font = 'bold 15px Courier New';
   let hx = 14;
   for (let i = 0; i < player.maxHp; i++) {
-    const full = player.hp >= i + 1, half = !full && player.hp > i;
-    ctx.fillStyle = full ? '#ff4a6a' : half ? '#993048' : '#2a2f36';
-    ctx.fillText('♥', hx, y1);
+    drawHeartGlyph(hx, y1, player.hp - i, 15);
     hx += 16;
   }
   ctx.font = 'bold 13px Courier New';
@@ -2431,11 +2451,10 @@ function drawHUD(now) {
     } else {
       let hx3 = hx2;
       for (let i = 0; i < pl.maxHp; i++) {
-        const full = pl.hp >= i + 1, half = !full && pl.hp > i;
-        ctx.fillStyle = full ? '#ff4a6a' : half ? '#993048' : '#2a2f36';
-        ctx.fillText('♥', hx3, y);
+        drawHeartGlyph(hx3, y, pl.hp - i, 11);
         hx3 += 11;
       }
+      ctx.font = 'bold 11px Courier New';
     }
     const ax = hx2 + Math.max(4, pl.maxHp) * 11 + 8;
     ctx.fillStyle = '#ffd700';
