@@ -36,7 +36,7 @@
       box-shadow: 0 0 60px rgba(0, 255, 136, 0.08);
       touch-action: none;
     }
-    #overlay, #draft, #join {
+    #overlay, #draft, #join, #acfg {
       position: fixed; inset: 0;
       display: none;
       justify-content: center;
@@ -44,7 +44,11 @@
       z-index: 10;
       background: #00000088;
     }
-    #overlay.show, #draft.show, #join.show { display: flex; }
+    #overlay.show, #draft.show, #join.show, #acfg.show { display: flex; }
+    .acfg-row {
+      margin: 12px 0 4px; color: #8b949e;
+      font: bold 11px 'Courier New', monospace; letter-spacing: 1px;
+    }
     .ob {
       background: #0a0a14;
       border: 3px solid #ffd700;
@@ -127,6 +131,20 @@
       text-shadow: 0 0 8px #ffd70040;
     }
     .draft-cards { display: flex; gap: 16px; justify-content: center; }
+    #draft-swap { display: none; margin-top: 18px; max-width: 560px; }
+    #draft-swap .swap-title {
+      color: #ff8a4a; font: bold 11px 'Courier New', monospace;
+      letter-spacing: 2px; text-transform: uppercase; margin-bottom: 10px;
+      text-shadow: 0 0 8px #ff8a4a40;
+    }
+    .swap-btn {
+      display: inline-block; margin: 3px; padding: 6px 10px;
+      background: #0a0a14; border: 2px solid var(--pc, #30363d);
+      color: var(--pc, #8b949e); font: bold 11px 'Courier New', monospace;
+      cursor: pointer; letter-spacing: 1px;
+    }
+    .swap-btn:hover { box-shadow: 0 0 10px color-mix(in srgb, var(--pc, #586069) 50%, transparent); }
+    .swap-btn.cancel { border-color: #30363d; color: #586069; }
     .draft-cards.picked { opacity: 0.35; pointer-events: none; }
     .dcard {
       width: 168px; padding: 18px 14px 16px;
@@ -180,8 +198,9 @@
   <div id="draft">
     <div class="draft-box">
       <div class="draft-title" id="draft-title">DEPTH CLEARED</div>
-      <div class="draft-sub">choose an advancement</div>
+      <div class="draft-sub" id="draft-sub">choose an advancement</div>
       <div class="draft-cards" id="draft-cards"></div>
+      <div id="draft-swap"></div>
       <div id="draft-wait">waiting for the rest of the party…</div>
     </div>
   </div>
@@ -198,6 +217,14 @@
         <button id="joinBtn">GO</button>
       </div>
       <p class="hint">[ESC] BACK</p>
+    </div>
+  </div>
+
+  <div id="acfg">
+    <div class="ob" style="max-width:600px;text-align:left">
+      <h1 style="font-size:16px;text-align:center">ARENA SETUP</h1>
+      <div id="acfg-body"></div>
+      <p class="hint" style="text-align:center">[ESC] DONE — settings apply when the host starts</p>
     </div>
   </div>
 
@@ -221,17 +248,19 @@
 // snapshot only carries dynamic state.
 // =====================================================================
 
-const GAME_VER = 'v0.13';
+const GAME_VER = 'v0.17';
 const TILE = 32;
 let HUD_H = 64;   // grows one 16px row per teammate (party status board)
 const TICK_MS = 50, TICK_DT = TICK_MS / 1000;   // 20Hz fixed sim step
 const MAX_DEPTH = 8;
+const MAX_PERKS = 8;   // total upgrade picks a player can hold (stacks count); at the cap, drafting swaps
 const CLEAR_R = 2;
 const BULLET_SPEED = 18;
 const EXPLODE_EGG = 0.04;
 const MAX_PLAYERS = 4;
 const NUM_CLR = ['','#4a9eff','#4aff7a','#ff4a6a','#9a4aff','#ff8a4a','#4affff','#ff4aff','#c0c0c0'];
-const COLORS = ['#00ff88', '#4a9eff', '#ff8a3d', '#ff4aff'];
+const COLORS = ['#00ff88', '#4a9eff', '#ff8a3d', '#ff4aff',
+  '#ffd700', '#4affff', '#ff4a6a', '#c0ff4a'];
 const SPAWN_OFFS = [[0, 0], [-1, -1], [1, -1], [-1, 1]];
 const ENEMY_COLORS = {
   normal: { body: '#ff2d55', glow: '#ff2d5518', eye: '#1a0008', d1: '#ff2d55', d2: '#ff8888' },
@@ -275,8 +304,14 @@ function depthConf(d, seed, nPlayers) {
     borderQuiet: 3000,
     dark: false,
     bonusHeart: false,
+    gladiator: false,
     mod: null,
   };
+  // gladiator depths (co-op, 2+ players): sole survivor at floor clear
+  // drafts 3 perks instead of 1. Only on depths where a draft follows.
+  if (seed !== undefined && seed !== null && (nPlayers || 1) >= 2 &&
+      ((d >= 3 && d < MAX_DEPTH) || (abyss && d % 2 === 0)))
+    c.gladiator = keyedRng(seed, d, 0, 7)() < 0.25;
   if (abyss && seed !== undefined && seed !== null) {
     const MODS = ['VOLATILE', 'DARK', 'INFESTED', 'SWARMING'];
     const mod = (d - MAX_DEPTH) % 4 === 0 ? 'BOUNTIFUL'
@@ -289,6 +324,27 @@ function depthConf(d, seed, nPlayers) {
     else if (mod === 'BOUNTIFUL') { c.lootBullet *= 1.5; c.bonusHeart = true; }
   }
   return c;
+}
+
+// arena (versus) floor config — no depths, no drafts, corners spawns
+function arenaConf(cfg, n) {
+  const size = (cfg && cfg.size) || 15;
+  const eligible = size * size - n * 25;
+  return {
+    cols: size, rows: size,
+    mines: Math.max(10, Math.round(eligible * 0.16)),
+    megaRate: 0.12,
+    hatch: 3800,
+    espeed: 820,
+    lootBullet: 0.22,
+    lootEgg: cfg && cfg.enemies === false ? 0 : 0.10,
+    chainDelay: 150,
+    borderQuiet: 1e9,       // no border spawner in the arena
+    dark: false,
+    bonusHeart: false,
+    gladiator: false,
+    mod: null,
+  };
 }
 
 function rollType(d, r) {
@@ -349,8 +405,8 @@ const PERKS = [
   { id: 'lucky',      name: 'LUCKY RABBIT',    tag: 'LR', clr: '#aef78e', stack: false, desc: '30% chance a shot costs no ammo.' },
   { id: 'trap',       name: 'TRAP LAYER',      tag: 'TL', clr: '#7dff9a', stack: false, desc: 'Q plants a trap (2 ammo). Enemies that step on it die.' },
   { id: 'sixth',      name: 'SIXTH SENSE',     tag: 'SS', clr: '#ff5a8a', stack: false, desc: 'Your reticle glows red when facing a mine.' },
-  { id: 'prospector', name: 'PROSPECTOR',      tag: 'PS', clr: '#e0c060', stack: false, desc: 'Craters have a 35% chance to hold loot.' },
-  { id: 'omelette',   name: 'OMELETTE',        tag: 'OM', clr: '#ffe08a', stack: false, desc: 'Destroyed eggs drop loot.' },
+  { id: 'prospector', name: 'PROSPECTOR',      tag: 'PS', clr: '#e0c060', stack: false, desc: 'Mines YOU set off leave loot in the crater (35%).' },
+  { id: 'omelette',   name: 'OMELETTE',        tag: 'OM', clr: '#ffe08a', stack: false, desc: 'Eggs YOU destroy drop loot.' },
   { id: 'bloodlust',  name: 'BLOODLUST',       tag: 'BL', clr: '#ff3355', stack: false, desc: 'Enemy kills heal a quarter heart.' },
   { id: 'bombsquad',  name: 'BOMB SQUAD',      tag: 'BQ', clr: '#66c2ff', stack: false, requires: 'sapper', desc: 'Defused mines turn into ammo pickups.' },
   { id: 'dms',        name: "DEAD MAN'S SWITCH", tag: 'DM', clr: '#dddddd', stack: false, desc: 'Whenever you take damage, the nearest enemy dies.' },
@@ -410,7 +466,17 @@ let nextEid = 1;
 let shotsThisFloor = 0, damagedThisFloor = false, killsThisFloor = 0;
 let chainCount = 0, lastBoom = -1e9;
 let borderSpawnTimer = 0, borderCrack = null;
-let draftChoices = [], draftPicked = [], draftWaiting = false;
+let draftChoices = [], draftPicked = [], draftWaiting = false, draftSwap = -1;
+let draftPickPending = -1, lobbyMode = 'coop';
+let draftSeq = 0, lastDraftSeq = -1;   // host bumps per draft; guests rebuild UI on change
+let lobbyCfg = null, lobbyColors = [], lobbyWins = [];
+let sessionWins = {};        // arena wins per player name (room-session scoped)
+let myColorIdx = 0;
+try { myColorIdx = (parseInt(localStorage.getItem('mcrogue-color') || '0', 10) || 0) % COLORS.length; } catch (e) {}
+function saveColorPref(color) {
+  const ix = COLORS.indexOf(color);
+  if (ix >= 0) { myColorIdx = ix; try { localStorage.setItem('mcrogue-color', String(ix)); } catch (e) {} }
+}
 let netMsgTitle = null, lobbyMsg = null, lobbyCount = 1, lobbyNames = [];
 let gacc = 0, mySeq = 0, gTapQueue = [];
 let dlgMode = 'join';
@@ -440,30 +506,34 @@ function esc(s) { const d = document.createElement('div'); d.textContent = Strin
 function makePlayer(idx) {
   return { idx, color: COLORS[idx % COLORS.length], name: 'P' + (idx + 1),
     x: 0, y: 0, fx: 0, fy: 0, dir: { x: 1, y: 0 },
-    downed: false, left: false, noDraft: false,
+    downed: false, left: false, noDraft: false, draftLeft: 1,
     hp: 3, maxHp: 3, bullets: 3, perks: {}, sapperLeft: 0,
     iframeUntil: 0, adrenalineUntil: 0, moveBudget: 1,
     taps: [], acts: [], lastSeq: 0 };
 }
 function resetPlayerRun(pl) {
   pl.hp = 3; pl.maxHp = 3; pl.bullets = 3; pl.perks = {}; pl.sapperLeft = 0;
-  pl.downed = false; pl.noDraft = false; pl.iframeUntil = 0; pl.adrenalineUntil = 0;
+  pl.downed = false; pl.noDraft = false; pl.draftLeft = 1;
+  pl.iframeUntil = 0; pl.adrenalineUntil = 0;
   pl.moveBudget = 1; pl.taps = []; pl.acts = []; pl.lastSeq = 0;
 }
 function updateHudH() {
   HUD_H = 64 + Math.max(0, players.filter(p => !p.left).length - 1) * 16;
 }
 function livePlayers() { return players.filter(p => !p.left && !p.downed); }
-function nearestPlayer(x, y) {
+// en (optional): in arena mode enemies are LOYAL to whoever uncovered them
+// and never target their owner
+function nearestPlayer(x, y, en) {
   let best = null, bd = Infinity;
   for (const p of livePlayers()) {
+    if (en && run && run.arena && en.owner === p.idx) continue;
     const d = Math.abs(p.x - x) + Math.abs(p.y - y);
     if (d < bd) { bd = d; best = p; }
   }
   return best;
 }
+function edgeOf(x, y) { return Math.min(x, y, COLS - 1 - x, ROWS - 1 - y); }
 function anyPerk(id) { return players.some(p => !p.left && p.perks[id]); }
-function teamPerkCount(id) { return players.reduce((s, p) => s + (p.left ? 0 : (p.perks[id] || 0)), 0); }
 
 // ---- AIRTABLE LEADERBOARD ----
 // One row per run, upserted on RunId: a win that continues into the abyss
@@ -555,6 +625,25 @@ function renderEndLb() {
 // ---- end overlay ----
 function showEnd(won) {
   const box = document.getElementById('endBox');
+  if (run && run.arena) {
+    box.classList.remove('lost');
+    const w = run.winner >= 0 && players[run.winner] ? players[run.winner] : null;
+    document.getElementById('ov-title').textContent =
+      w ? (w.name + ' WINS').toUpperCase() : 'DRAW';
+    document.getElementById('ov-sub').textContent = '- the arena falls silent -';
+    document.getElementById('ov-time').textContent = 'ARENA  //  ' + fmtTime(finalTime);
+    document.getElementById('ov-stats').innerHTML = players.filter(p => !p.left)
+      .map(p => (w === p ? '★ ' : '&nbsp;&nbsp;') + esc(p.name.toUpperCase()) +
+        (p.downed ? ' — out' : ' — standing') +
+        (sessionWins[p.name] ? ' · ' + sessionWins[p.name] + ' WIN' + (sessionWins[p.name] > 1 ? 'S' : '') : ''))
+      .join('<br>');
+    document.getElementById('ov-lb').innerHTML = '';
+    document.getElementById('ov-name-row').style.display = 'none';
+    document.getElementById('ov-hint').textContent =
+      net.mode === 'guest' ? 'THE HOST CALLS THE REMATCH' : '[R] REMATCH · [L] LOBBY';
+    overlay.classList.add('show');
+    return;
+  }
   box.classList.toggle('lost', !won);
   const inAbyss = run.depth > MAX_DEPTH;
   document.getElementById('ov-title').textContent = won ? 'DEPTHS CONQUERED' : 'RUN OVER';
@@ -572,9 +661,11 @@ function showEnd(won) {
   document.getElementById('ov-stats').innerHTML =
     'TIME&nbsp;&nbsp;&nbsp;&nbsp;' + fmtTime(finalTime) + '<br>' +
     'BUILD&nbsp;&nbsp;&nbsp;' + (perkList.length ? esc(perkList.join(' · ')) : 'no advancements');
+  const backTo = net.mode === 'host' ? '[L] LOBBY' : '[L] TITLE';
   document.getElementById('ov-hint').textContent = won
-    ? (net.mode === 'guest' ? 'THE HOST CHOOSES: ABYSS OR NEW RUN' : '[ENTER] DESCEND INTO THE ABYSS   ·   [R] NEW RUN')
-    : (net.mode === 'guest' ? 'WAITING FOR HOST TO RESTART' : '[R] NEW RUN');
+    ? (net.mode === 'guest' ? 'THE HOST CHOOSES: ABYSS OR NEW RUN'
+      : '[ENTER] ABYSS · [R] NEW RUN · ' + backTo)
+    : (net.mode === 'guest' ? 'WAITING FOR HOST TO RESTART' : '[R] NEW RUN · ' + backTo);
   renderEndLb();
   const needName = lbStatus === 'need-name' && net.mode !== 'guest';
   document.getElementById('ov-name-row').style.display = needName ? 'flex' : 'none';
@@ -728,6 +819,7 @@ function init() { gameState = 'title'; fetchLeaderboard(); }
 function ensureSolo() {
   if (net.mode === null && (players.length !== 1 || !players[0])) {
     players = [makePlayer(0)];
+    players[0].color = COLORS[myColorIdx % COLORS.length];
     myIdx = 0;
     player = players[0];
   }
@@ -745,12 +837,41 @@ function startRunShared() {
       c._idx = i + 1;
       const np = makePlayer(i + 1);
       if (c._name) np.name = c._name;
+      if (c._color) np.color = c._color;
       players.push(np);
       try { c.send({ t: 'welcome', idx: i + 1 }); } catch (e) {}
     });
+    if (net.arenaOn) {
+      if (players.length < 2) {
+        toasts.push({ text: 'THE ARENA NEEDS 2+ PLAYERS', t: performance.now() });
+        return;
+      }
+      net.sendAll({ t: 'start', seed, n: players.length, arena: net.arenaCfg });
+      newArena(seed, net.arenaCfg);
+      return;
+    }
     net.sendAll({ t: 'start', seed, n: players.length });
   }
   newRun(seed);
+}
+
+function newArena(seed, cfg) {
+  hideOverlay();
+  run = { seed: seed >>> 0, depth: 1, arena: true, cfg: cfg || {}, winner: -1,
+    shrinkLevel: 0, shrinkNext: 0, regenNext: 0, regenList: [] };
+  playTicks = 0; gameTime = 0; finalTime = 0;
+  lbStatus = ''; pendingSubmitWon = null;
+  players.forEach(pl => {
+    resetPlayerRun(pl);
+    pl.bullets = 5;
+    ((cfg && cfg.perks) || []).forEach(id => {
+      pl.perks[id] = 1;
+      if (id === 'vest') { pl.maxHp++; pl.hp = pl.maxHp; }
+      if (id === 'bandolier') pl.bullets += 4;
+    });
+  });
+  player = players[myIdx];
+  startFloor(1);
 }
 
 function newRun(seed) {
@@ -766,17 +887,20 @@ function newRun(seed) {
 }
 
 function enterAbyss() {
-  if (gameState !== 'won' || net.mode === 'guest') return;
+  if (gameState !== 'won' || net.mode === 'guest' || (run && run.arena)) return;
   run.abyss = true;
   hideOverlay();
   gameState = 'draft';
-  draftPicked = players.map(p => !!p.left || !!p.noDraft);
+  draftSeq++;
+  players.forEach(pl => { pl.draftLeft = (pl.left || pl.noDraft) ? 0 : 1; });
+  draftPicked = players.map(p => !p.draftLeft);
   buildDraft();
 }
 
 function startFloor(d) {
   run.depth = d;
-  conf = depthConf(d, run.seed, players.filter(p => !p.left).length);
+  const np = players.filter(p => !p.left).length;
+  conf = run.arena ? arenaConf(run.cfg, np) : depthConf(d, run.seed, np);
   updateHudH();
   setBoardSize(conf.cols, conf.rows);
   grid = []; enemies = []; eggs = []; projectiles = []; particles = [];
@@ -789,29 +913,56 @@ function startFloor(d) {
   draftPicked = players.map(p => !!p.left);
   draftWaiting = false;
   draftEl.classList.remove('show');
-  const cx = COLS >> 1, cy = ROWS >> 1;
-  players.forEach((pl, i) => {
-    const o = SPAWN_OFFS[i % SPAWN_OFFS.length];
-    pl.x = cx + o[0]; pl.y = cy + o[1];
-    pl.fx = pl.x; pl.fy = pl.y;
-    pl.moveBudget = 1; pl.taps = []; pl.acts = [];
-    pl.sapperLeft = pl.perks.sapper ? 2 : 0;
-  });
+  const spawns = [];
+  if (run.arena) {
+    const C = COLS;
+    const corners = [[2, 2], [C - 3, C - 3], [C - 3, 2], [2, C - 3]];
+    players.forEach((pl, i) => {
+      const c2 = corners[i % 4];
+      pl.x = c2[0]; pl.y = c2[1];
+      pl.fx = pl.x; pl.fy = pl.y;
+      pl.moveBudget = 1; pl.taps = []; pl.acts = [];
+      pl.sapperLeft = pl.perks.sapper ? 2 : 0;
+      spawns.push({ x: c2[0], y: c2[1] });
+    });
+  } else {
+    const cx = COLS >> 1, cy = ROWS >> 1;
+    players.forEach((pl, i) => {
+      const o = SPAWN_OFFS[i % SPAWN_OFFS.length];
+      pl.x = cx + o[0]; pl.y = cy + o[1];
+      pl.fx = pl.x; pl.fy = pl.y;
+      pl.moveBudget = 1; pl.taps = []; pl.acts = [];
+      pl.sapperLeft = pl.perks.sapper ? 2 : 0;
+    });
+    spawns.push({ x: cx, y: cy });
+  }
   const rng = mulberry32((run.seed ^ Math.imul(d, 0x9e3779b9)) >>> 0);
-  genBoard(cx, cy, rng);
+  genBoard(spawns, rng);
   if (anyPerk('radar')) {
     for (let y = 0; y < ROWS; y++)
       for (let x = 0; x < COLS; x++)
-        if (grid[y][x].mine && Math.max(Math.abs(x - cx), Math.abs(y - cy)) <= 4)
+        if (grid[y][x].mine &&
+            spawns.some(s => Math.max(Math.abs(x - s.x), Math.abs(y - s.y)) <= 4))
           grid[y][x].marked = true;
   }
-  if (d >= 3) award('depth3');
-  if (d >= 5) award('depth5');
+  if (run.arena) {
+    run.shrinkLevel = 0;
+    run.shrinkNext = simNow + 30000;
+    run.regenNext = simNow + 20000;
+    run.regenList = [];
+  }
+  if (!run.arena && conf.gladiator)
+    toasts.push({ text: '⚔ GLADIATOR DEPTH — SOLE SURVIVOR DRAFTS ×3', t: performance.now() });
+  if (!run.arena && d >= 3) award('depth3');
+  if (!run.arena && d >= 5) award('depth5');
   gameState = 'playing';
 }
 
-function genBoard(cx, cy, rng) {
-  const scav = 1 + 0.5 * teamPerkCount('scavenger');
+function genBoard(spawns, rng) {
+  // scavenger scales with the single deepest investor, not the party sum —
+  // big parties can't stack a loot flood
+  const scav = 1 + 0.5 * players.reduce((m, p) =>
+    Math.max(m, p.left ? 0 : (p.perks.scavenger || 0)), 0);
   const bulletRate = conf.lootBullet * scav;
   const eggRate = conf.lootEgg * scav;
   for (let y = 0; y < ROWS; y++) {
@@ -824,7 +975,7 @@ function genBoard(cx, cy, rng) {
   const cand = [];
   for (let y = 0; y < ROWS; y++)
     for (let x = 0; x < COLS; x++) {
-      if (Math.abs(x - cx) <= CLEAR_R && Math.abs(y - cy) <= CLEAR_R) continue;
+      if (spawns.some(s => Math.abs(x - s.x) <= CLEAR_R && Math.abs(y - s.y) <= CLEAR_R)) continue;
       cand.push({ x, y });
     }
   for (let i = cand.length - 1; i > 0; i--) {
@@ -850,7 +1001,7 @@ function genBoard(cx, cy, rng) {
     for (let x = 0; x < COLS; x++)
       if (!grid[y][x].mine) totalSafe++;
   tilesLeft = totalSafe;
-  reveal(cx, cy);
+  spawns.forEach(s => reveal(s.x, s.y));
   for (let y = 0; y < ROWS; y++)
     for (let x = 0; x < COLS; x++)
       if (grid[y][x].rev) grid[y][x].loot = null;
@@ -935,21 +1086,22 @@ function recomputeNums() {
 
 function ib(x, y) { return x >= 0 && x < COLS && y >= 0 && y < ROWS; }
 
-function reveal(x, y) {
+// byPl = the player whose action caused this (loot attribution); may be null
+function reveal(x, y, byPl) {
   if (!ib(x, y)) return;
   const t = grid[y][x];
   if (t.rev || t.crater) return;
-  if (t.mine) { doExplosion(x, y); return; }
+  if (t.mine) { doExplosion(x, y, byPl); return; }
   t.rev = true; t.rt = simNow; tilesLeft--;
-  if (t.loot === 'egg') { spawnEgg(x, y); t.loot = null; }
+  if (t.loot === 'egg') { spawnEgg(x, y, byPl ? byPl.idx : -1); t.loot = null; }
   if (t.num === 0)
     for (let dy = -1; dy <= 1; dy++)
       for (let dx = -1; dx <= 1; dx++)
-        if (dx || dy) reveal(x + dx, y + dy);
+        if (dx || dy) reveal(x + dx, y + dy, byPl);
   if (tilesLeft <= 0 && explosionQueue.length === 0 && gameState === 'playing') floorCleared();
 }
 
-function doExplosion(mx, my) {
+function doExplosion(mx, my, byPl) {
   const mt = grid[my][mx];
   if (!mt.mine) return;
   const now = simNow;
@@ -969,18 +1121,23 @@ function doExplosion(mx, my) {
         if (!pl.left && !pl.downed && pl.x === nx && pl.y === ny) hitPlayers.push(pl);
       });
       enemies.forEach(e => { if (!e.dead && e.x === nx && e.y === ny) killEnemy(e, 'explosion', null); });
-      eggs.slice().forEach(e => { if (e.x === nx && e.y === ny) killEgg(e); });
+      eggs.slice().forEach(e => { if (e.x === nx && e.y === ny) killEgg(e, byPl); });
       const nt = grid[ny][nx];
       if (nt.mine && !nt.crater) {
-        explosionQueue.push({ x: nx, y: ny, time: now + conf.chainDelay });
+        // chained mines inherit the original trigger's attribution
+        explosionQueue.push({ x: nx, y: ny, time: now + conf.chainDelay,
+          by: byPl ? byPl.idx : -1 });
       } else if (!nt.rev && !nt.crater) {
         nt.rev = true; nt.rt = now; nt.loot = null; nt.marked = false; tilesLeft--;
-        if (keyedRng(run.seed, run.depth, ny * COLS + nx, 3)() < EXPLODE_EGG) spawnEgg(nx, ny);
+        if (!(run.arena && run.cfg && run.cfg.enemies === false) &&
+            keyedRng(run.seed, run.depth, ny * COLS + nx, 3)() < EXPLODE_EGG)
+          spawnEgg(nx, ny, byPl ? byPl.idx : -1);
       }
     }
   enemies = enemies.filter(e => !e.dead);
 
-  if (anyPerk('prospector')) {
+  // prospector is personal: only mines YOU set off leave loot in the crater
+  if (byPl && byPl.perks.prospector) {
     const kr = keyedRng(run.seed, run.depth, my * COLS + mx, 2);
     if (kr() < 0.35) mt.loot = kr() < 0.9 ? 'bullet' : 'heart';
   }
@@ -991,8 +1148,9 @@ function doExplosion(mx, my) {
 }
 
 // ---- enemy/egg lifecycle ----
-function makeEnemy(type, x, y, now) {
+function makeEnemy(type, x, y, now, owner) {
   return { id: nextEid++, x, y, fx: x, fy: y,
+    owner: owner === undefined ? -1 : owner,
     lm: now, cd: conf.espeed * (SPEED_MUL[type] || 1) + (Math.random() - 0.5) * 200,
     type, hp: type === 'brood' ? 2 : 1,
     lastShot: now, shootState: null, shootDir: null, shootStart: 0,
@@ -1028,10 +1186,10 @@ function bloaterBoom(bx, by) {
         if (!pl.left && !pl.downed && pl.x === nx && pl.y === ny) damagePlayer(pl, 1, 'explosion');
       });
       enemies.forEach(e => { if (!e.dead && e.x === nx && e.y === ny) killEnemy(e, 'explosion', null); });
-      eggs.slice().forEach(e => { if (e.x === nx && e.y === ny) killEgg(e); });
+      eggs.slice().forEach(e => { if (e.x === nx && e.y === ny) killEgg(e, null); });
       const nt = grid[ny][nx];
       if (nt.mine && !nt.crater) {
-        explosionQueue.push({ x: nx, y: ny, time: now + conf.chainDelay });
+        explosionQueue.push({ x: nx, y: ny, time: now + conf.chainDelay, by: -1 });
       } else if (!nt.rev && !nt.crater) {
         nt.rev = true; nt.rt = now; nt.loot = null; nt.marked = false; tilesLeft--;
       }
@@ -1039,17 +1197,20 @@ function bloaterBoom(bx, by) {
   if (explosionQueue.length === 0 && tilesLeft <= 0 && gameState === 'playing') floorCleared();
 }
 
-function killEgg(egg) {
+// byPl = the player who destroyed it; omelette is personal
+function killEgg(egg, byPl) {
   fx('eggdeath', egg.x, egg.y);
   eggs = eggs.filter(e => e !== egg);
-  if (anyPerk('omelette')) {
+  if (byPl && byPl.perks.omelette) {
     const t = grid[egg.y][egg.x];
     if (t.rev && !t.loot)
       t.loot = keyedRng(run.seed, run.depth, egg.id, 4)() < 0.9 ? 'bullet' : 'heart';
   }
 }
 
-function spawnEgg(x, y) { eggs.push({ id: nextEid++, x, y, t: simNow }); }
+function spawnEgg(x, y, owner) {
+  eggs.push({ id: nextEid++, x, y, t: simNow, owner: owner === undefined ? -1 : owner });
+}
 
 // ---- damage / down / death ----
 function damagePlayer(pl, n, src) {
@@ -1084,6 +1245,10 @@ function damagePlayer(pl, n, src) {
         drop--;
       }
       fx('kburst', px, py);
+      if (run.arena) {
+        fx('toast', (pl.name || 'PLAYER').toUpperCase() + ' IS OUT');
+        return;   // the arena tick decides the winner / draw
+      }
       if (players.every(p => p.left || p.downed)) { loseRun(); return; }
       fx('toast', 'PLAYER DOWN — revive on floor clear');
       return;
@@ -1115,9 +1280,11 @@ function loseRun() {
 }
 
 function floorCleared() {
-  if (gameState !== 'playing') return;
+  if (gameState !== 'playing' || (run && run.arena)) return;
   if (shotsThisFloor === 0) award('pacifist');
   if (!damagedThisFloor) award('untouched');
+  const aliveNow = players.filter(p => !p.left && !p.downed);
+  const gladWinner = conf.gladiator && aliveNow.length === 1 ? aliveNow[0] : null;
   players.forEach(pl => {
     if (pl.left) return;
     pl.noDraft = false;
@@ -1146,11 +1313,40 @@ function floorCleared() {
     return;
   }
   gameState = 'draft';
-  draftPicked = players.map(p => !!p.left || !!p.noDraft);
+  draftSeq++;
+  players.forEach(pl => {
+    pl.draftLeft = (pl.left || pl.noDraft) ? 0 : (pl === gladWinner ? 3 : 1);
+  });
+  if (gladWinner)
+    fx('toast', (gladWinner.name || 'SURVIVOR').toUpperCase() + ' SWEEPS THE GLADIATOR DEPTH — 3 PICKS');
+  draftPicked = players.map(p => !p.draftLeft);
   buildDraft();
 }
 
+function arenaEnd(winnerIdx) {
+  if (gameState !== 'playing') return;
+  run.winner = winnerIdx;
+  if (winnerIdx >= 0 && players[winnerIdx]) {
+    const wn = players[winnerIdx].name;
+    sessionWins[wn] = (sessionWins[wn] || 0) + 1;
+  }
+  gameState = 'won';
+  finalTime = gameTime;
+  showEnd(true);
+}
+
 // ---- perk draft (offers are seed-derived per player; host validates picks) ----
+function perkCount(pl) {
+  return Object.values(pl.perks).reduce((s, n) => s + n, 0);
+}
+function removePerk(pl, id) {
+  if (!pl.perks[id]) return;
+  pl.perks[id]--;
+  if (pl.perks[id] <= 0) delete pl.perks[id];
+  if (id === 'vest') { pl.maxHp = Math.max(1, pl.maxHp - 1); pl.hp = Math.min(pl.hp, pl.maxHp); }
+  if (id === 'sapper') pl.sapperLeft = 0;
+}
+
 function computeOffers(idx) {
   const pl = players[idx];
   if (!pl) return [];
@@ -1166,12 +1362,19 @@ function computeOffers(idx) {
 
 function buildDraft() {
   draftWaiting = false;
+  draftSwap = -1;
+  draftPickPending = -1;
   document.getElementById('draft-title').textContent = 'DEPTH ' + run.depth + ' CLEARED';
   document.getElementById('draft-wait').style.display = 'none';
   const box = document.getElementById('draft-cards');
   box.classList.remove('picked');
   box.innerHTML = '';
   const me = players[myIdx];
+  const extraPicks = me && me.draftLeft > 1 ? ' (' + me.draftLeft + ' picks left)' : '';
+  document.getElementById('draft-sub').textContent =
+    me && !me.noDraft && perkCount(me) >= MAX_PERKS
+      ? 'build full (' + MAX_PERKS + ') — swap or skip' + extraPicks
+      : 'choose an advancement' + extraPicks;
   if (me && me.noDraft) {
     // you went down this depth — revived, but no advancement
     draftChoices = [];
@@ -1195,35 +1398,92 @@ function buildDraft() {
     box.appendChild(d);
   });
   draftEl.classList.add('show');
+  renderDraftSwap();
+}
+
+function renderDraftSwap() {
+  const box = document.getElementById('draft-swap');
+  const me = players[myIdx];
+  const atCap = me && !me.noDraft && perkCount(me) >= MAX_PERKS;
+  if (!atCap || draftWaiting) { box.style.display = 'none'; return; }
+  box.style.display = 'block';
+  let html = '';
+  if (draftSwap < 0) {
+    html = '<span class="swap-btn cancel" id="swap-skip">SKIP — KEEP CURRENT BUILD</span>';
+  } else {
+    html = '<div class="swap-title">swap out which upgrade for ' +
+      esc(draftChoices[draftSwap].name) + '?</div>';
+    for (const p of PERKS) {
+      const n = me.perks[p.id];
+      if (!n) continue;
+      html += '<span class="swap-btn" data-drop="' + p.id + '" style="--pc:' + p.clr + '">' +
+        esc(p.tag + ' ' + p.name + (n > 1 ? ' ×' + n : '')) + '</span>';
+    }
+    html += '<span class="swap-btn cancel" id="swap-cancel">CANCEL</span>';
+  }
+  box.innerHTML = html;
+  const skip = document.getElementById('swap-skip');
+  if (skip) skip.addEventListener('click', () => pickPerk(-1));
+  const canc = document.getElementById('swap-cancel');
+  if (canc) canc.addEventListener('click', () => { draftSwap = -1; renderDraftSwap(); });
+  if (box.querySelectorAll)
+    box.querySelectorAll('[data-drop]').forEach(b =>
+      b.addEventListener('click', () => pickPerk(draftSwap, b.dataset.drop)));
 }
 
 function setDraftWaiting() {
   draftWaiting = true;
   document.getElementById('draft-cards').classList.add('picked');
+  document.getElementById('draft-swap').style.display = 'none';
   document.getElementById('draft-wait').style.display = 'block';
 }
 
-function pickPerk(i) {
-  if (gameState !== 'draft' || draftWaiting || !draftChoices[i]) return;
+// i = -1 means "skip" (only offered at the cap); dropId is the perk swapped
+// out when picking while at the cap
+function pickPerk(i, dropId) {
+  if (gameState !== 'draft' || draftWaiting) return;
+  const me = players[myIdx];
+  if (!me || me.noDraft) return;
+  if (i >= 0 && !draftChoices[i]) return;
+  if (i >= 0 && perkCount(me) >= MAX_PERKS && !dropId) {
+    draftSwap = i;                 // pick needs a swap target first
+    renderDraftSwap();
+    return;
+  }
   if (net.mode === 'guest') {
-    net.sendHost({ t: 'pick', i });
+    net.sendHost({ t: 'pick', i, drop: dropId || null });
+    draftPickPending = i === -1 ? 0 : Math.max(0, (me.draftLeft || 1) - 1);
     setDraftWaiting();
     return;
   }
-  applyPick(myIdx, i);
-  if (gameState === 'draft') setDraftWaiting();
+  applyPick(myIdx, i, dropId || null);
+  if (gameState === 'draft') {
+    if (!draftPicked[myIdx] && players[myIdx].draftLeft > 0) buildDraft();
+    else setDraftWaiting();
+  }
 }
 
-function applyPick(idx, i) {
+function applyPick(idx, i, dropId) {
   if (gameState !== 'draft' || draftPicked[idx]) return;
+  const pl = players[idx];
+  if (!pl) return;
+  if (i === -1) { pl.draftLeft = 0; finishPick(idx); return; }
   const offers = computeOffers(idx);
   const p = offers[i] || offers[0];
   if (!p) return;
-  const pl = players[idx];
+  if (perkCount(pl) >= MAX_PERKS) {
+    if (!dropId || !pl.perks[dropId]) return;   // at the cap a swap is required
+    removePerk(pl, dropId);
+  }
   pl.perks[p.id] = (pl.perks[p.id] || 0) + 1;
   if (p.id === 'vest') { pl.maxHp++; pl.hp = Math.min(pl.hp + 1, pl.maxHp); }
   if (p.id === 'medic') pl.hp = pl.maxHp;
   if (p.id === 'bandolier') { pl.bullets += 4; if (pl.bullets >= 12 && idx === myIdx) award('hoard'); }
+  pl.draftLeft = Math.max(0, (pl.draftLeft || 1) - 1);
+  if (pl.draftLeft <= 0) finishPick(idx);
+}
+
+function finishPick(idx) {
   draftPicked[idx] = true;
   if (players.every(q => q.left || draftPicked[q.idx])) {
     draftEl.classList.remove('show');
@@ -1247,7 +1507,7 @@ function movePlayer(pl, dx, dy) {
   const nx = pl.x + dx, ny = pl.y + dy;
   if (!ib(nx, ny) || !grid[ny][nx].rev) return;
   const egg = eggs.find(e => e.x === nx && e.y === ny);
-  if (egg && pl.perks.eggcrush) killEgg(egg);
+  if (egg && pl.perks.eggcrush) killEgg(egg, pl);
   pl.x = nx; pl.y = ny;
   const t = grid[ny][nx];
   if (t.loot === 'bullet') {
@@ -1274,12 +1534,12 @@ function poll(pl) {
     recomputeNums();
     totalSafe++; tilesLeft++;
     fx('burst', tx, ty, '#4a9eff');
-    reveal(tx, ty);
+    reveal(tx, ty, pl);
     if (pl.perks.bombsquad && grid[ty][tx].rev && !grid[ty][tx].crater)
       grid[ty][tx].loot = 'bullet';
     return;
   }
-  reveal(tx, ty);
+  reveal(tx, ty, pl);
 }
 
 function shoot(pl) {
@@ -1329,7 +1589,7 @@ function defaultStep(en, occupied, randomChance) {
       return { x: en.x + dx, y: en.y + dy };
     }
   }
-  const tgt = nearestPlayer(en.x, en.y);
+  const tgt = nearestPlayer(en.x, en.y, en);
   if (!tgt) return null;
   const path = bfsWith(en.x, en.y, (x, y) => x === tgt.x && y === tgt.y, t => t.rev);
   if (path && path.length > 0) return path[0];
@@ -1338,7 +1598,7 @@ function defaultStep(en, occupied, randomChance) {
 
 function burrowerStep(en, occupied) {
   const pass = t => !t.crater && !t.mine;
-  const tgt = nearestPlayer(en.x, en.y);
+  const tgt = nearestPlayer(en.x, en.y, en);
   if (tgt) {
     const path = bfsWith(en.x, en.y, (x, y) => x === tgt.x && y === tgt.y, pass);
     if (path && path.length > 0 && !occupied.has(path[0].x + ',' + path[0].y)) return path[0];
@@ -1356,7 +1616,7 @@ function burrowerStep(en, occupied) {
 
 function magpieStep(en, now, occupied) {
   if (now < en.fleeUntil) {
-    const tgt = nearestPlayer(en.x, en.y);
+    const tgt = nearestPlayer(en.x, en.y, en);
     const opts = [[0,-1],[0,1],[-1,0],[1,0]]
       .map(([dx, dy]) => ({ x: en.x + dx, y: en.y + dy }))
       .filter(p => ib(p.x, p.y) && grid[p.y][p.x].rev && !occupied.has(p.x + ',' + p.y));
@@ -1426,17 +1686,31 @@ document.addEventListener('keydown', (e) => {
     return;
   }
   if (gameState === 'lobby') {
+    const acfgEl2 = document.getElementById('acfg');
+    if (acfgEl2.classList.contains('show')) {
+      if (k === 'escape') acfgEl2.classList.remove('show');
+      return;
+    }
     if (k === 'escape') { netReset(null); return; }
     if (k === 'enter' && net.mode === 'host') startRunShared();
+    else if (k === 'v' && net.mode === 'host') { net.arenaOn = !net.arenaOn; broadcastLobby(); }
+    else if (k === 'c' && net.mode === 'host' && net.arenaOn) { renderAcfg(); acfgEl2.classList.add('show'); }
+    else if (k === 'x') {
+      if (net.mode === 'host') cycleColor(myIdx);
+      else net.sendHost({ t: 'color' });
+    }
     return;
   }
   if (gameState === 'draft') {
     if (k === '1' || k === '2' || k === '3') pickPerk(+k - 1);
+    else if (k === 'escape' && draftSwap >= 0) { draftSwap = -1; renderDraftSwap(); }
     return;
   }
   if (gameState !== 'playing') {
     if (k === 'r' && net.mode !== 'guest') { hideOverlay(); startRunShared(); }
     else if (k === 'enter' && gameState === 'won') enterAbyss();
+    else if (k === 'l' && net.mode !== 'guest' && (gameState === 'won' || gameState === 'lost'))
+      returnToLobby();
     return;
   }
   keys.add(k);
@@ -1462,7 +1736,8 @@ function tick() {
   for (let i = explosionQueue.length - 1; i >= 0; i--) {
     if (now >= explosionQueue[i].time) {
       const eq = explosionQueue.splice(i, 1)[0];
-      if (grid[eq.y][eq.x].mine) doExplosion(eq.x, eq.y);
+      if (grid[eq.y][eq.x].mine)
+        doExplosion(eq.x, eq.y, eq.by >= 0 ? players[eq.by] : null);
     }
   }
   if (explosionQueue.length === 0 && tilesLeft <= 0 && gameState === 'playing') floorCleared();
@@ -1507,6 +1782,10 @@ function tick() {
         gx = Math.floor(p.x); gy = Math.floor(p.y);
       } else { p.active = false; return; }
     }
+    if (run.arena && run.cfg && run.cfg.pvp) {
+      const hitP = livePlayers().find(pl2 => pl2.idx !== p.owner && pl2.x === gx && pl2.y === gy);
+      if (hitP) { damagePlayer(hitP, 1, 'bullet'); p.active = false; return; }
+    }
     if (p.slayer) {
       const foe = enemies.find(e => !e.dead && e.x === gx && e.y === gy &&
         !(e.type === 'burrower' && !grid[gy][gx].rev));
@@ -1524,15 +1803,15 @@ function tick() {
     }
     if (p.eggcrush) {
       const egg = eggs.find(e => e.x === gx && e.y === gy);
-      if (egg) killEgg(egg);
+      if (egg) killEgg(egg, players[p.owner]);
     }
     if (!grid[gy][gx].rev && !grid[gy][gx].crater) {
       if (p.demo) {
-        reveal(gx, gy);
-        for (const [ddx, ddy] of [[0,-1],[0,1],[-1,0],[1,0]]) reveal(gx + ddx, gy + ddy);
+        reveal(gx, gy, players[p.owner]);
+        for (const [ddx, ddy] of [[0,-1],[0,1],[-1,0],[1,0]]) reveal(gx + ddx, gy + ddy, players[p.owner]);
         p.active = false;
       } else {
-        reveal(gx, gy);
+        reveal(gx, gy, players[p.owner]);
         p.reveals++;
         const pierced = p.pierce && p.reveals < 2 && grid[gy][gx].rev && !grid[gy][gx].crater;
         if (!pierced) p.active = false;
@@ -1548,7 +1827,8 @@ function tick() {
     if (now - egg.t >= conf.hatch) {
       const etype = rollType(run.depth, keyedRng(run.seed, run.depth, egg.id, 1)());
       const ec = ENEMY_COLORS[etype] || ENEMY_COLORS.normal;
-      enemies.push(makeEnemy(etype, egg.x, egg.y, now));
+      enemies.push(makeEnemy(etype, egg.x, egg.y, now,
+        egg.owner === undefined ? -1 : egg.owner));
       fx('burst', egg.x, egg.y, ec.body);
       return false;
     }
@@ -1650,13 +1930,15 @@ function tick() {
       if (now - en.shootStart > 500) {
         en.shootState = null; en.lastShot = now;
         const dir = en.shootDir;
-        enemyBullets.push({ x: en.x + 0.5, y: en.y + 0.5, dx: dir.x, dy: dir.y, active: true });
+        enemyBullets.push({ x: en.x + 0.5, y: en.y + 0.5, dx: dir.x, dy: dir.y,
+          active: true, own: en.owner });
         fx('flash', (en.x + 0.5) * TILE, (en.y + 0.5) * TILE + HUD_H, '#66aaff', TILE * 0.9);
       }
       return;
     }
     if (now - en.lastShot < 2500) return;
     for (const pl of livePlayers()) {
+      if (run.arena && en.owner === pl.idx) continue;
       const dx = pl.x - en.x, dy = pl.y - en.y;
       if ((dx !== 0 && dy !== 0) || (dx === 0 && dy === 0)) continue;
       en.shootState = 'charging';
@@ -1673,7 +1955,8 @@ function tick() {
     b.y += b.dy * 12 * dt;
     const gx = Math.floor(b.x), gy = Math.floor(b.y);
     if (!ib(gx, gy)) { b.active = false; return; }
-    const hit = livePlayers().find(pl => pl.x === gx && pl.y === gy);
+    const hit = livePlayers().find(pl => pl.x === gx && pl.y === gy &&
+      !(run.arena && b.own === pl.idx));
     if (hit) { damagePlayer(hit, 1, 'bullet'); b.active = false; return; }
     if (!grid[gy][gx].rev && !grid[gy][gx].crater) {
       reveal(gx, gy); b.active = false;
@@ -1719,6 +2002,7 @@ function tick() {
     // Charger: check alignment to start winding
     if (en.type === 'charger' && !en.chargeState) {
       for (const pl of livePlayers()) {
+        if (run.arena && en.owner === pl.idx) continue;
         const dx = pl.x - en.x, dy = pl.y - en.y;
         if ((dx === 0) !== (dy === 0)) {
           en.chargeState = 'winding';
@@ -1738,7 +2022,7 @@ function tick() {
     if (eggs.length >= 6) return;
     const t = grid[en.y][en.x];
     if (t.rev && !eggs.some(e => e.x === en.x && e.y === en.y)) {
-      spawnEgg(en.x, en.y);
+      spawnEgg(en.x, en.y, en.owner);
       fx('burst', en.x, en.y, '#ff9e2c');
     }
   });
@@ -1786,6 +2070,7 @@ function tick() {
     if (e.dead) return;
     for (const pl of livePlayers()) {
       if (e.x !== pl.x || e.y !== pl.y) continue;
+      if (run.arena && e.owner === pl.idx) continue;   // loyal to its uncoverer
       if (e.type === 'magpie') {
         if (now >= e.stealCd) {
           e.stealCd = now + 2000;
@@ -1800,6 +2085,101 @@ function tick() {
     }
   });
   enemies = enemies.filter(e => !e.dead);
+
+  // ---- arena pressure + last-one-standing ----
+  if (run.arena && gameState === 'playing') {
+    const cfgA = run.cfg || {};
+    if (cfgA.pressure === 'regen') {
+      // re-bury batches of cleared ground (telegraphed 3s ahead)
+      if (!run.regenList.length && now >= run.regenNext - 3000) {
+        const rcand = [];
+        for (let y = 0; y < ROWS; y++)
+          for (let x = 0; x < COLS; x++) {
+            const t = grid[y][x];
+            if (!t.rev || t.crater || t.loot) continue;
+            if (players.some(p => !p.left && !p.downed &&
+              Math.max(Math.abs(p.x - x), Math.abs(p.y - y)) <= 2)) continue;
+            if (enemies.some(e => e.x === x && e.y === y)) continue;
+            if (eggs.some(e => e.x === x && e.y === y)) continue;
+            if (traps.some(tr => tr.x === x && tr.y === y)) continue;
+            rcand.push({ x, y });
+          }
+        // land comes back in contiguous blobs, not scattered one-offs:
+        // pick a seed, flood-grow through eligible neighbors, repeat
+        const candSet = new Set(rcand.map(c2 => c2.x + ',' + c2.y));
+        const target = Math.max(6, Math.round(COLS * ROWS * 0.05));
+        const blobMax = Math.max(4, Math.ceil(target / 2));
+        const picked = [];
+        while (picked.length < target && candSet.size) {
+          const keys2 = [...candSet];
+          const frontier = [keys2[Math.floor(Math.random() * keys2.length)]];
+          let blob = 0;
+          while (frontier.length && picked.length < target && blob < blobMax) {
+            const k2 = frontier.splice(Math.floor(Math.random() * frontier.length), 1)[0];
+            if (!candSet.has(k2)) continue;
+            candSet.delete(k2);
+            const [bx, by] = k2.split(',').map(Number);
+            picked.push({ x: bx, y: by });
+            blob++;
+            for (const [ddx, ddy] of [[0,-1],[0,1],[-1,0],[1,0]]) {
+              const nk = (bx + ddx) + ',' + (by + ddy);
+              if (candSet.has(nk)) frontier.push(nk);
+            }
+          }
+        }
+        run.regenList = picked;
+      }
+      if (run.regenList.length && now >= run.regenNext) {
+        run.regenList.forEach(c2 => {
+          const t = grid[c2.y][c2.x];
+          if (!t.rev || t.crater) return;
+          if (players.some(p => !p.left && p.x === c2.x && p.y === c2.y)) return;
+          if (enemies.some(e => e.x === c2.x && e.y === c2.y)) return;
+          t.rev = false; t.rt = 0; t.loot = null; t.marked = false;
+          t.mine = Math.random() < 0.3;
+          t.mega = t.mine && Math.random() < 0.12;
+        });
+        recomputeNums();
+        totalSafe = 0; tilesLeft = 0;
+        for (let y = 0; y < ROWS; y++)
+          for (let x = 0; x < COLS; x++) {
+            if (!grid[y][x].mine) { totalSafe++; if (!grid[y][x].rev) tilesLeft++; }
+          }
+        run.regenList = [];
+        run.regenNext = now + 18000;
+        fx('toast', 'THE MINES REGROW');
+      }
+    } else {
+      // the arena collapses ring by ring (telegraphed 3s ahead)
+      const maxShrink = (Math.min(COLS, ROWS) >> 1) - 1;
+      if (run.shrinkLevel < maxShrink && now >= run.shrinkNext) {
+        run.shrinkLevel++;
+        run.shrinkNext = now + 25000;
+        for (let y = 0; y < ROWS; y++)
+          for (let x = 0; x < COLS; x++) {
+            if (edgeOf(x, y) !== run.shrinkLevel - 1) continue;
+            const t = grid[y][x];
+            t.loot = null; t.marked = false;
+            if (t.mine) { t.mine = false; t.mega = false; }
+          }
+        eggs.slice().forEach(e => { if (edgeOf(e.x, e.y) < run.shrinkLevel) killEgg(e, null); });
+        recomputeNums();
+        shake.i = Math.max(shake.i, 12);
+        fx('toast', 'THE ARENA COLLAPSES');
+      }
+      if (run.shrinkLevel > 0) {
+        livePlayers().forEach(pl => {
+          if (edgeOf(pl.x, pl.y) < run.shrinkLevel) damagePlayer(pl, 1, 'void');
+        });
+        enemies.forEach(e => {
+          if (!e.dead && edgeOf(e.x, e.y) < run.shrinkLevel) killEnemy(e, 'self', null);
+        });
+        enemies = enemies.filter(e => !e.dead);
+      }
+    }
+    const alive = players.filter(p => !p.left && !p.downed);
+    if (alive.length <= 1) arenaEnd(alive.length ? alive[0].idx : -1);
+  }
 }
 
 // ---- COSMETIC UPDATE (frame-rate, wall-clock; never touches sim state) ----
@@ -1941,6 +2321,15 @@ function render(now, wall) {
 
 function drawTile(x, y, now) {
   const t = grid[y][x], px = x * TILE, py = y * TILE + HUD_H;
+  if (run && run.arena && run.cfg && run.cfg.pressure !== 'regen' && run.shrinkLevel > 0 &&
+      edgeOf(x, y) < run.shrinkLevel) {
+    // collapsed ring: standing here burns 1 heart per second
+    ctx.fillStyle = '#160409';
+    ctx.fillRect(px, py, TILE, TILE);
+    ctx.fillStyle = Math.sin(now / 300 + x * 1.7 + y * 2.3) > 0.6 ? '#5a0f1a' : '#2a070d';
+    ctx.fillRect(px + 6 + ((x * 7 + y * 13) % 12), py + 6 + ((x * 11 + y * 5) % 14), 4, 4);
+    return;
+  }
   if (t.crater) {
     ctx.fillStyle = '#070a0e';
     ctx.fillRect(px, py, TILE, TILE);
@@ -2045,6 +2434,22 @@ function drawTile(x, y, now) {
         ctx.fillRect(cx - 5, cy + 2, 2, 2);
       }
       ctx.restore();
+    }
+  }
+
+  // arena pressure telegraphs
+  if (run && run.arena && run.cfg) {
+    if (run.cfg.pressure !== 'regen') {
+      if (edgeOf(x, y) === run.shrinkLevel && run.shrinkNext &&
+          now > run.shrinkNext - 3000 && Math.sin(now / 120) > 0) {
+        ctx.strokeStyle = '#ff2d55aa';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(px + 2, py + 2, TILE - 4, TILE - 4);
+      }
+    } else if (run.regenList && run.regenList.some(c2 => c2.x === x && c2.y === y) &&
+               Math.sin(now / 150) > 0) {
+      ctx.fillStyle = '#ff8a4a30';
+      ctx.fillRect(px, py, TILE, TILE);
     }
   }
 }
@@ -2228,6 +2633,18 @@ function drawEnemy(e, now) {
   ctx.beginPath();
   ctx.arc(cx, cy, 3, 0, Math.PI * 2);
   ctx.fill();
+
+  // arena: loyalty ring in the owner's color
+  if (run && run.arena && e.owner >= 0 && players[e.owner]) {
+    ctx.save();
+    ctx.globalAlpha = 0.8;
+    ctx.strokeStyle = players[e.owner].color;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 14, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
 }
 
 function drawPlayer(pl, now, isMe) {
@@ -2391,9 +2808,19 @@ function drawHUD(now) {
 
   ctx.textAlign = 'center';
   ctx.font = 'bold 14px Courier New';
-  if (run.depth > MAX_DEPTH) {
+  if (run.arena) {
+    const alive = players.filter(p => !p.left && !p.downed).length;
+    const nxt = run.cfg && run.cfg.pressure === 'regen' ? run.regenNext : run.shrinkNext;
+    const rem = Math.max(0, (nxt - now) / 1000);
+    ctx.fillStyle = '#ff2d55';
+    ctx.fillText('⚔ ' + alive + ' ALIVE · ' +
+      (run.cfg && run.cfg.pressure === 'regen' ? 'REGROW ' : 'COLLAPSE ') + fmtTime(rem), W / 2, y1);
+  } else if (run.depth > MAX_DEPTH) {
     ctx.fillStyle = '#c77dff';
     ctx.fillText('ABYSS ' + run.depth + (conf.mod ? ' · ' + conf.mod : ''), W / 2, y1);
+  } else if (conf.gladiator) {
+    ctx.fillStyle = '#ff8a4a';
+    ctx.fillText('⚔ DEPTH ' + run.depth + ' / ' + MAX_DEPTH + ' — GLADIATOR', W / 2, y1);
   } else {
     ctx.fillStyle = '#ffd700';
     ctx.fillText('DEPTH ' + run.depth + ' / ' + MAX_DEPTH, W / 2, y1);
@@ -2638,31 +3065,52 @@ function drawLobby(now) {
 
   const n = net.mode === 'host' ? players.length : lobbyCount;
   const names = net.mode === 'host' ? players.map(p => p.name) : lobbyNames;
+  const cols2 = net.mode === 'host' ? players.map(p => p.color) : lobbyColors;
+  const wins2 = net.mode === 'host' ? players.map(p => sessionWins[p.name] || 0) : lobbyWins;
   for (let i = 0; i < n; i++) {
     const px2 = cx2 + (i - (n - 1) / 2) * 84;
-    ctx.fillStyle = COLORS[i % COLORS.length];
+    ctx.fillStyle = cols2[i] || COLORS[i % COLORS.length];
     ctx.beginPath();
     ctx.arc(px2, H * 0.5, 10, 0, Math.PI * 2);
     ctx.fill();
     ctx.font = 'bold 11px Courier New';
-    ctx.fillText((names[i] || 'P' + (i + 1)).toUpperCase(), px2, H * 0.5 + 24);
+    ctx.fillText((names[i] || 'P' + (i + 1)).toUpperCase() +
+      (wins2[i] > 0 ? ' ★' + wins2[i] : ''), px2, H * 0.5 + 24);
   }
   ctx.fillStyle = '#8b949e';
   ctx.font = '12px Courier New';
   ctx.fillText(n + ' PLAYER' + (n === 1 ? '' : 'S') + ' IN THE PARTY', cx2, H * 0.5 + 48);
 
+  const mode2 = net.mode === 'host' ? (net.arenaOn ? 'arena' : 'coop') : lobbyMode;
+  ctx.fillStyle = mode2 === 'arena' ? '#ff2d55' : '#00ff88';
+  ctx.font = 'bold 13px Courier New';
+  ctx.fillText(mode2 === 'arena'
+    ? '⚔ MODE: ARENA — LAST ONE STANDING'
+    : 'MODE: CO-OP DESCENT', cx2, H * 0.59);
+  if (mode2 === 'arena') {
+    const c3 = net.mode === 'host' ? net.arenaCfg : lobbyCfg;
+    if (c3) {
+      ctx.fillStyle = '#8b949e';
+      ctx.font = '11px Courier New';
+      ctx.fillText(c3.size + '×' + c3.size + ' · shots ' + (c3.pvp ? 'HURT' : 'SAFE') +
+        ' · ' + (c3.pressure === 'regen' ? 'mines regrow' : 'board shrinks') +
+        ' · monsters ' + (c3.enemies === false ? 'OFF' : 'ON') +
+        ' · ' + ((c3.perks || []).length ? c3.perks.length + ' shared perks' : 'no perks'), cx2, H * 0.63);
+    }
+  }
+
   if (lobbyMsg) {
     ctx.fillStyle = '#4a9eff';
     ctx.font = 'bold 13px Courier New';
-    ctx.fillText(lobbyMsg, cx2, H * 0.6);
+    ctx.fillText(lobbyMsg, cx2, H * 0.67);
   }
 
   if (Math.sin(now / 500) > 0) {
     ctx.fillStyle = '#00ff88';
     ctx.font = 'bold 13px Courier New';
     ctx.fillText(net.mode === 'host'
-      ? '[ENTER] START THE DESCENT   ·   [ESC] CLOSE ROOM'
-      : (lobbyMsg ? '' : 'WAITING FOR THE HOST TO START   ·   [ESC] LEAVE'), cx2, H * 0.7);
+      ? '[ENTER] START · [V] MODE · [X] COLOR' + (net.arenaOn ? ' · [C] SETUP' : '') + ' · [ESC] CLOSE'
+      : (lobbyMsg ? '' : 'WAITING FOR HOST · [X] COLOR · [ESC] LEAVE'), cx2, H * 0.72);
   }
 
   ctx.fillStyle = '#30363d';
@@ -2729,6 +3177,8 @@ const net = {
   clockOff: null,      // guest: hostSimMs - performance.now(), EMA-smoothed
   snapSim: 0,          // guest: sim time of latest snapshot
   lastSnapWall: 0,     // guest: wall time of latest snapshot (host-pause detection)
+  arenaOn: false,      // host lobby: versus mode selected
+  arenaCfg: { size: 15, pvp: true, pressure: 'shrink', enemies: true, perks: [] },
   sendAll(m) { this.conns.forEach(c => { try { c.send(m); } catch (e) {} }); },
   sendHost(m) { if (this.hostConn) { try { this.hostConn.send(m); } catch (e) {} } },
 };
@@ -2784,7 +3234,11 @@ function netReset(msg) {
   net.mode = null; net.code = null; net.events = [];
   net.clockOff = null; net.snapSim = 0; net.live = false;
   netMsgTitle = msg || null;
-  lobbyMsg = null; lobbyCount = 1;
+  lobbyMsg = null; lobbyCount = 1; lobbyMode = 'coop';
+  lobbyCfg = null; lobbyColors = []; lobbyWins = [];
+  sessionWins = {};
+  net.arenaOn = false;
+  document.getElementById('acfg').classList.remove('show');
   players = []; player = null; run = null; grid = null;
   net.lastSnapWall = 0;
   draftEl.classList.remove('show');
@@ -2795,7 +3249,102 @@ function netReset(msg) {
 }
 
 function broadcastLobby() {
-  net.sendAll({ t: 'lobby', n: players.length, names: players.map(p => p.name) });
+  net.sendAll({ t: 'lobby', n: players.length, names: players.map(p => p.name),
+    colors: players.map(p => p.color),
+    wins: players.map(p => sessionWins[p.name] || 0),
+    mode: net.arenaOn ? 'arena' : 'coop',
+    cfg: net.arenaOn ? net.arenaCfg : null });
+}
+
+// cycle a player's color to the next one no other player is using
+function cycleColor(idx) {
+  const pl = players[idx];
+  if (!pl) return;
+  const used = new Set(players.filter(p => p.idx !== idx).map(p => p.color));
+  const ci = Math.max(0, COLORS.indexOf(pl.color));
+  for (let k = 1; k <= COLORS.length; k++) {
+    const c = COLORS[(ci + k) % COLORS.length];
+    if (!used.has(c)) { pl.color = c; break; }
+  }
+  if (idx === myIdx) saveColorPref(pl.color);
+  const cn = net.conns.find(c => c._idx === idx);
+  if (cn) cn._color = pl.color;
+  broadcastLobby();
+}
+
+// host [L] at an end screen: bring the whole party back to the lobby
+// (room, names, colors and the win tally all survive)
+function returnToLobby() {
+  hideOverlay();
+  draftEl.classList.remove('show');
+  grid = null; run = null;
+  enemies = []; eggs = []; projectiles = []; enemyBullets = []; traps = []; particles = [];
+  if (net.mode === 'host') {
+    players = [players[0]];
+    players[0].idx = 0; players[0].left = false;
+    net.conns.forEach((c, i) => {
+      c._idx = i + 1;
+      const np = makePlayer(i + 1);
+      if (c._name) np.name = c._name;
+      if (c._color) np.color = c._color;
+      players.push(np);
+      try { c.send({ t: 'welcome', idx: i + 1 }); } catch (e) {}
+    });
+    player = players[0];
+    gameState = 'lobby';
+    setBoardSize(20, 20);
+    net.sendAll({ t: 'tolobby' });
+    broadcastLobby();
+  } else {
+    players = []; player = null;
+    gameState = 'title';
+    setBoardSize(20, 20);
+  }
+}
+
+// arena config dialog (host-only, from the lobby with [C])
+function acfgBtn(label, active, act, val) {
+  return '<span class="swap-btn' + (active ? '' : ' cancel') + '"' +
+    (active ? ' style="--pc:#00ff88"' : '') +
+    ' data-act="' + act + '" data-val="' + val + '">' + label + '</span>';
+}
+function renderAcfg() {
+  const c = net.arenaCfg;
+  let h = '<div class="acfg-row">BOARD SIZE:</div>' +
+    acfgBtn('SMALL 11×11', c.size === 11, 'size', 11) +
+    acfgBtn('MEDIUM 15×15', c.size === 15, 'size', 15) +
+    acfgBtn('LARGE 19×19', c.size === 19, 'size', 19) +
+    acfgBtn('HUGE 25×25', c.size === 25, 'size', 25);
+  h += '<div class="acfg-row">DIRECT SHOTS HURT PLAYERS:</div>' +
+    acfgBtn('ON', c.pvp, 'pvp', 1) + acfgBtn('OFF', !c.pvp, 'pvp', 0);
+  h += '<div class="acfg-row">PRESSURE:</div>' +
+    acfgBtn('BOARD SHRINKS', c.pressure === 'shrink', 'pressure', 'shrink') +
+    acfgBtn('MINES REGROW', c.pressure === 'regen', 'pressure', 'regen');
+  h += '<div class="acfg-row">MONSTERS:</div>' +
+    acfgBtn('ON (loyal to their uncoverer)', c.enemies !== false, 'enemies', 1) +
+    acfgBtn('OFF', c.enemies === false, 'enemies', 0);
+  h += '<div class="acfg-row">EVERYONE STARTS WITH (max ' + MAX_PERKS + '):</div><div>' +
+    PERKS.map(p => '<span class="swap-btn' + (c.perks.includes(p.id) ? '' : ' cancel') + '"' +
+      (c.perks.includes(p.id) ? ' style="--pc:' + p.clr + '"' : '') +
+      ' data-act="perk" data-val="' + p.id + '">' + esc(p.tag + ' ' + p.name) + '</span>').join('') +
+    '</div>';
+  const body = document.getElementById('acfg-body');
+  body.innerHTML = h;
+  if (body.querySelectorAll)
+    body.querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', () => {
+      const act = b.dataset.act, v = b.dataset.val;
+      if (act === 'size') c.size = +v;
+      else if (act === 'pvp') c.pvp = v === '1';
+      else if (act === 'pressure') c.pressure = v;
+      else if (act === 'enemies') c.enemies = v === '1';
+      else if (act === 'perk') {
+        const ix = c.perks.indexOf(v);
+        if (ix >= 0) c.perks.splice(ix, 1);
+        else if (c.perks.length < MAX_PERKS) c.perks.push(v);
+      }
+      renderAcfg();
+      broadcastLobby();   // settings are visible to the whole lobby
+    }));
 }
 
 function netHost() {
@@ -2803,7 +3352,9 @@ function netHost() {
   netMsgTitle = null;
   players = [makePlayer(0)];
   players[0].name = myName || 'P1';
+  players[0].color = COLORS[myColorIdx % COLORS.length];
   myIdx = 0; player = players[0];
+  sessionWins = {};
   net.mode = 'host';
   net.code = Array.from({ length: 4 }, () =>
     'ABCDEFGHJKLMNPQRSTUVWXYZ'[Math.floor(Math.random() * 24)]).join('');
@@ -2883,11 +3434,21 @@ function hostOnData(conn, m) {
   if (m.t === 'hi') {
     conn._name = sanitizeName(m.name) || conn._name;
     const hp = players[conn._idx];
-    if (hp && conn._name) { hp.name = conn._name; broadcastLobby(); }
+    if (hp) {
+      if (conn._name) hp.name = conn._name;
+      const want = COLORS[m.col];
+      if (want && !players.some(p => p !== hp && p.color === want)) hp.color = want;
+      conn._color = hp.color;
+      broadcastLobby();
+    }
     return;
   }
   const pl = players[conn._idx];
   if (!pl) return;
+  if (m.t === 'color') {
+    if (gameState === 'lobby') cycleColor(conn._idx);
+    return;
+  }
   if (m.t === 'move') {
     pl.lastSeq = m.seq | 0;
     if (gameState === 'playing' && !pl.downed &&
@@ -2898,7 +3459,8 @@ function hostOnData(conn, m) {
         ['poll', 'shoot', 'trap'].includes(m.a))
       pl.acts.push(m.a);
   } else if (m.t === 'pick') {
-    if (gameState === 'draft') applyPick(conn._idx, m.i | 0);
+    if (gameState === 'draft')
+      applyPick(conn._idx, m.i | 0, typeof m.drop === 'string' ? m.drop : null);
   }
 }
 
@@ -2921,7 +3483,7 @@ function netJoin(code) {
     const onOpen = () => {
       lobbyMsg = null;
       if (net.joinTimer) { clearTimeout(net.joinTimer); net.joinTimer = null; }
-      c.send({ t: 'hi', name: myName });
+      c.send({ t: 'hi', name: myName, col: myColorIdx });
     };
     c.on('data', guestOnData);
     c.on('close', () => netReset('DISCONNECTED FROM HOST'));
@@ -2943,10 +3505,16 @@ function netJoin(code) {
 function guestOnData(m) {
   if (!m || typeof m !== 'object') return;
   if (m.t === 'welcome') { myIdx = m.idx; }
-  else if (m.t === 'lobby') { lobbyCount = m.n; lobbyNames = m.names || []; }
+  else if (m.t === 'lobby') {
+    lobbyCount = m.n; lobbyNames = m.names || []; lobbyMode = m.mode || 'coop';
+    lobbyColors = m.colors || []; lobbyWins = m.wins || []; lobbyCfg = m.cfg || null;
+    if (lobbyColors[myIdx]) saveColorPref(lobbyColors[myIdx]);
+  }
   else if (m.t === 'busy') { netReset('ROOM IS FULL OR ALREADY IN A RUN'); }
   else if (m.t === 'start') {
-    run = { seed: m.seed >>> 0, depth: 0 };   // depth 0 → first snap rebuilds the floor
+    run = { seed: m.seed >>> 0, depth: 0,     // depth 0 → first snap rebuilds the floor
+      arena: !!m.arena, cfg: m.arena || null, winner: -1,
+      shrinkLevel: 0, shrinkNext: 0, regenNext: 0, regenList: [] };
     players = [];
     for (let i = 0; i < m.n; i++) players.push(makePlayer(i));
     player = players[myIdx];
@@ -2954,10 +3522,20 @@ function guestOnData(m) {
     enemies = []; eggs = []; projectiles = []; enemyBullets = []; traps = [];
     particles = [];
     mySeq = 0; gTapQueue = []; keys.clear();
+    lastDraftSeq = -1;
     finalTime = 0;
     hideOverlay();
     draftEl.classList.remove('show');
     gameState = 'playing';
+  }
+  else if (m.t === 'tolobby') {
+    hideOverlay();
+    draftEl.classList.remove('show');
+    grid = null; run = null;
+    enemies = []; eggs = []; projectiles = []; enemyBullets = []; traps = []; particles = [];
+    gameState = 'lobby';
+    lobbyMsg = null;
+    setBoardSize(20, 20);
   }
   else if (m.t === 'snap') applySnap(m);
 }
@@ -2984,13 +3562,19 @@ function buildSnap() {
     cols: COLS, rows: ROWS,
     grid: encodeGrid(),
     tl: tilesLeft, ts: totalSafe, gt: gameTime, ft: finalTime,
-    dp: draftPicked,
+    dp: draftPicked, ds: draftSeq,
     bc: borderCrack ? { x: borderCrack.x, y: borderCrack.y, t: borderCrack.t } : null,
     pl: players.map(p => ({ i: p.idx, c: p.color, nm: p.name, x: p.x, y: p.y,
       dx: p.dir.x, dy: p.dir.y, hp: p.hp, mh: p.maxHp, b: p.bullets,
-      dn: p.downed ? 1 : 0, nd: p.noDraft ? 1 : 0, iu: p.iframeUntil, au: p.adrenalineUntil,
+      dn: p.downed ? 1 : 0, nd: p.noDraft ? 1 : 0, dl: p.draftLeft || 0,
+      iu: p.iframeUntil, au: p.adrenalineUntil,
       pk: p.perks, sl: p.sapperLeft, ls: p.lastSeq, lf: p.left ? 1 : 0 })),
+    aw: run.arena ? run.winner : -1,
+    wn: sessionWins,
+    sh: run.shrinkLevel || 0, sn: run.shrinkNext || 0,
+    rg: run.regenList || [], rn: run.regenNext || 0,
     en: enemies.map(e => ({ id: e.id, ty: e.type, x: e.x, y: e.y, hp: e.hp,
+      ow: e.owner === undefined ? -1 : e.owner,
       cs: e.chargeState || 0, cdx: e.chargeDir ? e.chargeDir.x : 0, cdy: e.chargeDir ? e.chargeDir.y : 0, ct: e.chargeStart || 0,
       ss: e.shootState || 0, sdx: e.shootDir ? e.shootDir.x : 0, sdy: e.shootDir ? e.shootDir.y : 0, st: e.shootStart || 0,
       ps: e.pyroState || 0, itx: e.igniteTarget ? e.igniteTarget.x : 0, ity: e.igniteTarget ? e.igniteTarget.y : 0, it: e.igniteStart || 0 })),
@@ -3007,7 +3591,10 @@ function applySnap(s) {
   const newFloor = !grid || s.depth !== run.depth || s.cols !== COLS || s.rows !== ROWS;
   run.depth = s.depth;
   if (newFloor) {
-    conf = depthConf(s.depth, run.seed, players.filter(p => !p.left).length);
+    const np2 = players.filter(p => !p.left).length;
+    conf = run.arena ? arenaConf(run.cfg, np2) : depthConf(s.depth, run.seed, np2);
+    if (!run.arena && conf.gladiator)
+      toasts.push({ text: '⚔ GLADIATOR DEPTH — SOLE SURVIVOR DRAFTS ×3', t: performance.now() });
     updateHudH();
     setBoardSize(s.cols, s.rows);
     grid = [];
@@ -3055,7 +3642,7 @@ function applySnap(s) {
     if (!isMe) { pl.x = sp.x; pl.y = sp.y; pl.dir = { x: sp.dx, y: sp.dy }; }
     else if (sp.ls >= mySeq) { pl.x = sp.x; pl.y = sp.y; }
     pl.hp = sp.hp; pl.maxHp = sp.mh; pl.bullets = sp.b; pl.downed = !!sp.dn;
-    pl.noDraft = !!sp.nd;
+    pl.noDraft = !!sp.nd; pl.draftLeft = sp.dl || 0;
     pl.iframeUntil = sp.iu; pl.adrenalineUntil = sp.au;
     pl.perks = sp.pk || {}; pl.sapperLeft = sp.sl;
     pl.left = !!sp.lf; pl.color = sp.c; pl.lastSeq = sp.ls;
@@ -3068,6 +3655,7 @@ function applySnap(s) {
     let e = em.get(se.id);
     if (!e) e = { id: se.id, type: se.ty, x: se.x, y: se.y, fx: se.x, fy: se.y };
     e.type = se.ty; e.x = se.x; e.y = se.y; e.hp = se.hp;
+    e.owner = se.ow === undefined ? -1 : se.ow;
     e.chargeState = se.cs || null;
     e.chargeDir = (se.cdx || se.cdy) ? { x: se.cdx, y: se.cdy } : null;
     e.chargeStart = se.ct;
@@ -3086,13 +3674,33 @@ function applySnap(s) {
   tilesLeft = s.tl; totalSafe = s.ts; gameTime = s.gt; finalTime = s.ft;
   draftPicked = s.dp || [];
   borderCrack = s.bc;
+  if (s.wn) sessionWins = s.wn;
+  if (run.arena) {
+    run.winner = s.aw !== undefined ? s.aw : -1;
+    run.shrinkLevel = s.sh || 0;
+    run.shrinkNext = s.sn || 0;
+    run.regenList = s.rg || [];
+    run.regenNext = s.rn || 0;
+  }
 
   const prev = gameState;
   gameState = s.gs;
-  if (gameState === 'draft' && prev !== 'draft') buildDraft();
+  // a draft sequence number (not state transitions) drives the draft UI, so
+  // back-to-back drafts with no 'playing' snapshot in between still rebuild
+  if (gameState === 'draft' && s.ds !== undefined && s.ds !== lastDraftSeq) {
+    lastDraftSeq = s.ds;
+    buildDraft();
+  } else if (gameState === 'draft' && s.ds === undefined && prev !== 'draft') buildDraft();
   if (prev === 'draft' && gameState !== 'draft') draftEl.classList.remove('show');
   if ((gameState === 'lost' || gameState === 'won') && prev !== gameState) showEnd(gameState === 'won');
   if ((gameState === 'playing' || gameState === 'draft') && (prev === 'lost' || prev === 'won')) hideOverlay();
+  // multi-pick drafts (gladiator spoils): host confirmed our pick but more remain
+  if (net.mode === 'guest' && gameState === 'draft' && draftWaiting &&
+      draftPickPending > 0 && player && player.draftLeft === draftPickPending &&
+      !draftPicked[myIdx]) {
+    draftPickPending = -1;
+    buildDraft();
+  }
 
   (s.ev || []).forEach(e => {
     const [k, ...a] = e;
@@ -3166,8 +3774,12 @@ window.__mc = {
       enemies: enemies ? enemies.length : 0,
       eggs: eggs ? eggs.length : 0,
       players: players.length,
+      arena: !!(run && run.arena),
+      shrink: run ? (run.shrinkLevel || 0) : 0,
+      winner: run && run.winner !== undefined ? run.winner : -1,
     };
   },
+  get runState() { return run; },
   get grid() { return grid; },
   get simTick() { return simTick; },
   get keys() { return keys; },
@@ -3176,6 +3788,13 @@ window.__mc = {
   enterAbyss,
   startRun: startRunShared,
   startRunSeeded(s) { ensureSolo(); newRun(s >>> 0); },
+  startArena(cfg) {
+    players = [makePlayer(0), makePlayer(1)];
+    myIdx = 0; player = players[0];
+    newArena((Math.random() * 0xffffffff) >>> 0,
+      cfg || { size: 11, pvp: true, pressure: 'shrink', perks: [] });
+  },
+  damagePlayerAt: (idx, n) => damagePlayer(players[idx], n, 'contact'),
   startFloor,
   pickPerk,
   movePlayer: (dx, dy) => movePlayer(players[myIdx], dx, dy),
