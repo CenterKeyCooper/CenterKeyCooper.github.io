@@ -1,0 +1,2538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BLINDSIDE</title>
+<style>
+:root{
+  --bg:#1a1510;
+  --ink:#efe5cf; --dim:#b5a385; --faint:#71603f;
+  --gold:#e0b34c; --leaf:#8fbf6f; --danger:#e2603a;
+  --ghost:#9db0c4;
+  --panel:#241d16; --panel2:#2e251a; --line:#453723; --line2:#57462e;
+}
+*{box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent;}
+html,body{height:100%; overflow:hidden;}
+body{
+  font-family:Georgia,'Times New Roman',serif;
+  color:var(--ink);
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='512' height='512'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.875' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='512' height='512' filter='url(%23g)' opacity='0.4'/%3E%3C/svg%3E"),
+    radial-gradient(ellipse at 50% -20%, rgba(224,179,76,.1), transparent 55%),
+    radial-gradient(ellipse at 50% 130%, rgba(0,0,0,.45), transparent 65%),
+    linear-gradient(180deg, #241d16 0%, #1a1510 55%, #171310 100%);
+  background-blend-mode:overlay, normal, normal, normal;
+  user-select:none;
+}
+input, button, select{font-family:inherit;}
+button{
+  background:none; border:1px solid var(--line2); color:var(--dim);
+  font-size:12px; letter-spacing:.12em; padding:7px 15px; border-radius:20px;
+  cursor:pointer; transition:all .22s;
+}
+button:hover{border-color:var(--gold); color:var(--gold);}
+button:disabled{opacity:.35; cursor:default; border-color:var(--line);}
+input[type=text]{
+  color:var(--ink); background:rgba(0,0,0,.35);
+  border:1px solid var(--line2); border-radius:20px; padding:8px 14px;
+  outline:none; letter-spacing:.06em; font-size:14px;
+}
+input[type=text]::placeholder{color:var(--faint); letter-spacing:.14em; font-size:12px;}
+input[type=text]:focus{border-color:var(--gold);}
+select{
+  color:var(--ink); background:var(--panel2); border:1px solid var(--line2);
+  border-radius:14px; padding:6px 10px; font-size:12px; letter-spacing:.08em;
+}
+.hidden{display:none !important;}
+.sym{vertical-align:-2px;}
+.etched{
+  color:var(--dim);
+  text-shadow:0 -1px 1px rgba(0,0,0,.75), 0 1px 0 rgba(255,240,210,.06);
+}
+::-webkit-scrollbar{width:8px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--line); border-radius:4px;}
+::-webkit-scrollbar-thumb:hover{background:var(--line2);}
+
+/* ================= TITLE ================= */
+#title{
+  height:100%; display:flex; flex-direction:column;
+  align-items:center; justify-content:center; gap:16px; padding:20px;
+}
+#title h1{
+  font-size:46px; letter-spacing:.42em; font-weight:normal; margin-left:.42em;
+  background:linear-gradient(100deg,
+    #8a6a2e 0%, #e0b34c 22%, #f7e3ae 38%, #e0b34c 55%, #a87f34 72%, #e8c05e 88%, #8a6a2e 100%);
+  background-size:220% 100%;
+  -webkit-background-clip:text; background-clip:text; color:transparent;
+  filter:drop-shadow(0 -1px 1px rgba(0,0,0,.85)) drop-shadow(0 0 20px rgba(224,179,76,.28));
+  animation:goldshift 24s ease-in-out infinite;
+}
+@keyframes goldshift{0%,100%{background-position:0% 50%;}50%{background-position:100% 50%;}}
+#title .strap{
+  color:var(--dim); letter-spacing:.34em; font-size:11px; margin:-6px 0 14px .34em;
+  text-shadow:0 -1px 1px rgba(0,0,0,.7);
+}
+#title .row{display:flex; gap:10px; align-items:center;}
+#nameIn{text-align:center; width:230px;}
+#codeIn{text-align:center; width:120px; letter-spacing:.3em; font-family:Menlo,monospace;}
+.rule{
+  display:flex; align-items:center; gap:14px; color:var(--faint);
+  font-size:10px; letter-spacing:.3em; margin:6px 0;
+}
+.rule::before,.rule::after{content:''; width:90px; height:1px; background:var(--line2);}
+#modeCards{display:flex; gap:14px; margin:2px 0 4px;}
+.mcard{
+  width:196px; padding:15px 16px 13px; cursor:pointer; text-align:center;
+  border:1px solid var(--line); border-radius:10px;
+  background:linear-gradient(180deg, rgba(255,240,210,.025), rgba(0,0,0,.22));
+  transition:all .25s;
+}
+.mcard:hover{border-color:var(--line2);}
+.mcard.sel{
+  border-color:var(--gold);
+  box-shadow:inset 0 0 22px rgba(224,179,76,.09), 0 0 18px rgba(224,179,76,.12);
+}
+.mcard .ms{color:var(--faint); transition:color .25s;}
+.mcard.sel .ms{color:var(--gold); filter:drop-shadow(0 0 6px rgba(224,179,76,.5));}
+.mcard .mn{
+  font-size:13px; letter-spacing:.24em; margin:9px 0 7px; color:var(--ink);
+  text-shadow:0 -1px 1px rgba(0,0,0,.7);
+}
+.mcard .mb{font-size:11.5px; line-height:1.5; color:var(--dim);}
+#hostBtn{padding:9px 30px; font-size:13px; letter-spacing:.2em; color:var(--gold); border-color:var(--faint);}
+#hostBtn:hover{border-color:var(--gold); box-shadow:0 0 16px rgba(224,179,76,.18);}
+#titleMsg{color:var(--dim); min-height:20px; max-width:560px; text-align:center; font-size:12.5px; letter-spacing:.04em;}
+
+/* ================= MAIN ================= */
+#main{height:100%; display:flex;}
+#stage{flex:1; position:relative; display:flex; align-items:center; justify-content:center; min-width:0; padding:10px;}
+#lobbyCanvas{
+  max-width:100%; max-height:100%; border-radius:6px;
+  box-shadow:inset 0 0 0 1px rgba(58,46,31,.8), 0 18px 50px rgba(0,0,0,.55);
+}
+#banner{
+  position:absolute; top:22px; left:50%; transform:translateX(-50%);
+  background:var(--panel2); border:1px solid var(--gold); color:var(--gold);
+  padding:9px 22px; border-radius:22px; letter-spacing:.08em; pointer-events:none;
+  max-width:80%; text-align:center; font-size:13px;
+  box-shadow:0 0 24px rgba(224,179,76,.2), 0 8px 24px rgba(0,0,0,.5);
+  animation:bannerIn .4s cubic-bezier(.2,1.2,.4,1) both;
+}
+@keyframes bannerIn{from{opacity:0; transform:translateX(-50%) translateY(-12px);}}
+#side{
+  width:330px; min-width:330px; display:flex; flex-direction:column;
+  border-left:1px solid var(--line);
+  background:linear-gradient(180deg, #241d16, #1e1812);
+}
+#side .hd{
+  padding:11px 16px 9px; letter-spacing:.26em; font-size:10.5px;
+  border-bottom:1px solid var(--line);
+  display:flex; justify-content:space-between; align-items:baseline;
+  color:var(--dim); text-shadow:0 -1px 1px rgba(0,0,0,.7);
+}
+#roomCode{color:var(--gold); letter-spacing:.3em; user-select:all; font-family:Menlo,monospace; font-size:13px;}
+#modeTag{color:var(--faint); font-size:9.5px; letter-spacing:.2em; margin-left:8px;}
+#playersDiv{padding:8px 16px; max-height:225px; overflow-y:auto; border-bottom:1px solid var(--line);}
+.prow{display:flex; align-items:center; gap:9px; padding:3px 0; font-size:13.5px;}
+.pdot{width:11px; height:11px; border-radius:50%; flex:none; box-shadow:0 0 6px rgba(0,0,0,.5), inset 0 -2px 3px rgba(0,0,0,.35);}
+.prow .nm{flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.prow .nm .yu{color:var(--faint); font-size:11px; letter-spacing:.08em;}
+.prow .off{color:var(--faint); font-style:italic;}
+.prow .bdg{display:flex; gap:4px; align-items:center;}
+.prow.isgh .nm{color:var(--ghost); font-style:italic;}
+.tribehd{
+  font-size:10px; letter-spacing:.26em; margin:7px 0 3px;
+  display:flex; align-items:center; gap:7px;
+}
+#voiceBar{
+  display:flex; gap:7px; padding:7px 14px; align-items:center;
+  border-bottom:1px solid var(--line);
+}
+#voiceBar button{padding:4px 11px; font-size:10.5px; letter-spacing:.14em;}
+#voiceBar button.live{border-color:var(--leaf); color:var(--leaf);}
+#voiceBar button.hot{border-color:var(--gold); color:var(--gold); box-shadow:0 0 10px rgba(224,179,76,.2);}
+#voiceMsg{color:var(--faint); font-size:10px; letter-spacing:.08em; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;}
+#chatLog{flex:1; overflow-y:auto; padding:10px 16px; font-size:13px; line-height:1.5;}
+#chatLog .m{margin-bottom:5px; word-wrap:break-word; display:flex; gap:6px; align-items:baseline;}
+#chatLog .m .ic{flex:none;}
+#chatLog .sys{color:var(--dim); font-style:italic; font-size:12.5px;}
+#chatLog .ann{color:var(--gold);}
+#chatLog .gh{color:var(--ghost); font-style:italic;}
+#chatBar{display:flex; gap:8px; padding:10px 12px; border-top:1px solid var(--line);}
+#chatIn{flex:1; border-radius:18px;}
+#chatBtn{padding:7px 13px;}
+
+/* ---------- host console ---------- */
+#hostPanel{border-top:1px solid var(--line); max-height:48%; overflow-y:auto; background:rgba(0,0,0,.16);}
+#hostPanel summary{
+  cursor:pointer; padding:10px 16px; color:var(--gold); list-style:none;
+  letter-spacing:.26em; font-size:10.5px; text-shadow:0 -1px 1px rgba(0,0,0,.7);
+}
+#hostPanel summary::before{content:'— '; color:var(--faint);}
+#hostPanel .sec{padding:7px 16px 11px; border-top:1px solid var(--line);}
+#hostPanel .lbl{
+  color:var(--faint); font-size:9.5px; letter-spacing:.24em;
+  margin-bottom:6px; text-shadow:0 -1px 1px rgba(0,0,0,.7);
+}
+.hrow{display:flex; align-items:center; gap:5px; padding:2.5px 0; flex-wrap:wrap;}
+.hrow .nm{flex:1; min-width:64px; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.tagbtn{
+  padding:3px 7px; border-radius:7px; line-height:1;
+  border-color:var(--line); color:var(--dim);
+}
+.tagbtn:hover{color:var(--gold);}
+.tagbtn.on{
+  border-color:var(--gold); color:var(--gold);
+  background:rgba(224,179,76,.08);
+  box-shadow:inset 0 0 8px rgba(224,179,76,.12);
+}
+.tagbtn.gh.on{border-color:var(--ghost); color:var(--ghost); background:rgba(143,163,184,.07); box-shadow:none;}
+.tagbtn.kick:hover{border-color:var(--danger); color:var(--danger);}
+.vchk{
+  display:inline-flex; align-items:center; gap:5px; margin:1px 9px 2px 0;
+  color:var(--ink); font-size:12.5px; cursor:pointer;
+}
+.vchk input{accent-color:#e0b34c;}
+
+/* ================= MODALS ================= */
+.modal{
+  position:fixed; inset:0; z-index:10;
+  background:radial-gradient(ellipse at 50% 40%, rgba(10,8,5,.78), rgba(5,4,2,.92));
+  display:flex; align-items:center; justify-content:center;
+}
+.mpanel{
+  background:linear-gradient(180deg, #2a2118, #221b14);
+  border:1px solid var(--line2); border-radius:12px;
+  padding:20px 22px; max-width:94vw; max-height:94vh; overflow:auto;
+  box-shadow:0 0 0 1px rgba(0,0,0,.6), 0 30px 80px rgba(0,0,0,.7), inset 0 1px 0 rgba(255,240,210,.05);
+  animation:panelIn .35s cubic-bezier(.2,1.1,.4,1) both;
+}
+@keyframes panelIn{from{opacity:0; transform:scale(.94) translateY(10px);}}
+#chWrap{display:flex; gap:20px;}
+#chHead{text-align:center; margin-bottom:14px;}
+#chHead .cname{
+  font-size:20px; letter-spacing:.34em; margin-left:.34em;
+  background:linear-gradient(100deg,#8a6a2e,#e0b34c 30%,#f7e3ae 50%,#e0b34c 70%,#8a6a2e);
+  -webkit-background-clip:text; background-clip:text; color:transparent;
+  filter:drop-shadow(0 -1px 1px rgba(0,0,0,.8));
+}
+#chHead .cdesc{color:var(--dim); margin-top:6px; max-width:540px; font-size:12.5px; line-height:1.5;}
+#chHead .cstat{margin-top:8px; font-size:11px; letter-spacing:.24em; color:var(--gold);}
+#chCanvas{
+  background:#18130d; border-radius:8px;
+  box-shadow:inset 0 0 0 1px var(--line), inset 0 4px 18px rgba(0,0,0,.5);
+}
+#chSide{width:264px; display:flex; flex-direction:column; gap:4px;}
+#chSide .lbl{color:var(--faint); font-size:9.5px; letter-spacing:.26em; margin:7px 0 3px;}
+.srow{display:flex; align-items:center; gap:7px; font-size:12px;}
+.srow .nm{width:86px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.srow .barwrap{
+  flex:1; height:7px; background:rgba(0,0,0,.45); border-radius:4px; overflow:hidden;
+  box-shadow:inset 0 1px 2px rgba(0,0,0,.6);
+}
+.srow .bar{height:100%; border-radius:4px; transition:width .25s linear; box-shadow:0 0 6px rgba(224,179,76,.25);}
+.srow .sc{width:78px; text-align:right; color:var(--dim); font-size:11px;}
+.rrow{display:flex; gap:9px; padding:3px 0; font-size:13px; align-items:center;}
+.rrow .rk{width:22px; color:var(--faint); font-size:11px;}
+.rrow.win{color:var(--gold); text-shadow:0 0 12px rgba(224,179,76,.35);}
+.trow{
+  display:flex; gap:9px; padding:4px 0; font-size:13px; align-items:center;
+  letter-spacing:.1em;
+}
+.trow .avg{margin-left:auto; color:var(--dim); font-size:11px;}
+
+#voteBody{min-width:440px; max-width:580px;}
+#voteBody h2{
+  margin:0 0 4px; letter-spacing:.34em; margin-left:.34em; text-align:center;
+  font-weight:normal; font-size:19px;
+  background:linear-gradient(100deg,#8a6a2e,#e0b34c 30%,#f7e3ae 50%,#e0b34c 70%,#8a6a2e);
+  -webkit-background-clip:text; background-clip:text; color:transparent;
+  filter:drop-shadow(0 -1px 1px rgba(0,0,0,.8));
+}
+.vcands{display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin:14px 0;}
+.vcands button{padding:11px 20px; font-size:14px; letter-spacing:.1em; color:var(--ink);}
+.vstatus{text-align:center; color:var(--dim); margin:9px 0; font-size:12.5px; letter-spacing:.05em;}
+.vreveal{display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin:12px 0;}
+.vcard{
+  border:1px solid var(--line2); background:linear-gradient(180deg,#342a1d,#2e251a);
+  border-radius:4px; padding:8px 16px; letter-spacing:.14em; font-size:13px;
+  box-shadow:0 4px 10px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,240,210,.05);
+  animation:cardIn .45s cubic-bezier(.2,1.3,.4,1) both;
+}
+.vcard:nth-child(odd){transform:rotate(-1.6deg);}
+.vcard:nth-child(even){transform:rotate(1.3deg);}
+@keyframes cardIn{from{opacity:0; transform:translateY(-16px) rotate(4deg);}}
+.vctrl{display:flex; gap:10px; justify-content:center; margin-top:14px; align-items:center;}
+.vnote{color:var(--faint); font-size:11.5px; letter-spacing:.1em;}
+</style>
+</head>
+<body>
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+
+  <!-- ================= TITLE ================= -->
+  <div id="title">
+    <h1>BLINDSIDE</h1>
+    <div class="strap">OUTWIT &middot; OUTPLAY &middot; OUTLAST</div>
+    <div class="row"><input id="nameIn" type="text" maxlength="14" placeholder="YOUR NAME"></div>
+    <div class="rule">CHOOSE A FORMAT &amp; HOST</div>
+    <div id="modeCards"></div>
+    <div class="row"><button id="hostBtn">LIGHT THE TORCHES</button></div>
+    <div class="rule">OR JOIN A HOUSE</div>
+    <div class="row">
+      <input id="codeIn" type="text" maxlength="5" placeholder="CODE">
+      <button id="joinBtn">JOIN</button>
+    </div>
+    <div id="titleMsg"></div>
+  </div>
+
+  <!-- ================= MAIN ================= -->
+  <div id="main" class="hidden">
+    <div id="stage">
+      <canvas id="lobbyCanvas" width="1280" height="720"></canvas>
+      <div id="banner" class="hidden"></div>
+    </div>
+    <div id="side">
+      <div class="hd"><span>THE HOUSE<span id="modeTag"></span></span><span id="roomCode"></span></div>
+      <div id="playersDiv"></div>
+      <div id="voiceBar">
+        <button id="voiceBtn">JOIN VOICE</button>
+        <button id="muteBtn" class="hidden">MUTE</button>
+        <button id="megaBtn" class="hidden">MEGAPHONE</button>
+        <span id="voiceMsg"></span>
+      </div>
+      <div id="chatLog"></div>
+      <details id="hostPanel" class="hidden" open>
+        <summary>HOST CONSOLE</summary>
+        <div class="sec">
+          <div class="lbl">PLAYERS &amp; POWERS</div>
+          <div id="hpPlayers"></div>
+          <div class="hrow"><button id="clearTagsBtn" class="tagbtn">CLEAR ALL POWERS</button></div>
+        </div>
+        <div class="sec" id="tribeSec">
+          <div class="lbl">TRIBES</div>
+          <div class="hrow">
+            <button id="drawTribesBtn" class="tagbtn">DRAW TRIBES</button>
+            <button id="mergeBtn" class="tagbtn">MERGE</button>
+          </div>
+        </div>
+        <div class="sec">
+          <div class="lbl">CHALLENGE</div>
+          <div class="hrow">
+            <select id="chSelect"></select>
+            <button id="chStartBtn" class="tagbtn">BEGIN</button>
+          </div>
+        </div>
+        <div class="sec">
+          <div class="lbl">THE VOTE</div>
+          <div id="voteSetup"></div>
+          <div class="hrow"><button id="voteSetupBtn" class="tagbtn">CALL A VOTE</button></div>
+        </div>
+        <div class="sec">
+          <div class="lbl">ANNOUNCE</div>
+          <div class="hrow">
+            <input id="annIn" type="text" maxlength="120" style="flex:1; border-radius:14px; padding:5px 12px" placeholder="word from production">
+            <button id="annBtn" class="tagbtn">SEND</button>
+          </div>
+        </div>
+      </details>
+      <div id="chatBar">
+        <input id="chatIn" type="text" maxlength="140" placeholder="SPEAK TO THOSE NEARBY">
+        <button id="chatBtn">SAY</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= CHALLENGE MODAL ================= -->
+  <div id="chModal" class="modal hidden">
+    <div class="mpanel">
+      <div id="chHead"></div>
+      <div id="chWrap">
+        <canvas id="chCanvas" width="520" height="560"></canvas>
+        <div id="chSide"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= VOTE MODAL ================= -->
+  <div id="voteModal" class="modal hidden">
+    <div class="mpanel"><div id="voteBody"></div></div>
+  </div>
+
+<script>
+'use strict';
+// =====================================================================
+// BLINDSIDE — social strategy game hub
+// Host-authoritative PeerJS star: the host's browser is the server.
+// Layers: SOCIETY (lobby, proximity chat, powers, tribes, votes,
+// ghosts) and CHALLENGES (pluggable minigames reporting to the host).
+// =====================================================================
+
+// The house is bigger than the window — the camera follows you, so you
+// can't watch every corner at once. That's the point.
+const WORLD_W = 2400, WORLD_H = 1400;
+const VIEW_W = 1280, VIEW_H = 720;
+const CHAT_R = 230;
+const MAXV = 300, STEER = 6.5;   // fluid movement: steer toward a desired velocity
+const POS_HZ = 10, PROG_HZ = 4;
+
+const PALETTE = ['#e2603a','#5ea8d8','#8fbf6f','#e0b34c','#b083d6','#d98a4a',
+                 '#5fc4b0','#d66a92','#a8c86a','#7e93d8','#c9a172','#6fd6a0',
+                 '#d87878','#9aa8b8'];
+const ZONE_RECTS = [
+  { x: 100, y: 90, w: 560, h: 380 }, { x: WORLD_W - 660, y: 90, w: 560, h: 380 },
+  { x: 100, y: WORLD_H - 470, w: 560, h: 380 }, { x: WORLD_W - 660, y: WORLD_H - 470, w: 560, h: 380 },
+];
+
+// ---------------------------------------------------------------------
+// Custom symbol set — one path per glyph, stroked. The same SVG path
+// data draws in the DOM (symSvg) and on canvas (symDraw via Path2D).
+// ---------------------------------------------------------------------
+const SYM = {
+  crown:  { d: 'M4.5 16.5L6 7.5l4 3.5L12 5.5l2 5.5 4-3.5 1.5 9zM6 19.5h12', w: 1.7 },
+  veto:   { d: 'M12 3a9 9 0 1 0 .01 0zM5.8 5.8l12.4 12.4', w: 1.9 },
+  idol:   { d: 'M4.5 3.5a7.5 8.5 0 0 0 15 0M12 11.5l3 4.5-3 4.5-3-4.5z', w: 1.7 },
+  target: { d: 'M12 5.5a6.5 6.5 0 1 0 .01 0zM12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3', w: 1.8 },
+  wisp:   { d: 'M6.5 20.5V11a5.5 5.5 0 0 1 11 0v9.5l-2.7-2.2-2.8 2.2-2.8-2.2z', w: 1.7 },
+  speech: { d: 'M4.5 4.5h15V15h-8.5l-4.5 4v-4h-2z', w: 1.7 },
+  laurel: { d: 'M7.5 4h9v5a4.5 4.5 0 0 1-9 0zM7.5 5.5h-3a3 3 0 0 0 3 3.5M16.5 5.5h3a3 3 0 0 1-3 3.5M12 13.5v4M8.5 20.5h7M12 17.5v3', w: 1.6 },
+  horn:   { d: 'M4 9.5v5h3.5l6 4.5v-14l-6 4.5zM16.5 8.5a6 6 0 0 1 0 7', w: 1.7 },
+  check:  { d: 'M5 12.5l4.5 5L19 6.5', w: 2.2 },
+  flame:  { d: 'M12 3.5c1 3.5 5 5.5 5 9.5a5 5 0 0 1-10 0c0-2 .9-3.7 2.4-5 .2 1.5 1 2.6 2.1 3.2-.8-2.7-.6-5.2.5-7.7z', w: 1.6 },
+  wave:   { d: 'M3 9.5c2-2.8 4-2.8 6 0s4 2.8 6 0 4-2.8 6 0M3 15.5c2-2.8 4-2.8 6 0s4 2.8 6 0 4-2.8 6 0', w: 1.7 },
+  eye:    { d: 'M2.5 12S6.5 5.5 12 5.5 21.5 12 21.5 12 17.5 18.5 12 18.5 2.5 12 2.5 12zM12 9.2a2.8 2.8 0 1 0 .01 0z', w: 1.6 },
+  spark:  { d: 'M12 3v18M4.2 7.5l15.6 9M19.8 7.5l-15.6 9', w: 1.7 },
+  mic:    { d: 'M12 3.5a2.8 2.8 0 0 1 2.8 2.8v5a2.8 2.8 0 0 1-5.6 0v-5A2.8 2.8 0 0 1 12 3.5zM6.8 11.5a5.2 5.2 0 0 0 10.4 0M12 16.7V20M9 20h6', w: 1.7 },
+};
+function symSvg(key, size, color) {
+  const s = SYM[key];
+  if (!s) return '';
+  return '<svg class="sym" viewBox="0 0 24 24" width="' + size + '" height="' + size + '">' +
+    '<path d="' + s.d + '" fill="none" stroke="' + (color || 'currentColor') +
+    '" stroke-width="' + s.w + '" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+}
+function symDraw(ctx, key, x, y, size, color, alpha) {
+  const s = SYM[key];
+  if (!s) return;
+  if (s.p === undefined) { try { s.p = new Path2D(s.d); } catch (e) { s.p = null; } }
+  if (!s.p) return;
+  ctx.save();
+  ctx.translate(x - size / 2, y - size / 2);
+  ctx.scale(size / 24, size / 24);
+  ctx.strokeStyle = color;
+  ctx.globalAlpha = alpha == null ? 1 : alpha;
+  ctx.lineWidth = s.w * 1.2;
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.stroke(s.p);
+  ctx.restore();
+}
+
+// ---------------------------------------------------------------------
+// Powers, tribes, and game modes
+// ---------------------------------------------------------------------
+const TAGDEF = {
+  hoh:    { sym: 'crown',  short: 'HOH',       color: '#e0b34c' },
+  veto:   { sym: 'veto',   short: 'THE VETO',  color: '#8fbf6f' },
+  immune: { sym: 'idol',   short: 'IMMUNITY',  color: '#e0b34c' },
+  nom:    { sym: 'target', short: 'NOMINEE',   color: '#e2603a' },
+};
+const TRIBES = [
+  { name: 'EMBER', sym: 'flame', color: '#e8722a' },
+  { name: 'TIDE',  sym: 'wave',  color: '#5ea8d8' },
+];
+const MODES = {
+  bb: {
+    key: 'bb', name: 'BIG BROTHER', sym: 'eye',
+    blurb: 'One house, no tribes. Comps crown a Head of Household and a Power of Veto. Nominees face the eviction vote.',
+    tags: ['hoh', 'veto', 'nom'], tribes: false, grants: ['hoh', 'veto'],
+    voteTitle: 'THE EVICTION',
+    elim: n => n + ' has been evicted from the house',
+    zones: ['KITCHEN', 'HOH ROOM', 'BACKYARD', 'DIARY ROOM'],
+  },
+  survivor: {
+    key: 'survivor', name: 'SURVIVOR', sym: 'flame',
+    blurb: 'Two tribes until the merge. Every challenge is for immunity — tribal before the merge, individual after.',
+    tags: ['immune'], tribes: true, grants: ['immune'],
+    voteTitle: 'TRIBAL COUNCIL',
+    elim: n => 'The tribe has spoken — ' + n + "'s torch is snuffed",
+    zones: ['THE BEACH', 'THE JUNGLE', 'COUNCIL FIRE', 'EXILE ROCK'],
+  },
+  free: {
+    key: 'free', name: 'FREEFORM', sym: 'spark',
+    blurb: 'Every tool on the table — powers, tribes, votes, comps. Run whatever social game you can dream up.',
+    tags: ['hoh', 'veto', 'immune', 'nom'], tribes: true, grants: ['hoh', 'veto', 'immune'],
+    voteTitle: 'THE VOTE',
+    elim: n => n + ' has been eliminated',
+    zones: ['KITCHEN', 'THE YARD', 'COUNCIL FIRE', 'THE LOFT'],
+  },
+};
+
+function now() { return performance.now(); }
+function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
+function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function makeCode() {
+  const A = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+  let s = '';
+  for (let i = 0; i < 5; i++) s += A[Math.floor(Math.random() * A.length)];
+  return s;
+}
+function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+
+// ---------------------------------------------------------------------
+// DOM refs
+// ---------------------------------------------------------------------
+const $ = id => document.getElementById(id);
+const el = {
+  title: $('title'), nameIn: $('nameIn'), hostBtn: $('hostBtn'), codeIn: $('codeIn'),
+  joinBtn: $('joinBtn'), titleMsg: $('titleMsg'), modeCards: $('modeCards'),
+  main: $('main'), lobbyCanvas: $('lobbyCanvas'), banner: $('banner'),
+  roomCode: $('roomCode'), modeTag: $('modeTag'), playersDiv: $('playersDiv'),
+  chatLog: $('chatLog'), chatIn: $('chatIn'), chatBtn: $('chatBtn'),
+  voiceBtn: $('voiceBtn'), muteBtn: $('muteBtn'), megaBtn: $('megaBtn'), voiceMsg: $('voiceMsg'),
+  hostPanel: $('hostPanel'), hpPlayers: $('hpPlayers'), clearTagsBtn: $('clearTagsBtn'),
+  tribeSec: $('tribeSec'), drawTribesBtn: $('drawTribesBtn'), mergeBtn: $('mergeBtn'),
+  chSelect: $('chSelect'), chStartBtn: $('chStartBtn'),
+  voteSetup: $('voteSetup'), voteSetupBtn: $('voteSetupBtn'),
+  annIn: $('annIn'), annBtn: $('annBtn'),
+  chModal: $('chModal'), chHead: $('chHead'), chCanvas: $('chCanvas'), chSide: $('chSide'),
+  voteModal: $('voteModal'), voteBody: $('voteBody'),
+};
+const lctx = el.lobbyCanvas.getContext('2d');
+const cctx = el.chCanvas.getContext('2d');
+
+// ---------------------------------------------------------------------
+// State
+// ---------------------------------------------------------------------
+const me = { pid: null, isHost: false, name: '' };
+let G = null;                                    // host-only full truth
+let CV = { players: {}, vote: null, challenge: null, mode: 'free' }; // broadcast view
+const POS = {};                                  // pid -> {x,y,dx,dy}
+const net = { mode: null, peer: null, conns: new Map(), hostConn: null, code: '' };
+
+const bubbles = [];
+const talks = {};
+let bannerUntil = 0;
+let colorIdx = 0;
+let hostModeSel = 'bb';
+
+let CH = null;
+let voteUI = { cast: false };
+
+function curMode() { return MODES[(G && G.mode) || CV.mode] || MODES.free; }
+
+// ---------------------------------------------------------------------
+// Networking (patterns proven in minecrawl-rogue: force the secure
+// cloud endpoint so file:// hosting works; extra ICE injectable via
+// localStorage 'blindside-ice' for TURN relays on UDP-blocked networks)
+// ---------------------------------------------------------------------
+function peerOpts() {
+  const ice = [{ urls: 'stun:stun.l.google.com:19302' }];
+  try {
+    const extra = JSON.parse(lsGet('blindside-ice') || 'null');
+    if (Array.isArray(extra)) ice.push(...extra);
+  } catch (e) {}
+  return { host: '0.peerjs.com', port: 443, secure: true, config: { iceServers: ice } };
+}
+
+function sendTo(pid, msg) {
+  if (pid === me.pid) { onNetMsg(msg); return; }
+  const c = net.conns.get(pid);
+  if (c && c.open) { try { c.send(msg); } catch (e) {} }
+}
+function hostBroadcast(msg) {
+  for (const [pid, c] of net.conns) { if (c.open) { try { c.send(msg); } catch (e) {} } }
+  onNetMsg(msg);
+}
+function toHost(msg) {
+  if (me.isHost) { onHostMsg(me.pid, msg); return; }
+  if (net.hostConn && net.hostConn.open) { try { net.hostConn.send(msg); } catch (e) {} }
+}
+
+function pubState() {
+  const players = {};
+  for (const [pid, p] of Object.entries(G.players))
+    players[pid] = { name: p.name, color: p.color, ghost: p.ghost, tags: p.tags.slice(), tribe: p.tribe, connected: p.connected, voice: !!p.voice, mega: !!p.mega };
+  let vote = null;
+  if (G.vote) vote = {
+    open: G.vote.open, candidates: G.vote.candidates, voters: G.vote.voters,
+    count: Object.keys(G.vote.votes).length, revealed: G.vote.revealed.slice(),
+    tally: G.vote.tally || null,
+  };
+  let challenge = null;
+  if (G.challenge) challenge = {
+    key: G.challenge.key, seed: G.challenge.seed, active: G.challenge.active,
+    results: G.challenge.results || null, ghostResults: G.challenge.ghostResults || null,
+    tribeResults: G.challenge.tribeResults || null,
+  };
+  return { players, vote, challenge, mode: G.mode };
+}
+function sync() { hostBroadcast({ t: 'state', s: pubState() }); }
+function sysMsg(text) { hostBroadcast({ t: 'sys', text }); }
+
+function positionsSnapshot() {
+  const o = {};
+  for (const pid of Object.keys(G.players))
+    if (POS[pid]) o[pid] = [Math.round(POS[pid].x), Math.round(POS[pid].y)];
+  return o;
+}
+
+// ----- host: player admission -----
+function hostAddPlayer(pid, name) {
+  for (const [old, p] of Object.entries(G.players)) {
+    if (!p.connected && p.name === name) {
+      // voice never survives a reconnect: they must rejoin the channel
+      G.players[pid] = { ...p, connected: true, voice: false, mega: false };
+      if (old !== pid) delete G.players[old];
+      if (POS[old]) { POS[pid] = POS[old]; delete POS[old]; }
+      return G.players[pid];
+    }
+  }
+  let nm = name;
+  const names = Object.values(G.players).map(p => p.name);
+  let n = 2;
+  while (names.includes(nm)) nm = name + ' ' + (n++);
+  const p = {
+    name: nm, color: PALETTE[colorIdx++ % PALETTE.length],
+    ghost: false, tags: [], tribe: null, connected: true,
+  };
+  G.players[pid] = p;
+  POS[pid] = { x: WORLD_W / 2 + (Math.random() - .5) * 300, y: WORLD_H / 2 + (Math.random() - .5) * 220, vx: 0, vy: 0 };
+  POS[pid].dx = POS[pid].x; POS[pid].dy = POS[pid].y;
+  return p;
+}
+
+function hostLobby(modeKey) {
+  if (typeof Peer === 'undefined') { el.titleMsg.textContent = 'PEERJS FAILED TO LOAD — CHECK INTERNET'; return; }
+  const mode = MODES[modeKey] ? modeKey : 'free';
+  net.mode = 'host';
+  net.code = makeCode();
+  el.titleMsg.textContent = 'LIGHTING THE TORCHES…';
+  net.peer = new Peer('bls-' + net.code, peerOpts());
+  net.peer.on('open', () => {
+    me.pid = net.peer.id;
+    me.isHost = true;
+    G = { players: {}, vote: null, challenge: null, mode };
+    hostAddPlayer(me.pid, me.name);
+    CV = pubState();
+    enterMain();
+  });
+  net.peer.on('disconnected', () => { try { net.peer.reconnect(); } catch (e) {} });
+  net.peer.on('error', err => { el.titleMsg.textContent = 'PEER ERROR: ' + (err.type || err); });
+  net.peer.on('call', onIncomingCall);
+  net.peer.on('connection', conn => {
+    const wire = () => {
+      conn.on('data', msg => onHostMsg(conn.peer, msg, conn));
+      conn.on('close', () => hostDropPlayer(conn.peer));
+      conn.on('error', () => hostDropPlayer(conn.peer));
+    };
+    if (conn.open) wire(); else conn.on('open', wire);
+  });
+}
+
+function hostDropPlayer(pid) {
+  net.conns.delete(pid);
+  const p = G && G.players[pid];
+  if (p && p.connected) {
+    p.connected = false;
+    sysMsg(p.name + ' disconnected');
+    sync();
+  }
+}
+
+function joinLobby(code) {
+  if (typeof Peer === 'undefined') { el.titleMsg.textContent = 'PEERJS FAILED TO LOAD — CHECK INTERNET'; return; }
+  net.mode = 'guest';
+  net.code = code;
+  el.titleMsg.textContent = 'APPROACHING THE HOUSE…';
+  net.peer = new Peer(peerOpts());
+  net.peer.on('call', onIncomingCall);
+  net.peer.on('open', () => {
+    const conn = net.peer.connect('bls-' + code, { reliable: true });
+    net.hostConn = conn;
+    const wire = () => { conn.send({ t: 'hello', name: me.name }); };
+    conn.on('open', wire);
+    if (conn.open) wire();
+    conn.on('data', onNetMsg);
+    conn.on('close', () => backToTitle('DISCONNECTED FROM THE HOST'));
+    conn.on('error', () => backToTitle('CONNECTION ERROR'));
+  });
+  net.peer.on('disconnected', () => { try { net.peer.reconnect(); } catch (e) {} });
+  net.peer.on('error', err => {
+    if (err.type === 'peer-unavailable') el.titleMsg.textContent = 'NO HOUSE ANSWERS TO CODE ' + code;
+    else el.titleMsg.textContent = 'PEER ERROR: ' + (err.type || err);
+  });
+}
+
+function backToTitle(msg) {
+  try { leaveVoice(); } catch (e) {}
+  el.main.classList.add('hidden');
+  el.chModal.classList.add('hidden');
+  el.voteModal.classList.add('hidden');
+  el.title.classList.remove('hidden');
+  el.titleMsg.textContent = msg || '';
+  try { if (net.peer) net.peer.destroy(); } catch (e) {}
+  net.mode = null; net.peer = null; net.conns.clear(); net.hostConn = null;
+  CH = null; G = null;
+  CV = { players: {}, vote: null, challenge: null, mode: 'free' };
+  for (const k of Object.keys(POS)) delete POS[k];
+  me.pid = null; me.isHost = false;
+}
+
+function enterMain() {
+  el.title.classList.add('hidden');
+  el.main.classList.remove('hidden');
+  el.roomCode.textContent = net.code;
+  el.modeTag.textContent = '· ' + curMode().name;
+  el.hostPanel.classList.toggle('hidden', !me.isHost);
+  el.tribeSec.classList.toggle('hidden', !curMode().tribes);
+  cam.init = false;
+  floorCv = null; wallCache = null; // rebuild: the map depends on the mode
+  renderPlayers();
+  if (me.isHost) renderHostPanel();
+  renderVoiceBar();
+  addChat('sys', 'Welcome to house ' + net.code + '. Walk with WASD or a click; your words carry only as far as the circle.');
+}
+
+// ---------------------------------------------------------------------
+// HOST message handling (authoritative)
+// ---------------------------------------------------------------------
+function onHostMsg(pid, msg, conn) {
+  if (!G || !msg || typeof msg !== 'object') return;
+  switch (msg.t) {
+    case 'hello': {
+      const name = String(msg.name || 'PLAYER').slice(0, 14) || 'PLAYER';
+      hostAddPlayer(pid, name);
+      if (conn) net.conns.set(pid, conn);
+      if (conn) conn.send({ t: 'welcome', pid, s: pubState(), pos: positionsSnapshot() });
+      sysMsg(G.players[pid].name + ' joined');
+      sync();
+      hostBroadcast({ t: 'posAll', p: positionsSnapshot() });
+      break;
+    }
+    case 'pos': {
+      if (POS[pid]) { POS[pid].x = clamp(msg.x, 16, WORLD_W - 16); POS[pid].y = clamp(msg.y, 16, WORLD_H - 16); }
+      break;
+    }
+    case 'chat': hostChat(pid, String(msg.text || '').slice(0, 140)); break;
+    case 'chTick': hostChTick(pid, msg); break;
+    case 'voteCast': hostVoteCast(pid, msg.pick); break;
+    case 'voiceOn': { const p = G.players[pid]; if (p) { p.voice = true; sync(); } break; }
+    case 'voiceOff': { const p = G.players[pid]; if (p) { p.voice = false; sync(); } break; }
+  }
+}
+
+// Proximity chat. Living speaker: text to everyone in radius (ghosts in
+// radius overhear); a talking indicator to everyone else. Ghost
+// speaker: text to ghosts in radius, indicator to other ghosts only —
+// the living see and hear nothing.
+function hostChat(fromPid, text) {
+  if (!text) return;
+  const from = G.players[fromPid];
+  const fpos = POS[fromPid];
+  if (!from || !fpos) return;
+  for (const [pid, p] of Object.entries(G.players)) {
+    if (!p.connected || !POS[pid]) continue;
+    const inR = dist(POS[pid], fpos) <= CHAT_R;
+    if (from.ghost && !p.ghost) continue;
+    sendTo(pid, inR ? { t: 'chat', from: fromPid, name: from.name, ghost: from.ghost, text }
+                    : { t: 'talk', pid: fromPid });
+  }
+}
+
+// ----- host: powers / ghosts / tribes / kick -----
+function hostToggleTag(pid, tag) {
+  const p = G.players[pid]; if (!p || !TAGDEF[tag]) return;
+  const i = p.tags.indexOf(tag);
+  if (i >= 0) p.tags.splice(i, 1); else p.tags.push(tag);
+  sysMsg(p.name + (i >= 0 ? ' loses ' : ' now holds ') + TAGDEF[tag].short);
+  sync();
+}
+function hostSetGhost(pid, ghost) {
+  const p = G.players[pid]; if (!p || p.ghost === ghost) return;
+  p.ghost = ghost;
+  if (ghost) { p.tags = []; p.tribe = null; }
+  sysMsg(ghost ? curMode().elim(p.name) : p.name + ' returns to the game');
+  sync();
+}
+function hostClearTags() {
+  for (const p of Object.values(G.players)) p.tags = [];
+  sysMsg('All powers returned to the box');
+  sync();
+}
+function hostSetTribe(pid, tribe) {
+  const p = G.players[pid]; if (!p) return;
+  p.tribe = tribe;
+  sync();
+}
+function hostDrawTribes() {
+  const living = Object.keys(G.players).filter(pid => !G.players[pid].ghost);
+  for (let i = living.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [living[i], living[j]] = [living[j], living[i]];
+  }
+  living.forEach((pid, i) => { G.players[pid].tribe = i % 2; });
+  const roster = t => living.filter(pid => G.players[pid].tribe === t).map(pid => G.players[pid].name).join(', ');
+  sysMsg('Tribes drawn — ' + TRIBES[0].name + ': ' + roster(0) + ' / ' + TRIBES[1].name + ': ' + roster(1));
+  sync();
+}
+function hostMergeTribes() {
+  for (const p of Object.values(G.players)) p.tribe = null;
+  sysMsg('Drop your buffs — the tribes have merged');
+  sync();
+}
+function hostGrantTribeImmunity(tribe) {
+  let any = false;
+  for (const p of Object.values(G.players)) {
+    if (!p.ghost && p.tribe === tribe && !p.tags.includes('immune')) { p.tags.push('immune'); any = true; }
+  }
+  if (any) sysMsg(TRIBES[tribe].name + ' wins tribal immunity');
+  sync();
+}
+function hostKick(pid) {
+  const c = net.conns.get(pid);
+  if (c) { try { c.close(); } catch (e) {} }
+  const p = G.players[pid];
+  delete G.players[pid];
+  delete POS[pid];
+  net.conns.delete(pid);
+  if (p) sysMsg(p.name + ' was removed from the game');
+  sync();
+}
+
+// ---------------------------------------------------------------------
+// CLIENT message handling (everyone, including host-as-player)
+// ---------------------------------------------------------------------
+function onNetMsg(msg) {
+  if (!msg || typeof msg !== 'object') return;
+  switch (msg.t) {
+    case 'welcome': {
+      me.pid = msg.pid;
+      CV = msg.s;
+      for (const [pid, xy] of Object.entries(msg.pos || {})) {
+        POS[pid] = POS[pid] || { x: xy[0], y: xy[1], dx: xy[0], dy: xy[1] };
+        POS[pid].x = xy[0]; POS[pid].y = xy[1];
+      }
+      enterMain();
+      if (CV.challenge && CV.challenge.active && !CH) openChallengeSpectate(CV.challenge);
+      if (CV.vote) renderVoteModal();
+      break;
+    }
+    case 'state': {
+      // a vote modal is showing whenever a vote EXISTS (open or closed
+      // awaiting dismissal) — re-render on any transition, including
+      // vote -> null, or the dismissal never reaches the screen
+      const hadVote = !!CV.vote;
+      CV = msg.s;
+      if (me.pid && !CV.players[me.pid]) { backToTitle('YOU WERE REMOVED FROM THE GAME'); return; }
+      renderPlayers();
+      if (me.isHost) renderHostPanel();
+      if (CV.vote || hadVote) renderVoteModal();
+      if (CH && CH.state === 'results') renderChSide();
+      reconcileVoice();
+      break;
+    }
+    case 'posAll': {
+      for (const [pid, xy] of Object.entries(msg.p)) {
+        if (pid === me.pid) continue;
+        if (!POS[pid]) POS[pid] = { x: xy[0], y: xy[1], dx: xy[0], dy: xy[1] };
+        else { POS[pid].x = xy[0]; POS[pid].y = xy[1]; }
+      }
+      break;
+    }
+    case 'chat': {
+      bubbles.push({ pid: msg.from, text: msg.text, ghost: msg.ghost, until: now() + 4500 });
+      if (bubbles.length > 30) bubbles.shift();
+      addChat(msg.ghost ? 'gh' : 'm', msg.name + ' — ' + msg.text, msg.ghost ? 'wisp' : null);
+      break;
+    }
+    case 'talk': talks[msg.pid] = now() + 2000; break;
+    case 'sys': addChat('sys', msg.text); break;
+    case 'ann': {
+      addChat('ann', msg.text, 'horn');
+      el.banner.innerHTML = symSvg('horn', 14) + ' ' + esc(msg.text);
+      el.banner.classList.remove('hidden');
+      bannerUntil = now() + 6000;
+      break;
+    }
+    case 'chStart': startChallengeLocal(msg.key, msg.seed, msg.in); break;
+    case 'chProg': { if (CH) { Object.assign(CH.prog, msg.p); renderChSide(); } break; }
+    case 'chEnd': {
+      if (!CH) break;
+      CH.state = 'results';
+      CH.results = msg.results; CH.ghostResults = msg.ghostResults; CH.tribeResults = msg.tribeResults;
+      renderChHead(); renderChSide();
+      break;
+    }
+    case 'chClose': { CH = null; el.chModal.classList.add('hidden'); break; }
+    case 'voteStart': { voteUI = { cast: false, reveals: [] }; renderVoteModal(); break; }
+    case 'voteReveal': {
+      voteUI.reveals = voteUI.reveals || [];
+      voteUI.reveals.push(msg.name);
+      renderVoteModal();
+      break;
+    }
+    case 'voteEnd': { voteUI.tally = msg.tally; renderVoteModal(); break; }
+  }
+}
+
+// ---------------------------------------------------------------------
+// Chat log + input
+// ---------------------------------------------------------------------
+function addChat(cls, text, symKey) {
+  const d = document.createElement('div');
+  d.className = 'm' + (cls !== 'm' ? ' ' + cls : '');
+  if (symKey) {
+    const ic = document.createElement('span');
+    ic.className = 'ic';
+    ic.innerHTML = symSvg(symKey, 12);
+    d.appendChild(ic);
+  }
+  const s = document.createElement('span');
+  s.textContent = text;
+  d.appendChild(s);
+  el.chatLog.appendChild(d);
+  while (el.chatLog.children.length > 200) el.chatLog.removeChild(el.chatLog.children[0]);
+  el.chatLog.scrollTop = 1e9;
+}
+function sendChat(text) {
+  text = String(text || '').trim().slice(0, 140);
+  if (!text) return;
+  toHost({ t: 'chat', text });
+}
+
+// ---------------------------------------------------------------------
+// CHALLENGES — the pluggable layer.
+// def: { name, desc, better:'low'|'high', fmt(score), liveScore,
+//        create(rng, api) -> { tick(dt,tNow), draw(ctx,w,h,tNow),
+//                              key(e)?, click(x,y)? } }
+// api: { report({score,pct,done}), now() } — report often; the net
+// layer throttles. Send score=null while running if it would spoil.
+// ---------------------------------------------------------------------
+const CHALLENGES = {
+
+  tensec: {
+    name: 'TEN SECONDS', better: 'low', liveScore: false,
+    desc: 'Start the clock, stop it as close to 10.000 seconds as you can. The face goes dark after three. Closest wins.',
+    fmt: s => s == null ? '—' : (s / 1000).toFixed(3) + 's off',
+    create(rng, api) {
+      let st = 'idle', t0 = 0, stopped = 0;
+      function press() {
+        const t = api.now();
+        if (st === 'idle') { st = 'run'; t0 = t; }
+        else if (st === 'run') {
+          st = 'done'; stopped = t - t0;
+          api.report({ score: Math.round(Math.abs(stopped - 10000)), pct: 1, done: true });
+        }
+      }
+      return {
+        key(e) { if (e.key === ' ' || e.key === 'Enter') press(); },
+        click() { press(); },
+        tick(dt, t) {
+          if (st === 'run') {
+            api.report({ score: null, pct: clamp((t - t0) / 10000, 0, 1), done: false });
+            if (t - t0 > 20000) { st = 'done'; api.report({ score: 10000, pct: 1, done: true }); }
+          }
+        },
+        draw(ctx, w, h, t) {
+          ctx.fillStyle = '#18130d'; ctx.fillRect(0, 0, w, h);
+          ctx.textAlign = 'center';
+          if (st === 'idle') {
+            ctx.fillStyle = '#e8dcc3';
+            ctx.font = '17px Georgia, serif';
+            ctx.fillText('CLICK OR SPACE TO START THE CLOCK', w / 2, h / 2 - 22);
+            ctx.fillStyle = '#a8977a';
+            ctx.font = '13px Georgia, serif';
+            ctx.fillText('stop it at exactly 10.000 seconds', w / 2, h / 2 + 12);
+          } else if (st === 'run') {
+            const e = (t - t0) / 1000;
+            ctx.font = '62px Georgia, serif';
+            if (e < 3) {
+              ctx.fillStyle = '#e0b34c';
+              ctx.shadowColor = 'rgba(224,179,76,.5)'; ctx.shadowBlur = 24;
+              ctx.fillText(e.toFixed(2), w / 2, h / 2);
+              ctx.shadowBlur = 0;
+            } else {
+              ctx.fillStyle = '#2c231a';
+              ctx.fillText('··.··', w / 2, h / 2);
+            }
+            ctx.font = '13px Georgia, serif';
+            ctx.fillStyle = '#a8977a';
+            ctx.fillText('CLICK OR SPACE TO STOP', w / 2, h / 2 + 54);
+          } else {
+            ctx.font = '46px Georgia, serif';
+            ctx.fillStyle = '#e0b34c';
+            ctx.shadowColor = 'rgba(224,179,76,.5)'; ctx.shadowBlur = 24;
+            ctx.fillText((stopped / 1000).toFixed(3) + 's', w / 2, h / 2 - 12);
+            ctx.shadowBlur = 0;
+            ctx.font = '17px Georgia, serif';
+            ctx.fillStyle = '#e8dcc3';
+            ctx.fillText(Math.abs(stopped - 10000).toFixed(0) + 'ms from true', w / 2, h / 2 + 30);
+          }
+        },
+      };
+    },
+  },
+
+  simon: {
+    name: 'ECHO CHAMBER', better: 'high', liveScore: true,
+    desc: 'Watch the pattern, repeat it with clicks or arrow keys. One more light each round. The longest memory wins — twelve rounds is perfection.',
+    fmt: s => s == null ? '—' : s + (s === 1 ? ' round' : ' rounds'),
+    create(rng, api) {
+      const MAXR = 12;
+      const seq = [];
+      for (let i = 0; i < MAXR; i++) seq.push(Math.floor(rng() * 4));
+      const COLORS = ['#e2603a', '#5ea8d8', '#8fbf6f', '#e0b34c'];
+      const KEYMAP = { ArrowUp: 0, ArrowRight: 1, ArrowDown: 2, ArrowLeft: 3 };
+      let round = 1, phase = 'show', inputIdx = 0, flash = -1, flashUntil = 0, done = false;
+      let phaseT0 = null;
+      function fail() {
+        done = true; phase = 'dead';
+        api.report({ score: round - 1, pct: (round - 1) / MAXR, done: true });
+      }
+      function win() {
+        done = true; phase = 'won';
+        api.report({ score: MAXR, pct: 1, done: true });
+      }
+      function input(pad, t) {
+        if (phase !== 'input' || done) return;
+        flash = pad; flashUntil = t + 180;
+        if (pad !== seq[inputIdx]) { fail(); return; }
+        inputIdx++;
+        if (inputIdx >= round) {
+          api.report({ score: round, pct: round / MAXR, done: false });
+          if (round >= MAXR) { win(); return; }
+          round++; phase = 'show'; phaseT0 = null; inputIdx = 0;
+        }
+      }
+      const padRects = w => {
+        const s = Math.min(w, 400), cx = w / 2, cy = 250, g = 12, ps = (s - g) / 2 - 40;
+        return [
+          [cx - ps - g / 2, cy - ps - g / 2, ps, ps], [cx + g / 2, cy - ps - g / 2, ps, ps],
+          [cx + g / 2, cy + g / 2, ps, ps], [cx - ps - g / 2, cy + g / 2, ps, ps],
+        ];
+      };
+      return {
+        key(e) { const p = KEYMAP[e.key]; if (p != null) input(p, api.now()); },
+        click(x, y) {
+          const rs = padRects(520);
+          for (let i = 0; i < 4; i++) {
+            const [rx, ry, rw, rh] = rs[i];
+            if (x >= rx && x <= rx + rw && y >= ry && y <= ry + rh) { input(i, api.now()); return; }
+          }
+        },
+        tick(dt, t) {
+          if (phase === 'show') {
+            if (phaseT0 == null) phaseT0 = t;
+            const step = Math.floor((t - phaseT0) / 550);
+            if (step < round) { flash = seq[step]; flashUntil = t + 330; }
+            else { phase = 'input'; flash = -1; }
+          }
+        },
+        draw(ctx, w, h, t) {
+          ctx.fillStyle = '#18130d'; ctx.fillRect(0, 0, w, h);
+          const rs = padRects(w);
+          for (let i = 0; i < 4; i++) {
+            const [rx, ry, rw, rh] = rs[i];
+            const lit = flash === i && t < flashUntil;
+            ctx.fillStyle = lit ? COLORS[i] : '#2a2115';
+            ctx.strokeStyle = COLORS[i];
+            ctx.lineWidth = 1.5;
+            ctx.globalAlpha = lit ? 1 : .8;
+            if (lit) { ctx.shadowColor = COLORS[i]; ctx.shadowBlur = 26; }
+            ctx.fillRect(rx, ry, rw, rh);
+            ctx.shadowBlur = 0;
+            ctx.strokeRect(rx, ry, rw, rh);
+            ctx.globalAlpha = 1;
+          }
+          ctx.textAlign = 'center'; ctx.font = '15px Georgia, serif';
+          ctx.fillStyle = '#e8dcc3';
+          if (phase === 'show') ctx.fillText('ROUND ' + round + ' — WATCH', w / 2, 472);
+          else if (phase === 'input') ctx.fillText('ROUND ' + round + ' — REPEAT  (' + inputIdx + ' of ' + round + ')', w / 2, 472);
+          else if (phase === 'dead') { ctx.fillStyle = '#e2603a'; ctx.fillText('THE ECHO FADES — ' + (round - 1) + ' ROUNDS', w / 2, 472); }
+          else if (phase === 'won') { ctx.fillStyle = '#e0b34c'; ctx.fillText('PERFECT MEMORY — ' + MAXR + ' ROUNDS', w / 2, 472); }
+          ctx.fillStyle = '#a8977a'; ctx.font = '12px Georgia, serif';
+          ctx.fillText('click the pads, or arrow keys: up right down left', w / 2, 500);
+        },
+      };
+    },
+  },
+
+  flappy: {
+    name: 'TORCHBEARER', better: 'high', liveScore: true,
+    desc: 'Carry your ember through the standing stones. Tap SPACE or click to rise. One life — the stones fall the same for everyone.',
+    fmt: s => s == null ? '—' : s + (s === 1 ? ' gate' : ' gates'),
+    create(rng, api) {
+      const W = 520, H = 460, GAP = 150, PW = 56, PIPE_MS = 1500, VX = 165;
+      const gaps = [];
+      for (let i = 0; i < 200; i++) gaps.push(70 + rng() * (H - GAP - 140));
+      let st = 'idle', y = H / 2, vy = 0, t0 = 0, score = 0, dead = false;
+      const pipes = [];
+      let nextPipe = 0, pipeIdx = 0;
+      function flap() {
+        if (dead) return;
+        if (st === 'idle') { st = 'run'; t0 = api.now(); nextPipe = 900; }
+        vy = -330;
+      }
+      function die() {
+        dead = true;
+        api.report({ score, pct: clamp(score / 20, 0, 1), done: true });
+      }
+      return {
+        key(e) { if (e.key === ' ' || e.key === 'ArrowUp') flap(); },
+        click() { flap(); },
+        tick(dt, t) {
+          if (st !== 'run' || dead) return;
+          const elapsed = t - t0;
+          vy += 1050 * dt; y += vy * dt;
+          if (elapsed >= nextPipe) { pipes.push({ x: W + 30, gy: gaps[pipeIdx++ % gaps.length], passed: false }); nextPipe += PIPE_MS; }
+          for (const p of pipes) {
+            p.x -= VX * dt;
+            if (!p.passed && p.x + PW < 110) {
+              p.passed = true; score++;
+              api.report({ score, pct: clamp(score / 20, 0, 1), done: false });
+            }
+            if (p.x < 110 + 13 && p.x + PW > 110 - 13 && (y - 11 < p.gy || y + 11 > p.gy + GAP)) die();
+          }
+          while (pipes.length && pipes[0].x < -80) pipes.shift();
+          if (y > H - 9 || y < 6) die();
+        },
+        draw(ctx, w, h, t) {
+          ctx.fillStyle = '#18130d'; ctx.fillRect(0, 0, w, h);
+          ctx.fillStyle = '#211a11'; ctx.fillRect(0, H, w, h - H);
+          ctx.strokeStyle = '#3a2e1f'; ctx.strokeRect(.5, .5, w - 1, H - 1);
+          for (const p of pipes) {
+            ctx.fillStyle = '#332a1c';
+            ctx.fillRect(p.x, 0, PW, p.gy);
+            ctx.fillRect(p.x, p.gy + GAP, PW, H - p.gy - GAP);
+            ctx.strokeStyle = '#5d4a33';
+            ctx.strokeRect(p.x + .5, .5, PW - 1, p.gy - 1);
+            ctx.strokeRect(p.x + .5, p.gy + GAP + .5, PW - 1, H - p.gy - GAP - 1);
+            ctx.fillStyle = 'rgba(0,0,0,.28)';
+            ctx.fillRect(p.x, Math.max(0, p.gy - 14), PW, 14);
+            ctx.fillRect(p.x, p.gy + GAP, PW, 14);
+          }
+          // the ember
+          ctx.shadowColor = dead ? 'rgba(226,96,58,.6)' : 'rgba(224,179,76,.75)';
+          ctx.shadowBlur = 18;
+          ctx.fillStyle = dead ? '#e2603a' : '#e0b34c';
+          ctx.beginPath(); ctx.arc(110, y, 10, 0, 7); ctx.fill();
+          ctx.shadowBlur = 0;
+          ctx.fillStyle = '#f7e3ae';
+          ctx.beginPath(); ctx.arc(107, y - 3, 3.5, 0, 7); ctx.fill();
+          ctx.textAlign = 'center';
+          ctx.fillStyle = '#e8dcc3';
+          ctx.font = '30px Georgia, serif';
+          ctx.fillText(String(score), w / 2, 46);
+          ctx.font = '13px Georgia, serif';
+          ctx.fillStyle = '#a8977a';
+          if (st === 'idle') ctx.fillText('SPACE OR CLICK TO CARRY THE EMBER', w / 2, H / 2 + 62);
+          if (dead) ctx.fillText('THE EMBER GOES OUT — ' + score + ' GATES', w / 2, H / 2 + 62);
+          ctx.fillText('rise: space or click', w / 2, h - 18);
+        },
+      };
+    },
+  },
+};
+
+// ----- host: challenge control -----
+function hostStartChallenge(key) {
+  if (!CHALLENGES[key] || (G.challenge && G.challenge.active)) return;
+  const seed = Math.floor(Math.random() * 0x7fffffff);
+  G.challenge = { key, seed, active: true, progress: {}, results: null, ghostResults: null, tribeResults: null };
+  sysMsg('CHALLENGE — ' + CHALLENGES[key].name);
+  sync();
+  hostBroadcast({ t: 'chStart', key, seed, in: 3000 });
+}
+function hostChTick(pid, msg) {
+  const c = G.challenge;
+  if (!c || !c.active || !G.players[pid]) return;
+  const prev = c.progress[pid];
+  if (prev && prev.d) return;
+  c.progress[pid] = {
+    s: msg.score == null ? null : Number(msg.score),
+    p: clamp(Number(msg.pct) || 0, 0, 1),
+    d: !!msg.done,
+    at: now(),
+  };
+  if (msg.done) {
+    hostBroadcast({ t: 'chProg', p: c.progress });
+    let allDone = true;
+    for (const [qid, q] of Object.entries(G.players))
+      if (q.connected && !(c.progress[qid] && c.progress[qid].d)) { allDone = false; break; }
+    if (allDone) hostEndChallenge();
+  }
+}
+function hostEndChallenge() {
+  const c = G.challenge;
+  if (!c || !c.active || c.results) return;
+  c.active = false;
+  const def = CHALLENGES[c.key];
+  const rank = pids => pids
+    .map(pid => ({ pid, name: G.players[pid].name, color: G.players[pid].color, ...(c.progress[pid] || { s: null, d: false, at: Infinity }) }))
+    .sort((a, b) => {
+      if (a.s == null && b.s == null) return 0;
+      if (a.s == null) return 1;
+      if (b.s == null) return -1;
+      if (a.s !== b.s) return def.better === 'low' ? a.s - b.s : b.s - a.s;
+      return (a.at || 0) - (b.at || 0);
+    })
+    .map((r, i) => ({ pid: r.pid, name: r.name, color: r.color, score: r.s, rank: i + 1 }));
+  const living = [], ghosts = [];
+  for (const [pid, p] of Object.entries(G.players)) (p.ghost ? ghosts : living).push(pid);
+  c.results = rank(living);
+  c.ghostResults = rank(ghosts);
+  // Tribal standings: average placement per tribe (Survivor pre-merge)
+  c.tribeResults = null;
+  if (curMode().tribes) {
+    const byTribe = [[], []];
+    for (const r of c.results) {
+      const tr = G.players[r.pid].tribe;
+      if (tr === 0 || tr === 1) byTribe[tr].push(r.rank);
+    }
+    if (byTribe[0].length && byTribe[1].length) {
+      c.tribeResults = [0, 1].map(t => ({
+        tribe: t, name: TRIBES[t].name,
+        avg: Math.round(byTribe[t].reduce((a, b) => a + b, 0) / byTribe[t].length * 100) / 100,
+      })).sort((a, b) => a.avg - b.avg);
+    }
+  }
+  const w = c.results[0];
+  if (c.tribeResults) sysMsg('CHALLENGE OVER — ' + c.tribeResults[0].name + ' takes it');
+  else if (w && w.score != null) sysMsg('WINNER — ' + w.name + ' · ' + def.fmt(w.score));
+  hostBroadcast({ t: 'chEnd', results: c.results, ghostResults: c.ghostResults, tribeResults: c.tribeResults });
+  sync();
+}
+function hostCloseChallenge() {
+  G.challenge = null;
+  hostBroadcast({ t: 'chClose' });
+  sync();
+}
+
+// ----- client: challenge runtime -----
+function startChallengeLocal(key, seed, inMs) {
+  const def = CHALLENGES[key];
+  if (!def) return;
+  const t = now();
+  CH = {
+    key, def, startAt: t + inMs, state: 'countdown',
+    my: { score: null, pct: 0, done: false }, prog: {},
+    lastSend: 0, spectate: false,
+  };
+  const api = {
+    now,
+    report(r) {
+      if (!CH || CH.my.done) return;
+      CH.my = { score: r.score, pct: r.pct, done: !!r.done };
+      // set 'done' BEFORE sending: for the host, toHost is synchronous
+      // and may end the whole challenge (state -> 'results') inside it
+      if (r.done) CH.state = 'done';
+      const t2 = now();
+      if (r.done || t2 - CH.lastSend > 1000 / PROG_HZ) {
+        CH.lastSend = t2;
+        toHost({ t: 'chTick', score: r.score, pct: r.pct, done: !!r.done });
+      }
+    },
+  };
+  CH.inst = def.create(mulberry32(seed), api);
+  el.chModal.classList.remove('hidden');
+  renderChHead(); renderChSide();
+}
+function openChallengeSpectate(chPub) {
+  const def = CHALLENGES[chPub.key];
+  if (!def) return;
+  CH = {
+    key: chPub.key, def, startAt: 0, state: chPub.results ? 'results' : 'play',
+    my: { done: true }, prog: {}, spectate: true,
+    results: chPub.results, ghostResults: chPub.ghostResults, tribeResults: chPub.tribeResults,
+  };
+  el.chModal.classList.remove('hidden');
+  renderChHead(); renderChSide();
+}
+
+function renderChHead() {
+  if (!CH) return;
+  let status = '';
+  if (CH.state === 'results') status = 'THE RESULTS';
+  else if (CH.spectate) status = 'WATCHING FROM THE BENCH';
+  el.chHead.innerHTML =
+    '<div class="cname">' + esc(CH.def.name) + '</div>' +
+    '<div class="cdesc">' + esc(CH.def.desc) + '</div>' +
+    (status ? '<div class="cstat">' + status + '</div>' : '');
+}
+
+function grantBtnHtml() {
+  let html = '';
+  const w = CH.results && CH.results[0] && CH.results[0].score != null ? CH.results[0] : null;
+  if (CH.tribeResults) {
+    const t = CH.tribeResults[0];
+    html += '<div class="lbl">THE SPOILS</div><div class="hrow">' +
+      '<button class="tagbtn" data-tribeim="' + t.tribe + '">' + symSvg('idol', 13) + ' IMMUNITY TO ' + esc(t.name) + '</button></div>';
+  } else if (w) {
+    html += '<div class="lbl">THE SPOILS — ' + esc(w.name) + '</div><div class="hrow">';
+    for (const g of curMode().grants) {
+      html += '<button class="tagbtn" data-grant="' + g + '">' + symSvg(TAGDEF[g].sym, 13) + ' ' + TAGDEF[g].short + '</button>';
+    }
+    html += '</div>';
+  }
+  return html;
+}
+
+function renderChSide() {
+  if (!CH) return;
+  let html = '';
+  if (CH.state === 'results' && (CH.results || CH.ghostResults)) {
+    if (CH.tribeResults) {
+      html += '<div class="lbl">TRIBES</div>';
+      CH.tribeResults.forEach((t, i) => {
+        html += '<div class="trow' + (i === 0 ? '" style="color:' + TRIBES[t.tribe].color + '"' : '"') + '>' +
+          symSvg(TRIBES[t.tribe].sym, 15, TRIBES[t.tribe].color) + '<span>' + esc(t.name) + '</span>' +
+          '<span class="avg">avg place ' + t.avg + '</span></div>';
+      });
+    }
+    html += '<div class="lbl">STANDINGS</div>';
+    for (const r of (CH.results || [])) {
+      html += '<div class="rrow' + (r.rank === 1 && r.score != null ? ' win' : '') + '">' +
+        '<span class="rk">' + r.rank + '</span>' +
+        '<span class="pdot" style="background:' + r.color + '"></span>' +
+        '<span>' + esc(r.name) + '</span>' +
+        '<span style="margin-left:auto;color:var(--dim);font-size:11px">' + esc(CH.def.fmt(r.score)) + '</span></div>';
+    }
+    if (CH.ghostResults && CH.ghostResults.length) {
+      html += '<div class="lbl">FROM BEYOND — NO STAKES</div>';
+      for (const r of CH.ghostResults) {
+        html += '<div class="rrow" style="opacity:.6;color:var(--ghost)">' + symSvg('wisp', 12) +
+          '<span>' + esc(r.name) + '</span><span style="margin-left:auto;font-size:11px">' + esc(CH.def.fmt(r.score)) + '</span></div>';
+      }
+    }
+    if (me.isHost) {
+      html += grantBtnHtml();
+      html += '<div class="hrow" style="margin-top:10px"><button id="chCloseBtn" class="tagbtn">CLOSE RESULTS</button></div>';
+    } else {
+      html += '<div style="color:var(--faint);margin-top:10px;font-size:11.5px;letter-spacing:.14em">THE HOST WEIGHS THE SPOILS…</div>';
+    }
+  } else {
+    html += '<div class="lbl">THE FIELD</div>';
+    for (const [pid, p] of Object.entries(CV.players)) {
+      if (!p.connected) continue;
+      const pr = pid === me.pid ? { s: CH.my.score, p: CH.my.pct || 0, d: CH.my.done } : (CH.prog[pid] || { s: null, p: 0, d: false });
+      html += '<div class="srow' + (p.ghost ? '" style="opacity:.5' : '') + '">' +
+        '<span class="pdot" style="background:' + p.color + '"></span>' +
+        '<span class="nm">' + esc(p.name) + '</span>' +
+        '<span class="barwrap"><span class="bar" style="width:' + Math.round((pr.p || 0) * 100) + '%;background:' + p.color + '"></span></span>' +
+        '<span class="sc">' + (pr.d ? symSvg('check', 10, '#8fbf6f') + ' ' : '') +
+        (pr.s != null && (CH.def.liveScore || pr.d) ? esc(CH.def.fmt(pr.s)) : '') + '</span></div>';
+    }
+    if (me.isHost && CH.state !== 'results') {
+      html += '<div class="hrow" style="margin-top:12px"><button id="chEndBtn" class="tagbtn">CALL IT — END NOW</button></div>';
+    }
+  }
+  el.chSide.innerHTML = html;
+  const endBtn = document.getElementById('chEndBtn');
+  if (endBtn) endBtn.onclick = () => hostEndChallenge();
+  const closeBtn = document.getElementById('chCloseBtn');
+  if (closeBtn) closeBtn.onclick = () => hostCloseChallenge();
+  for (const b of el.chSide.querySelectorAll ? el.chSide.querySelectorAll('[data-grant]') : []) {
+    b.onclick = () => { hostToggleTag(CH.results[0].pid, b.getAttribute('data-grant')); renderChSide(); };
+  }
+  for (const b of el.chSide.querySelectorAll ? el.chSide.querySelectorAll('[data-tribeim]') : []) {
+    b.onclick = () => { hostGrantTribeImmunity(Number(b.getAttribute('data-tribeim'))); renderChSide(); };
+  }
+}
+
+// ---------------------------------------------------------------------
+// VOTES — anonymous; the host reveals one at a time for the drama.
+// ---------------------------------------------------------------------
+function voteDefaults() {
+  const m = curMode();
+  const cands = new Set(), voters = new Set();
+  const living = Object.entries(G.players).filter(([, p]) => !p.ghost);
+  const noms = living.filter(([, p]) => p.tags.includes('nom'));
+  if (noms.length && m.tags.includes('nom')) {
+    for (const [pid] of noms) cands.add(pid);
+    for (const [pid, p] of living)
+      if (!cands.has(pid) && !p.tags.includes('hoh')) voters.add(pid);
+  } else {
+    for (const [pid, p] of living) {
+      if (!p.tags.includes('immune')) cands.add(pid);
+      voters.add(pid);
+    }
+  }
+  return { cands, voters };
+}
+
+function hostOpenVoteSetup(tribeOnly) {
+  let { cands, voters } = voteDefaults();
+  if (tribeOnly === 0 || tribeOnly === 1) {
+    cands = new Set(); voters = new Set();
+    for (const [pid, p] of Object.entries(G.players)) {
+      if (p.ghost || p.tribe !== tribeOnly) continue;
+      voters.add(pid);
+      if (!p.tags.includes('immune')) cands.add(pid);
+    }
+  }
+  let html = '';
+  const anyTribes = Object.values(G.players).some(p => !p.ghost && p.tribe != null);
+  if (anyTribes) {
+    html += '<div class="hrow">' + [0, 1].map(t =>
+      '<button class="tagbtn" data-council="' + t + '">' + symSvg(TRIBES[t].sym, 12, TRIBES[t].color) + ' ' + TRIBES[t].name + ' COUNCIL</button>'
+    ).join('') + '</div>';
+  }
+  html += '<div class="lbl" style="margin-top:6px">ON THE BLOCK</div><div>';
+  for (const [pid, p] of Object.entries(G.players)) {
+    if (p.ghost) continue;
+    html += '<label class="vchk"><input type="checkbox" data-vc="' + pid + '"' + (cands.has(pid) ? ' checked' : '') + '>' +
+      esc(p.name) + (p.tags.includes('immune') ? ' ' + symSvg('idol', 11, '#e0b34c') : '') + '</label>';
+  }
+  html += '</div><div class="lbl" style="margin-top:6px">WHO VOTES</div><div>';
+  for (const [pid, p] of Object.entries(G.players)) {
+    if (p.ghost) continue;
+    html += '<label class="vchk"><input type="checkbox" data-vv="' + pid + '"' + (voters.has(pid) ? ' checked' : '') + '>' + esc(p.name) + '</label>';
+  }
+  html += '</div><div class="hrow" style="margin-top:8px"><button id="voteGoBtn" class="tagbtn">OPEN THE URN</button> <button id="voteCancelBtn" class="tagbtn">NEVER MIND</button></div>';
+  el.voteSetup.innerHTML = html;
+  for (const b of el.voteSetup.querySelectorAll ? el.voteSetup.querySelectorAll('[data-council]') : [])
+    b.onclick = () => hostOpenVoteSetup(Number(b.getAttribute('data-council')));
+  const go = document.getElementById('voteGoBtn');
+  if (go) go.onclick = () => {
+    const c = [], v = [];
+    for (const i of el.voteSetup.querySelectorAll('[data-vc]')) if (i.checked) c.push(i.getAttribute('data-vc'));
+    for (const i of el.voteSetup.querySelectorAll('[data-vv]')) if (i.checked) v.push(i.getAttribute('data-vv'));
+    if (c.length < 1 || v.length < 1) return;
+    el.voteSetup.innerHTML = '';
+    hostStartVote(c, v);
+  };
+  const cn = document.getElementById('voteCancelBtn');
+  if (cn) cn.onclick = () => { el.voteSetup.innerHTML = ''; };
+}
+function hostStartVote(candidates, voters) {
+  G.vote = { open: true, candidates, voters, votes: {}, revealed: [], tally: null, shuffled: null };
+  sysMsg('A vote is called — ' + candidates.map(p => G.players[p].name).join(' / '));
+  sync();
+  hostBroadcast({ t: 'voteStart' });
+}
+function hostVoteCast(pid, pick) {
+  const v = G.vote;
+  if (!v || !v.open || !v.voters.includes(pid) || v.votes[pid] || !v.candidates.includes(pick)) return;
+  v.votes[pid] = pick;
+  sync();
+}
+function hostRevealNext() {
+  const v = G.vote;
+  if (!v || !v.open) return;
+  if (!v.shuffled) {
+    v.shuffled = Object.values(v.votes).slice();
+    for (let i = v.shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [v.shuffled[i], v.shuffled[j]] = [v.shuffled[j], v.shuffled[i]];
+    }
+  }
+  if (v.revealed.length >= v.shuffled.length) return;
+  const pick = v.shuffled[v.revealed.length];
+  const name = G.players[pick] ? G.players[pick].name : '?';
+  v.revealed.push(name);
+  hostBroadcast({ t: 'voteReveal', name });
+  sync();
+}
+function hostEndVote() {
+  const v = G.vote;
+  if (!v || !v.open) return;
+  v.open = false;
+  const tally = {};
+  for (const c of v.candidates) tally[G.players[c] ? G.players[c].name : '?'] = 0;
+  for (const pick of Object.values(v.votes)) {
+    const nm = G.players[pick] ? G.players[pick].name : '?';
+    tally[nm] = (tally[nm] || 0) + 1;
+  }
+  v.tally = tally;
+  const top = Object.entries(tally).sort((a, b) => b[1] - a[1]);
+  sysMsg('The votes are in — ' + top.map(([n, c]) => n + ' ' + c).join(', '));
+  hostBroadcast({ t: 'voteEnd', tally });
+  sync();
+}
+function hostClearVote() { G.vote = null; sync(); }
+
+function castVote(pick) {
+  if (voteUI.cast) return;
+  voteUI.cast = pick;
+  toHost({ t: 'voteCast', pick });
+  renderVoteModal();
+}
+
+function renderVoteModal() {
+  const v = CV.vote;
+  if (!v) { el.voteModal.classList.add('hidden'); voteUI = { cast: false }; return; }
+  el.voteModal.classList.remove('hidden');
+  const meP = CV.players[me.pid] || {};
+  let html = '<h2>' + esc(curMode().voteTitle) + '</h2>';
+  html += '<div class="vstatus">' + v.candidates.map(p => esc(CV.players[p] ? CV.players[p].name : '?')).join(' &middot; ') + '</div>';
+  const iVote = v.voters.includes(me.pid);
+  if (v.open && iVote && !voteUI.cast) {
+    html += '<div class="vstatus">CAST YOUR VOTE — IT IS ANONYMOUS</div><div class="vcands">';
+    for (const c of v.candidates) {
+      const p = CV.players[c];
+      html += '<button data-vote="' + c + '" style="border-color:' + (p ? p.color : '#555') + '">' + esc(p ? p.name : '?') + '</button>';
+    }
+    html += '</div>';
+  } else if (v.open && iVote) {
+    html += '<div class="vstatus">' + symSvg('check', 12, '#8fbf6f') + ' YOUR VOTE IS IN THE URN</div>';
+  } else if (v.open) {
+    html += '<div class="vstatus">' + (meP.ghost ? symSvg('wisp', 12, '#8fa3b8') + ' YOU WATCH FROM BEYOND' : 'YOU DO NOT VOTE TONIGHT') + '</div>';
+  }
+  html += '<div class="vstatus">VOTES IN THE URN — ' + v.count + ' OF ' + v.voters.length + '</div>';
+  const reveals = (voteUI.reveals && voteUI.reveals.length ? voteUI.reveals : v.revealed) || [];
+  if (reveals.length) {
+    html += '<div class="vreveal">' + reveals.map(n => '<div class="vcard">' + esc(n) + '</div>').join('') + '</div>';
+  }
+  const tally = voteUI.tally || v.tally;
+  if (tally) {
+    html += '<div class="vstatus" style="color:var(--ink);font-size:14px">' +
+      Object.entries(tally).sort((a, b) => b[1] - a[1]).map(([n, c]) => esc(n) + ' — <b>' + c + '</b>').join(' &nbsp;&middot;&nbsp; ') + '</div>';
+  }
+  html += '<div class="vctrl">';
+  if (me.isHost) {
+    if (v.open) {
+      html += '<button id="vRevealBtn">REVEAL A VOTE</button><button id="vEndBtn">CLOSE THE URN</button>';
+    } else {
+      html += '<button id="vDoneBtn">DISMISS</button>';
+    }
+  } else if (!v.open) {
+    html += '<span class="vnote">THE HOST DECIDES WHAT COMES NEXT</span>';
+  }
+  html += '</div>';
+  el.voteBody.innerHTML = html;
+  for (const b of el.voteBody.querySelectorAll ? el.voteBody.querySelectorAll('[data-vote]') : []) {
+    b.onclick = () => castVote(b.getAttribute('data-vote'));
+  }
+  const rb = document.getElementById('vRevealBtn'); if (rb) rb.onclick = () => hostRevealNext();
+  const eb = document.getElementById('vEndBtn'); if (eb) eb.onclick = () => hostEndVote();
+  const db = document.getElementById('vDoneBtn'); if (db) db.onclick = () => hostClearVote();
+}
+
+// ---------------------------------------------------------------------
+// VOICE — proximity audio over PeerJS media calls, mesh topology.
+// All mixing is LOCAL: every client already knows positions and ghost
+// flags, so each ear sets its own per-speaker GainNode from distance.
+// Ghost rules mirror text chat. The host's megaphone overrides
+// distance for everyone — the production voice.
+// ---------------------------------------------------------------------
+const VOICE_NEAR = 140, VOICE_FAR = CHAT_R * 1.6;
+const VOICE = {
+  on: false, muted: false, stream: null, ctx: null,
+  peers: new Map(),      // pid -> {call, stream, el, gain, an, level}
+  myAn: null, myLevel: 0, buf: null,
+};
+function setVoiceMsg(t) { el.voiceMsg.textContent = t || ''; }
+function voiceSupported() {
+  return typeof navigator !== 'undefined' && navigator.mediaDevices && navigator.mediaDevices.getUserMedia;
+}
+function joinVoice() {
+  if (VOICE.on || !net.mode) return;
+  if (!voiceSupported()) { setVoiceMsg('NO MICROPHONE IN THIS BROWSER'); return; }
+  setVoiceMsg('ASKING FOR THE MICROPHONE…');
+  navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } })
+    .then(stream => {
+      VOICE.stream = stream;
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!VOICE.ctx && AC) VOICE.ctx = new AC();
+      if (VOICE.ctx) { try { VOICE.ctx.resume(); } catch (e) {} }
+      // own level meter, never routed to the speakers
+      try {
+        VOICE.myAn = VOICE.ctx.createAnalyser(); VOICE.myAn.fftSize = 256;
+        VOICE.ctx.createMediaStreamSource(stream).connect(VOICE.myAn);
+      } catch (e) {}
+      VOICE.on = true; VOICE.muted = false;
+      setVoiceMsg('');
+      toHost({ t: 'voiceOn' });
+      reconcileVoice();
+      renderVoiceBar();
+    })
+    .catch(() => setVoiceMsg('MICROPHONE REFUSED'));
+}
+function leaveVoice() {
+  if (!VOICE.on) return;
+  VOICE.on = false;
+  toHost({ t: 'voiceOff' });
+  if (me.isHost && G && G.players[me.pid]) { G.players[me.pid].mega = false; sync(); }
+  if (VOICE.stream) for (const tr of VOICE.stream.getTracks()) { try { tr.stop(); } catch (e) {} }
+  VOICE.stream = null; VOICE.myAn = null; VOICE.myLevel = 0;
+  for (const pid of [...VOICE.peers.keys()]) dropVoicePeer(pid);
+  renderVoiceBar();
+}
+function toggleMute() {
+  if (!VOICE.on || !VOICE.stream) return;
+  VOICE.muted = !VOICE.muted;
+  for (const tr of VOICE.stream.getAudioTracks()) tr.enabled = !VOICE.muted;
+  renderVoiceBar();
+}
+function dropVoicePeer(pid) {
+  const v = VOICE.peers.get(pid);
+  if (!v) return;
+  try { v.call.close(); } catch (e) {}
+  try { if (v.el) { v.el.pause(); v.el.srcObject = null; } } catch (e) {}
+  VOICE.peers.delete(pid);
+}
+function attachVoiceStream(pid, call, stream) {
+  dropVoicePeer(pid);
+  // Chrome quirk: WebAudio stays silent unless the remote stream also
+  // feeds a (muted) media element
+  let elA = null;
+  try { elA = new Audio(); elA.srcObject = stream; elA.muted = true; elA.play().catch(() => {}); } catch (e) {}
+  let gain = null, an = null;
+  try {
+    const src = VOICE.ctx.createMediaStreamSource(stream);
+    gain = VOICE.ctx.createGain(); gain.gain.value = 0;
+    an = VOICE.ctx.createAnalyser(); an.fftSize = 256;
+    src.connect(gain); gain.connect(VOICE.ctx.destination);
+    src.connect(an);
+  } catch (e) {}
+  VOICE.peers.set(pid, { call, stream, el: elA, gain, an, level: 0 });
+}
+function wireCall(pid, call) {
+  call.on('stream', s => attachVoiceStream(pid, call, s));
+  call.on('close', () => dropVoicePeer(pid));
+  call.on('error', () => dropVoicePeer(pid));
+}
+function placeCall(pid) {
+  if (!net.peer || !VOICE.stream) return;
+  try {
+    const call = net.peer.call(pid, VOICE.stream);
+    if (call) wireCall(pid, call);
+  } catch (e) {}
+}
+function onIncomingCall(call) {
+  if (!VOICE.on || !VOICE.stream) { try { call.close(); } catch (e) {} return; }
+  try { call.answer(VOICE.stream); } catch (e) { return; }
+  wireCall(call.peer, call);
+}
+// After every state sync: open the calls we own, close the dead ones.
+// Tie-break: the lexicographically lower pid places the call.
+function reconcileVoice() {
+  if (!VOICE.on) return;
+  for (const [pid, p] of Object.entries(CV.players)) {
+    if (pid === me.pid) continue;
+    if (p.voice && p.connected && !VOICE.peers.has(pid) && me.pid < pid) placeCall(pid);
+  }
+  for (const pid of [...VOICE.peers.keys()]) {
+    const p = CV.players[pid];
+    if (!p || !p.voice || !p.connected) dropVoicePeer(pid);
+  }
+}
+function voiceRms(an) {
+  if (!an || !an.getByteTimeDomainData) return 0;
+  if (!VOICE.buf) VOICE.buf = new Uint8Array(256);
+  an.getByteTimeDomainData(VOICE.buf);
+  let s = 0;
+  for (let i = 0; i < VOICE.buf.length; i++) { const d = (VOICE.buf[i] - 128) / 128; s += d * d; }
+  return Math.sqrt(s / VOICE.buf.length);
+}
+function updateVoice() {
+  if (!VOICE.on) return;
+  const meP = CV.players[me.pid], myPos = POS[me.pid];
+  for (const [pid, v] of VOICE.peers) {
+    const p = CV.players[pid];
+    let g = 0;
+    if (p && p.connected && p.voice && myPos && POS[pid]) {
+      const d = dist(myPos, POS[pid]);
+      const prox = clamp(1 - (d - VOICE_NEAR) / (VOICE_FAR - VOICE_NEAR), 0, 1);
+      if (p.mega) g = 1;                    // megaphone reaches every ear
+      else if (meP && meP.ghost) g = prox;  // ghosts overhear anyone nearby
+      else if (p.ghost) g = 0;              // the living never hear ghosts
+      else g = prox;
+    }
+    if (v.gain) v.gain.gain.value = g * g;  // squared for a natural falloff
+    v.level = v.an ? voiceRms(v.an) : 0;
+  }
+  VOICE.myLevel = voiceRms(VOICE.myAn);
+}
+function speakLevel(pid) {
+  if (pid === me.pid) return VOICE.muted ? 0 : VOICE.myLevel;
+  const v = VOICE.peers.get(pid);
+  return v ? v.level : 0;
+}
+function renderVoiceBar() {
+  el.voiceBtn.textContent = VOICE.on ? 'LEAVE VOICE' : 'JOIN VOICE';
+  el.voiceBtn.classList.toggle('live', VOICE.on);
+  el.muteBtn.classList.toggle('hidden', !VOICE.on);
+  el.muteBtn.textContent = VOICE.muted ? 'UNMUTE' : 'MUTE';
+  el.megaBtn.classList.toggle('hidden', !(VOICE.on && me.isHost));
+  const megaOn = !!(G && G.players[me.pid] && G.players[me.pid].mega);
+  el.megaBtn.classList.toggle('hot', megaOn);
+  el.megaBtn.textContent = megaOn ? 'MEGAPHONE — LIVE' : 'MEGAPHONE';
+}
+function hostSetMega(on) {
+  if (!me.isHost || !G || !G.players[me.pid]) return;
+  G.players[me.pid].mega = !!on;
+  sysMsg(on ? 'The host picks up the megaphone' : 'The megaphone is set down');
+  sync();
+  renderVoiceBar();
+}
+
+// ---------------------------------------------------------------------
+// Sidebar renders
+// ---------------------------------------------------------------------
+function badgeHtml(p) {
+  let s = '';
+  for (const t of p.tags || []) {
+    const d = TAGDEF[t];
+    if (d) s += symSvg(d.sym, 13, d.color);
+  }
+  if (p.tribe === 0 || p.tribe === 1) s += symSvg(TRIBES[p.tribe].sym, 13, TRIBES[p.tribe].color);
+  if (p.mega) s += symSvg('horn', 13, '#e0b34c');
+  else if (p.voice) s += symSvg('mic', 12, '#8fbf6f');
+  if (p.ghost) s += symSvg('wisp', 13, '#8fa3b8');
+  return s;
+}
+function renderPlayers() {
+  let html = '';
+  const entries = Object.entries(CV.players);
+  const anyTribes = entries.some(([, p]) => p.tribe != null);
+  const row = ([pid, p]) =>
+    '<div class="prow' + (p.ghost ? ' isgh' : '') + '"><span class="pdot" style="background:' + p.color + (p.ghost ? ';opacity:.35' : '') + '"></span>' +
+    '<span class="nm' + (!p.connected ? ' off' : '') + '">' + esc(p.name) +
+    (pid === me.pid ? ' <span class="yu">— YOU</span>' : '') + (!p.connected ? ' · away' : '') + '</span>' +
+    '<span class="bdg">' + badgeHtml(p) + '</span></div>';
+  if (anyTribes) {
+    for (const t of [0, 1]) {
+      const group = entries.filter(([, p]) => p.tribe === t);
+      if (!group.length) continue;
+      html += '<div class="tribehd" style="color:' + TRIBES[t].color + '">' + symSvg(TRIBES[t].sym, 13, TRIBES[t].color) + esc(TRIBES[t].name) + '</div>';
+      html += group.map(row).join('');
+    }
+    const rest = entries.filter(([, p]) => p.tribe == null);
+    if (rest.length) {
+      html += '<div class="tribehd" style="color:var(--faint)">UNALIGNED</div>' + rest.map(row).join('');
+    }
+  } else {
+    html = entries.map(row).join('');
+  }
+  el.playersDiv.innerHTML = html;
+}
+function renderHostPanel() {
+  const m = curMode();
+  let html = '';
+  for (const [pid, p] of Object.entries(CV.players)) {
+    html += '<div class="hrow"><span class="pdot" style="background:' + p.color + '"></span><span class="nm">' + esc(p.name) + '</span>';
+    for (const t of m.tags) {
+      const d = TAGDEF[t];
+      html += '<button class="tagbtn' + ((p.tags || []).includes(t) ? ' on' : '') + '" title="' + d.short + '" data-tag="' + t + '" data-pid="' + pid + '">' + symSvg(d.sym, 13) + '</button>';
+    }
+    if (m.tribes) {
+      const tr = p.tribe;
+      html += '<button class="tagbtn' + (tr != null ? ' on' : '') + '" title="TRIBE" data-tribe="' + pid + '"' +
+        (tr != null ? ' style="border-color:' + TRIBES[tr].color + ';color:' + TRIBES[tr].color + '"' : '') + '>' +
+        (tr != null ? symSvg(TRIBES[tr].sym, 13, TRIBES[tr].color) : symSvg('spark', 13)) + '</button>';
+    }
+    html += '<button class="tagbtn gh' + (p.ghost ? ' on' : '') + '" title="GHOST" data-ghost="' + pid + '">' + symSvg('wisp', 13) + '</button>';
+    if (pid !== me.pid) html += '<button class="tagbtn kick" title="REMOVE" data-kick="' + pid + '">&#215;</button>';
+    html += '</div>';
+  }
+  el.hpPlayers.innerHTML = html;
+  const qs = sel => el.hpPlayers.querySelectorAll ? el.hpPlayers.querySelectorAll(sel) : [];
+  for (const b of qs('[data-tag]'))
+    b.onclick = () => hostToggleTag(b.getAttribute('data-pid'), b.getAttribute('data-tag'));
+  for (const b of qs('[data-tribe]'))
+    b.onclick = () => {
+      const pid = b.getAttribute('data-tribe');
+      const cur = G.players[pid].tribe;
+      hostSetTribe(pid, cur == null ? 0 : cur === 0 ? 1 : null);
+    };
+  for (const b of qs('[data-ghost]'))
+    b.onclick = () => { const pid = b.getAttribute('data-ghost'); hostSetGhost(pid, !G.players[pid].ghost); };
+  for (const b of qs('[data-kick]'))
+    b.onclick = () => hostKick(b.getAttribute('data-kick'));
+}
+
+// ---------------------------------------------------------------------
+// Lobby rendering + movement
+// ---------------------------------------------------------------------
+const keys = {};
+let moveTarget = null;
+let lastPosSend = 0, lastPosBcast = 0, lastProgBcast = 0;
+let floorCv = null;
+let wallCache = null;
+
+function etch(f, text, x, y, size, alpha) {
+  f.textAlign = 'center';
+  f.font = (size || 13) + 'px Georgia, serif';
+  f.fillStyle = 'rgba(0,0,0,.55)';
+  f.fillText(text, x, y - 1);
+  f.fillStyle = 'rgba(220,205,170,' + (alpha == null ? .38 : alpha) + ')';
+  f.fillText(text, x, y);
+}
+
+function radialPool(f, px, py, r, rgb, a) {
+  const g = f.createRadialGradient ? f.createRadialGradient(px, py, 18, px, py, r) : null;
+  if (!g) return;
+  g.addColorStop(0, 'rgba(' + rgb + ',' + a + ')');
+  g.addColorStop(1, 'rgba(' + rgb + ',0)');
+  f.fillStyle = g;
+  f.fillRect(px - r, py - r, r * 2, r * 2);
+}
+
+// ----- The BB house: a real floorplan, modeled on the usual Big
+// Brother schematic — big backyard with the pool on one side, kitchen
+// and bedroom along the top, the living room as the hub, diary room
+// off the living room, lounge / HOH suite / bathroom along the bottom.
+// One wall list drives both drawing AND collision.
+const BB_ROOMS = [
+  { name: 'BACKYARD',    x: 20,   y: 20,  w: 773,  h: 1360, outdoor: true },
+  { name: 'KITCHEN',     x: 807,  y: 20,  w: 786,  h: 453 },
+  { name: 'BEDROOM',     x: 1607, y: 20,  w: 773,  h: 453 },
+  { name: 'LIVING ROOM', x: 807,  y: 487, w: 1186, h: 446 },
+  { name: 'DIARY ROOM',  x: 2007, y: 487, w: 373,  h: 446 },
+  { name: 'LOUNGE',      x: 807,  y: 947, w: 686,  h: 433 },
+  { name: 'HOH SUITE',   x: 1507, y: 947, w: 486,  h: 433 },
+  { name: 'BATHROOM',    x: 2007, y: 947, w: 373,  h: 433 },
+];
+function cutSegs(a0, a1, doors) {
+  const out = [];
+  let cur = a0;
+  for (const [s, e] of doors.slice().sort((p, q) => p[0] - q[0])) {
+    if (s > cur) out.push([cur, s]);
+    cur = Math.max(cur, e);
+  }
+  if (cur < a1) out.push([cur, a1]);
+  return out;
+}
+function bbWalls() {
+  const T = 14, ws = [];
+  const v = (x, y0, y1, doors) => { for (const [s, e] of cutSegs(y0, y1, doors || [])) ws.push({ x: x - T / 2, y: s, w: T, h: e - s }); };
+  const h = (y, x0, x1, doors) => { for (const [s, e] of cutSegs(x0, x1, doors || [])) ws.push({ x: s, y: y - T / 2, w: e - s, h: T }); };
+  v(800, 20, 1380, [[200, 350], [640, 790]]);          // yard | house (kitchen + patio doors)
+  h(480, 800, 2380, [[1100, 1250], [1850, 2000]]);     // top row | living room
+  v(1600, 20, 480, [[180, 330]]);                      // kitchen | bedroom
+  v(2000, 480, 940, [[640, 790]]);                     // living | diary room
+  h(940, 800, 2380, [[1050, 1200], [1650, 1800], [2100, 2250]]); // living | bottom row
+  v(1500, 940, 1380, [[1090, 1240]]);                  // lounge | HOH suite
+  v(2000, 940, 1380, [[1090, 1240]]);                  // HOH suite | bathroom
+  return ws;
+}
+function getWalls() {
+  if (!wallCache) wallCache = curMode().key === 'bb' ? bbWalls() : [];
+  return wallCache;
+}
+function collideWalls(p, walls, r) {
+  for (const w of walls) {
+    const nx = clamp(p.x, w.x, w.x + w.w), ny = clamp(p.y, w.y, w.y + w.h);
+    const dx = p.x - nx, dy = p.y - ny, d2 = dx * dx + dy * dy;
+    if (d2 >= r * r) continue;
+    if (d2 === 0) {
+      const pl = p.x - w.x, pr = w.x + w.w - p.x, pt = p.y - w.y, pb = w.y + w.h - p.y;
+      const m = Math.min(pl, pr, pt, pb);
+      if (m === pl) { p.x = w.x - r; p.vx = 0; }
+      else if (m === pr) { p.x = w.x + w.w + r; p.vx = 0; }
+      else if (m === pt) { p.y = w.y - r; p.vy = 0; }
+      else { p.y = w.y + w.h + r; p.vy = 0; }
+    } else {
+      const d = Math.sqrt(d2), push = (r - d) / d;
+      p.x += dx * push; p.y += dy * push;
+      if (Math.abs(dx) > Math.abs(dy)) p.vx *= .2; else p.vy *= .2;
+    }
+  }
+}
+
+// ----- Survivor island: the living keep to the sand; ghosts may drift
+// out over the water. Collision ellipse sits inside the drawn coast. -----
+const ISLE = { cx: 1200, cy: 700, rx: 1030, ry: 565 };
+function islandConstrain(p) {
+  const ex = (p.x - ISLE.cx) / ISLE.rx, ey = (p.y - ISLE.cy) / ISLE.ry;
+  const d = ex * ex + ey * ey;
+  if (d > 1) {
+    const s = 1 / Math.sqrt(d);
+    p.x = ISLE.cx + (p.x - ISLE.cx) * s;
+    p.y = ISLE.cy + (p.y - ISLE.cy) * s;
+    p.vx *= .4; p.vy *= .4;
+  }
+}
+
+// One light hangs over the very center of the board: shadows fall
+// straight away from it, stretching gently the farther out you stand.
+function shadowOffset(x, y) {
+  const dxl = x - WORLD_W / 2, dyl = y - WORLD_H / 2;
+  const d = Math.hypot(dxl, dyl);
+  if (d < 2) return { x: 0, y: 0 };
+  const len = Math.min(10, 1.5 + d * .008);
+  return { x: dxl / d * len, y: dyl / d * len };
+}
+
+// ----- floor renderers -----
+function drawBoards(f) {
+  f.fillStyle = '#282015';
+  f.fillRect(0, 0, WORLD_W, WORLD_H);
+  for (let y = 0; y <= WORLD_H; y += 36) {
+    f.strokeStyle = 'rgba(0,0,0,.22)';
+    f.lineWidth = 1;
+    f.beginPath(); f.moveTo(0, y + .5); f.lineTo(WORLD_W, y + .5); f.stroke();
+    f.strokeStyle = 'rgba(255,240,210,.018)';
+    f.beginPath(); f.moveTo(0, y + 1.5); f.lineTo(WORLD_W, y + 1.5); f.stroke();
+    // plank seams, staggered by a fixed hash so the floor never shimmers
+    const row = y / 36;
+    for (let k = 0; k < 4; k++) {
+      const sx = (((row * 7 + k * 13 + 5) * 2654435761) >>> 8) % WORLD_W;
+      f.strokeStyle = 'rgba(0,0,0,.18)';
+      f.beginPath(); f.moveTo(sx + .5, y); f.lineTo(sx + .5, y + 36); f.stroke();
+    }
+  }
+}
+
+function drawVignette(f) {
+  const v = f.createRadialGradient ? f.createRadialGradient(WORLD_W / 2, WORLD_H / 2, WORLD_H * .45, WORLD_W / 2, WORLD_H / 2, WORLD_W * .62) : null;
+  if (!v) return;
+  v.addColorStop(0, 'rgba(0,0,0,0)');
+  v.addColorStop(1, 'rgba(0,0,0,.3)');
+  f.fillStyle = v;
+  f.fillRect(0, 0, WORLD_W, WORLD_H);
+}
+function drawShell(f) {
+  f.strokeStyle = 'rgba(93,74,51,.55)';
+  f.lineWidth = 6;
+  f.strokeRect(11, 11, WORLD_W - 22, WORLD_H - 22);
+  f.strokeStyle = 'rgba(0,0,0,.5)';
+  f.lineWidth = 2;
+  f.strokeRect(15, 15, WORLD_W - 30, WORLD_H - 30);
+}
+function drawWallRects(f) {
+  for (const w of getWalls()) {
+    f.fillStyle = 'rgba(0,0,0,.35)';
+    f.fillRect(w.x + 4, w.y + 5, w.w, w.h);   // cast shade
+    f.fillStyle = '#57462e';
+    f.fillRect(w.x, w.y, w.w, w.h);
+    f.fillStyle = 'rgba(240,220,170,.14)';
+    f.fillRect(w.x, w.y, w.w, 3);
+    f.strokeStyle = 'rgba(0,0,0,.5)';
+    f.lineWidth = 1;
+    f.strokeRect(w.x + .5, w.y + .5, w.w - 1, w.h - 1);
+  }
+}
+
+// The freeform lodge: one open hall with corner rugs.
+function drawLodge(f) {
+  drawBoards(f);
+  radialPool(f, WORLD_W / 2, WORLD_H / 2, 600, '224,179,76', .11);
+  drawVignette(f);
+  const zn = curMode().zones;
+  ZONE_RECTS.forEach((z, i) => {
+    f.strokeStyle = 'rgba(224,179,76,.09)';
+    f.lineWidth = 1;
+    if (f.setLineDash) f.setLineDash([2, 6]);
+    f.strokeRect(z.x + 16.5, z.y + 16.5, z.w - 33, z.h - 33);
+    if (f.setLineDash) f.setLineDash([]);
+    const cx2 = z.x + z.w / 2, cy2 = z.y + z.h / 2;
+    f.strokeStyle = 'rgba(168,151,122,.14)';
+    f.fillStyle = 'rgba(0,0,0,.22)';
+    f.beginPath(); f.arc(cx2, cy2 + 52, 34, 0, 7); f.fill(); f.stroke();
+    f.fillRect(z.x + 44, z.y + 44, 90, 22); f.strokeRect(z.x + 44.5, z.y + 44.5, 90, 22);
+    etch(f, zn[i], cx2, cy2, 13, .36);
+  });
+  drawShell(f);
+}
+
+// The Big Brother house, dressed room by room.
+function drawBBHouse(f) {
+  drawBoards(f);
+  const dk = 'rgba(0,0,0,.22)', ln = 'rgba(168,151,122,.16)';
+  // --- backyard: grass, patio stones, the pool ---
+  f.fillStyle = '#232a19';
+  f.fillRect(20, 20, 773, 1360);
+  for (let k = 0; k < 260; k++) {
+    const gx = 30 + (((k * 2654435761) >>> 7) % 750), gy = 30 + (((k * 40503) >>> 3) % 1340);
+    f.fillStyle = 'rgba(255,240,180,.03)';
+    f.fillRect(gx, gy, 3, 2);
+  }
+  f.fillStyle = 'rgba(120,120,110,.18)';   // patio by the sliding door
+  for (let r = 0; r < 3; r++) for (let c = 0; c < 2; c++)
+    f.fillRect(660 + c * 62, 620 + r * 62, 54, 54);
+  f.fillStyle = '#1d3a4a';                  // the pool
+  if (f.roundRect) { f.beginPath(); f.roundRect(120, 480, 430, 460, 40); f.fill(); }
+  else f.fillRect(120, 480, 430, 460);
+  f.strokeStyle = 'rgba(160,200,220,.35)';
+  f.lineWidth = 3;
+  if (f.roundRect) { f.beginPath(); f.roundRect(120, 480, 430, 460, 40); f.stroke(); }
+  f.strokeStyle = 'rgba(160,200,220,.12)';
+  f.lineWidth = 1.5;
+  for (let y = 540; y < 900; y += 70) {
+    f.beginPath(); f.moveTo(150, y); f.quadraticCurveTo(335, y - 14, 520, y); f.stroke();
+  }
+  f.fillStyle = dk;                         // two loungers
+  f.fillRect(600, 300, 34, 90); f.fillRect(650, 300, 34, 90);
+  // --- room dressing ---
+  const rug = r => {
+    f.strokeStyle = 'rgba(224,179,76,.09)';
+    f.lineWidth = 1;
+    if (f.setLineDash) f.setLineDash([2, 6]);
+    f.strokeRect(r.x + 20.5, r.y + 20.5, r.w - 41, r.h - 41);
+    if (f.setLineDash) f.setLineDash([]);
+  };
+  for (const r of BB_ROOMS) {
+    const cx2 = r.x + r.w / 2, cy2 = r.y + r.h / 2;
+    f.strokeStyle = ln; f.fillStyle = dk; f.lineWidth = 1;
+    if (r.name === 'KITCHEN') {
+      rug(r);
+      f.fillRect(r.x + 24, r.y + 24, r.w - 220, 44);            // counter run
+      f.strokeRect(r.x + 24.5, r.y + 24.5, r.w - 220, 44);
+      f.fillRect(cx2 - 70, cy2 - 26, 140, 52);                  // island
+      f.strokeRect(cx2 - 69.5, cy2 - 25.5, 140, 52);
+      f.beginPath(); f.arc(cx2 + 230, cy2 + 60, 46, 0, 7); f.fill(); f.stroke(); // dining table
+    } else if (r.name === 'BEDROOM') {
+      rug(r);
+      for (let b = 0; b < 3; b++) {
+        const bx = r.x + 60 + b * 240;
+        f.fillRect(bx, r.y + 40, 110, 170); f.strokeRect(bx + .5, r.y + 40.5, 110, 170);
+        f.fillStyle = 'rgba(240,220,170,.10)';
+        f.fillRect(bx + 14, r.y + 52, 82, 34);                  // pillow
+        f.fillStyle = dk;
+      }
+    } else if (r.name === 'LIVING ROOM') {
+      rug(r);
+      f.fillRect(cx2 - 190, cy2 - 120, 380, 40);                // sofa
+      f.strokeRect(cx2 - 189.5, cy2 - 119.5, 380, 40);
+      f.fillRect(cx2 - 190, cy2 + 80, 380, 40);                 // facing sofa
+      f.strokeRect(cx2 - 189.5, cy2 + 80.5, 380, 40);
+      f.beginPath(); f.arc(cx2, cy2, 40, 0, 7); f.fill(); f.stroke(); // low table
+    } else if (r.name === 'DIARY ROOM') {
+      f.fillStyle = 'rgba(224,179,76,.05)';
+      f.beginPath(); f.arc(cx2, cy2, 96, 0, 7); f.fill();       // the spotlight
+      f.fillStyle = dk;
+      f.beginPath(); f.arc(cx2, cy2, 42, 0, 7); f.fill(); f.stroke(); // the chair
+      symDraw(f, 'eye', cx2, r.y + 64, 26, 'rgba(220,205,170,.3)');
+    } else if (r.name === 'LOUNGE') {
+      rug(r);
+      f.beginPath(); f.arc(cx2, cy2, 52, 0, 7); f.fill(); f.stroke();
+      for (let a = 0; a < 6; a++) {
+        f.beginPath(); f.arc(cx2 + Math.cos(a * 1.05) * 100, cy2 + Math.sin(a * 1.05) * 100, 15, 0, 7); f.fill();
+      }
+    } else if (r.name === 'HOH SUITE') {
+      rug(r);
+      f.fillRect(cx2 - 90, r.y + 44, 180, 210);                 // the big bed
+      f.strokeRect(cx2 - 89.5, r.y + 44.5, 180, 210);
+      f.fillStyle = 'rgba(240,220,170,.10)';
+      f.fillRect(cx2 - 72, r.y + 58, 144, 48);
+      f.fillStyle = dk;
+      symDraw(f, 'crown', cx2, cy2 + 130, 24, 'rgba(224,179,76,.35)');
+    } else if (r.name === 'BATHROOM') {
+      f.fillStyle = 'rgba(200,210,215,.05)';
+      f.fillRect(r.x + 8, r.y + 8, r.w - 16, r.h - 16);         // tiled floor
+      f.fillStyle = dk;
+      if (f.roundRect) { f.beginPath(); f.roundRect(cx2 - 110, r.y + 44, 220, 90, 30); f.fill(); f.stroke(); }
+      else { f.fillRect(cx2 - 110, r.y + 44, 220, 90); }
+      f.beginPath(); f.arc(cx2 - 60, r.y + r.h - 80, 22, 0, 7); f.fill();
+      f.beginPath(); f.arc(cx2 + 60, r.y + r.h - 80, 22, 0, 7); f.fill();
+    }
+    etch(f, r.name, cx2, r.outdoor ? r.y + 120 : r.y + r.h - 34, 13, .36);
+  }
+  radialPool(f, WORLD_W / 2, WORLD_H / 2, 700, '224,179,76', .10);
+  drawVignette(f);
+  drawWallRects(f);
+  drawShell(f);
+}
+
+function drawIsland(f) {
+  // night ocean
+  f.fillStyle = '#13202a';
+  f.fillRect(0, 0, WORLD_W, WORLD_H);
+  for (let y = 40; y < WORLD_H; y += 84) {
+    for (let k = 0; k < 6; k++) {
+      const wx = (((y * 13 + k * 47) * 2654435761) >>> 9) % WORLD_W;
+      f.strokeStyle = 'rgba(160,200,220,.06)';
+      f.lineWidth = 1.5;
+      f.beginPath(); f.moveTo(wx, y); f.quadraticCurveTo(wx + 22, y - 7, wx + 44, y); f.stroke();
+    }
+  }
+  // coastline: a noisy ellipse, drawn in rings (shallows, sand, jungle)
+  const coast = (rx, ry, amp, ph) => {
+    f.beginPath();
+    for (let i = 0; i <= 64; i++) {
+      const a = i / 64 * Math.PI * 2;
+      const n = Math.sin(a * 3 + ph) * amp + Math.sin(a * 7 + ph * 2) * amp * .5;
+      const x = ISLE.cx + Math.cos(a) * (rx + n), y = ISLE.cy + Math.sin(a) * (ry + n * .7);
+      i ? f.lineTo(x, y) : f.moveTo(x, y);
+    }
+    f.closePath();
+  };
+  coast(1150, 660, 26, 1.7); f.fillStyle = 'rgba(110,160,180,.14)'; f.fill();
+  coast(1085, 605, 30, 1.7); f.fillStyle = '#6e5c3c'; f.fill();
+  f.strokeStyle = 'rgba(240,220,170,.28)'; f.lineWidth = 2; f.stroke();
+  coast(830, 430, 42, 2.9); f.fillStyle = '#3d4526'; f.fill();
+  coast(540, 270, 52, 4.2); f.fillStyle = '#343c20'; f.fill();
+  // jungle tufts
+  for (let k = 0; k < 60; k++) {
+    const a = k * 2.4, rr = 90 + ((k * 2654435761) >>> 20) % 560;
+    const tx = ISLE.cx + Math.cos(a) * rr * 1.35, ty = ISLE.cy + Math.sin(a) * rr * .78;
+    f.strokeStyle = 'rgba(120,140,70,.16)';
+    f.lineWidth = 1.5;
+    f.beginPath(); f.arc(tx, ty, 6 + (k % 3) * 3, 3.4, 6); f.stroke();
+  }
+  // palms along the beach
+  const palm = (x, y, s) => {
+    f.strokeStyle = '#4a3a26'; f.lineWidth = 3;
+    f.beginPath(); f.moveTo(x, y); f.quadraticCurveTo(x + s * .3, y - s * .7, x + s * .5, y - s); f.stroke();
+    f.strokeStyle = '#5a6a34'; f.lineWidth = 2;
+    for (let i = 0; i < 5; i++) {
+      const a = -.4 - i * .55;
+      f.beginPath(); f.moveTo(x + s * .5, y - s);
+      f.quadraticCurveTo(x + s * .5 + Math.cos(a) * s * .5, y - s + Math.sin(a) * s * .35, x + s * .5 + Math.cos(a) * s * .8, y - s + Math.sin(a) * s * .62);
+      f.stroke();
+    }
+  };
+  palm(430, 560, 46); palm(1830, 380, 40); palm(980, 1130, 44); palm(1560, 1180, 38);
+  // huts on the beach (south-west)
+  const hut = (x, y, s) => {
+    f.fillStyle = '#4a3a26';
+    f.fillRect(x - s / 2, y - s * .4, s, s * .5);
+    f.fillStyle = '#6a5636';
+    f.beginPath(); f.moveTo(x - s * .68, y - s * .35); f.lineTo(x, y - s); f.lineTo(x + s * .68, y - s * .35); f.closePath(); f.fill();
+    f.strokeStyle = 'rgba(0,0,0,.45)'; f.lineWidth = 1.5;
+    f.beginPath(); f.moveTo(x - s * .68, y - s * .35); f.lineTo(x, y - s); f.lineTo(x + s * .68, y - s * .35); f.stroke();
+    f.fillStyle = '#221a10';
+    f.fillRect(x - s * .12, y - s * .28, s * .24, s * .38);
+  };
+  hut(560, 1050, 64); hut(700, 1140, 56); hut(460, 1160, 50);
+  // the cave (north): boulders with a dark mouth
+  f.fillStyle = '#4b4a45';
+  f.beginPath(); f.arc(1210, 250, 62, 0, 7); f.fill();
+  f.beginPath(); f.arc(1300, 270, 46, 0, 7); f.fill();
+  f.beginPath(); f.arc(1130, 275, 42, 0, 7); f.fill();
+  f.fillStyle = 'rgba(255,255,255,.05)';
+  f.beginPath(); f.arc(1195, 232, 50, 3.5, 5.9); f.fill();
+  f.fillStyle = '#0b0a08';
+  f.beginPath(); f.ellipse(1210, 296, 34, 24, 0, Math.PI, 0); f.fill();
+  // council fire (east): stone ring + flame
+  const fx = 1900, fy = 700;
+  radialPool(f, fx, fy, 420, '232,114,42', .13);
+  f.fillStyle = '#55524a';
+  for (let i = 0; i < 9; i++) {
+    const a = i / 9 * Math.PI * 2;
+    f.beginPath(); f.arc(fx + Math.cos(a) * 46, fy + Math.sin(a) * 34, 7, 0, 7); f.fill();
+  }
+  symDraw(f, 'flame', fx, fy - 6, 30, '#e8722a');
+  // exile rock (south-east): a bare stony spit
+  f.fillStyle = 'rgba(240,220,170,.10)';
+  f.beginPath(); f.ellipse(2020, 1120, 130, 80, 0, 0, 7); f.fill();
+  f.fillStyle = '#55524a';
+  f.beginPath(); f.arc(2000, 1100, 26, 0, 7); f.fill();
+  f.beginPath(); f.arc(2050, 1130, 18, 0, 7); f.fill();
+  f.beginPath(); f.arc(1975, 1140, 13, 0, 7); f.fill();
+  radialPool(f, 580, 1100, 260, '224,179,76', .08);
+  // labels
+  const zn = curMode().zones; // BEACH, JUNGLE, COUNCIL FIRE, EXILE ROCK
+  etch(f, zn[0], 590, 1230, 13, .4);
+  etch(f, zn[1], 1200, 470, 13, .34);
+  etch(f, zn[2], fx, fy + 78, 13, .42);
+  etch(f, zn[3], 2020, 1230, 13, .4);
+}
+
+function buildFloor() {
+  floorCv = document.createElement('canvas');
+  floorCv.width = WORLD_W; floorCv.height = WORLD_H;
+  const f = floorCv.getContext('2d');
+  const mk = curMode().key;
+  if (mk === 'survivor') drawIsland(f);
+  else if (mk === 'bb') drawBBHouse(f);
+  else drawLodge(f);
+}
+
+// Movement: steer toward a desired velocity rather than teleporting —
+// you lean into a run, glide to a stop, and arrive gently at a click.
+function updateSelf(dt) {
+  const p = POS[me.pid];
+  if (!p) return;
+  p.vx = p.vx || 0; p.vy = p.vy || 0;
+  let ix = 0, iy = 0;
+  if (keys.w || keys.ArrowUp) iy -= 1;
+  if (keys.s || keys.ArrowDown) iy += 1;
+  if (keys.a || keys.ArrowLeft) ix -= 1;
+  if (keys.d || keys.ArrowRight) ix += 1;
+  let dvx = 0, dvy = 0;
+  if (ix || iy) {
+    moveTarget = null;
+    const m = Math.hypot(ix, iy);
+    dvx = (ix / m) * MAXV; dvy = (iy / m) * MAXV;
+  } else if (moveTarget) {
+    const dx = moveTarget.x - p.x, dy = moveTarget.y - p.y;
+    const d = Math.hypot(dx, dy);
+    if (d < 7 && Math.hypot(p.vx, p.vy) < 30) moveTarget = null;
+    else {
+      const arrive = Math.min(1, d / 110); // ease in as you get close
+      dvx = (dx / d) * MAXV * arrive; dvy = (dy / d) * MAXV * arrive;
+    }
+  }
+  const k = Math.min(1, dt * STEER);
+  p.vx += (dvx - p.vx) * k;
+  p.vy += (dvy - p.vy) * k;
+  p.x += p.vx * dt;
+  p.y += p.vy * dt;
+  if (p.x < 20 || p.x > WORLD_W - 20) { p.x = clamp(p.x, 20, WORLD_W - 20); p.vx = 0; }
+  if (p.y < 20 || p.y > WORLD_H - 20) { p.y = clamp(p.y, 20, WORLD_H - 20); p.vy = 0; }
+  // the map pushes back: BB walls are solid; the island's coast holds
+  // the living, while ghosts drift out over the water
+  const mk = curMode().key;
+  if (mk === 'bb') collideWalls(p, getWalls(), 14);
+  else if (mk === 'survivor') {
+    const mp = CV.players[me.pid];
+    if (!mp || !mp.ghost) islandConstrain(p);
+  }
+  p.dx = p.x; p.dy = p.y;
+  const t = now();
+  if (!me.isHost && t - lastPosSend > 1000 / POS_HZ) {
+    lastPosSend = t;
+    toHost({ t: 'pos', x: Math.round(p.x), y: Math.round(p.y) });
+  }
+}
+
+// Camera: trails you softly, looking a touch ahead of your momentum.
+const cam = { x: 0, y: 0, init: false };
+function updateCam(dt) {
+  const p = POS[me.pid];
+  if (!p) return;
+  const tx = clamp((p.dx + (p.vx || 0) * .25) - VIEW_W / 2, 0, WORLD_W - VIEW_W);
+  const ty = clamp((p.dy + (p.vy || 0) * .25) - VIEW_H / 2, 0, WORLD_H - VIEW_H);
+  if (!cam.init) { cam.x = tx; cam.y = ty; cam.init = true; return; }
+  const k = 1 - Math.exp(-dt * 4.5);
+  cam.x += (tx - cam.x) * k;
+  cam.y += (ty - cam.y) * k;
+}
+
+function hostPump() {
+  const t = now();
+  if (t - lastPosBcast > 1000 / POS_HZ) {
+    lastPosBcast = t;
+    const snap = positionsSnapshot();
+    for (const [pid, c] of net.conns) if (c.open) { try { c.send({ t: 'posAll', p: snap }); } catch (e) {} }
+  }
+  if (G.challenge && G.challenge.active && t - lastProgBcast > 1000 / PROG_HZ) {
+    lastProgBcast = t;
+    hostBroadcast({ t: 'chProg', p: G.challenge.progress });
+  }
+}
+
+function drawDot(pid, p, q, t) {
+  const gh = p.ghost;
+  // ghosts hover on a slow swell; the living get the faintest footstep sway
+  const bob = gh ? Math.sin(t / 520 + q.dx * .01) * 2
+                 : Math.sin(t / 110 + q.dx * .05) * Math.min(.9, (q.mv || 0) / 300);
+  const dx = q.dx, dy = q.dy + bob;
+  lctx.globalAlpha = gh ? .45 : 1;
+  // top-down drop shadow, cast away from the nearest light; ghosts
+  // float higher, so theirs sits smaller and farther out
+  const so = shadowOffset(dx, q.dy);
+  if (gh) {
+    lctx.fillStyle = 'rgba(0,0,0,.16)';
+    lctx.beginPath(); lctx.ellipse(dx + so.x * 1.7, q.dy + so.y * 1.7 + 7, 9, 6, 0, 0, 7); lctx.fill();
+  } else {
+    lctx.fillStyle = 'rgba(0,0,0,.36)';
+    lctx.beginPath(); lctx.ellipse(dx + so.x, q.dy + so.y + 2, 14, 11, 0, 0, 7); lctx.fill();
+  }
+  // rings
+  if ((p.tags || []).includes('nom')) {
+    lctx.strokeStyle = '#e2603a'; lctx.lineWidth = 2;
+    lctx.beginPath(); lctx.arc(dx, dy, 21, 0, 7); lctx.stroke();
+    for (const a of [0, 1.5708, 3.1416, 4.7124]) {
+      lctx.beginPath();
+      lctx.moveTo(dx + Math.cos(a) * 17, dy + Math.sin(a) * 17);
+      lctx.lineTo(dx + Math.cos(a) * 25, dy + Math.sin(a) * 25);
+      lctx.stroke();
+    }
+  }
+  if ((p.tags || []).includes('immune')) {
+    lctx.strokeStyle = 'rgba(224,179,76,.85)'; lctx.lineWidth = 2;
+    lctx.shadowColor = 'rgba(224,179,76,.6)'; lctx.shadowBlur = 12;
+    lctx.beginPath(); lctx.arc(dx, dy, 19, 0, 7); lctx.stroke();
+    lctx.shadowBlur = 0;
+  }
+  if (p.tribe === 0 || p.tribe === 1) {
+    lctx.strokeStyle = TRIBES[p.tribe].color; lctx.lineWidth = 1.6;
+    lctx.globalAlpha = (gh ? .45 : 1) * .75;
+    lctx.beginPath(); lctx.arc(dx, dy, 16.5, 0, 7); lctx.stroke();
+    lctx.globalAlpha = gh ? .45 : 1;
+  }
+  // the dot itself: one flat color, no glare
+  lctx.fillStyle = p.color;
+  lctx.beginPath(); lctx.arc(dx, dy, 13, 0, 7); lctx.fill();
+  lctx.strokeStyle = 'rgba(0,0,0,.4)'; lctx.lineWidth = 1;
+  lctx.beginPath(); lctx.arc(dx, dy, 13, 0, 7); lctx.stroke();
+  if (gh) {
+    lctx.strokeStyle = '#8fa3b8';
+    if (lctx.setLineDash) lctx.setLineDash([3, 4]);
+    lctx.lineWidth = 1.5;
+    lctx.beginPath(); lctx.arc(dx, dy, 13, 0, 7); lctx.stroke();
+    if (lctx.setLineDash) lctx.setLineDash([]);
+  }
+  // name
+  lctx.font = '12.5px Georgia, serif';
+  lctx.textAlign = 'center';
+  lctx.fillStyle = 'rgba(0,0,0,.6)';
+  lctx.fillText(p.name, dx, dy + 32);
+  lctx.fillStyle = gh ? '#8fa3b8' : '#e8dcc3';
+  lctx.fillText(p.name, dx, dy + 31);
+  if (pid === me.pid) {
+    lctx.strokeStyle = 'rgba(224,179,76,.55)'; lctx.lineWidth = 1;
+    const nw = lctx.measureText(p.name).width;
+    lctx.beginPath(); lctx.moveTo(dx - nw / 2, dy + 35.5); lctx.lineTo(dx + nw / 2, dy + 35.5); lctx.stroke();
+  }
+  // power glyphs above the head
+  const badges = (p.tags || []).filter(tg => TAGDEF[tg]);
+  if (gh) badges.push('__wisp');
+  if (badges.length) {
+    const bw = 16;
+    let bx = dx - (badges.length - 1) * bw / 2;
+    for (const tg of badges) {
+      if (tg === '__wisp') symDraw(lctx, 'wisp', bx, dy - 26, 13, '#8fa3b8', .8);
+      else symDraw(lctx, TAGDEF[tg].sym, bx, dy - 26, 13, TAGDEF[tg].color);
+      bx += bw;
+    }
+  }
+  // talking indicator (text)
+  if (talks[pid] && t < talks[pid]) {
+    const pulse = .45 + .35 * Math.sin(t / 130);
+    symDraw(lctx, 'speech', dx + 22, dy - 16, 13, gh ? '#8fa3b8' : '#e8dcc3', pulse);
+  }
+  // speaking ring (voice) — the living can't see a ghost's lips move
+  const meGh = (CV.players[me.pid] || {}).ghost;
+  const lv = speakLevel(pid);
+  if (lv > .045 && !(gh && !meGh)) {
+    lctx.strokeStyle = p.mega ? 'rgba(224,179,76,.9)' : 'rgba(143,191,111,.85)';
+    lctx.lineWidth = 2;
+    lctx.globalAlpha = Math.min(.9, lv * 7);
+    lctx.beginPath(); lctx.arc(dx, dy, 17 + Math.min(4, lv * 26), 0, 7); lctx.stroke();
+  }
+  lctx.globalAlpha = 1;
+}
+
+function drawLobby(t) {
+  const W = WORLD_W, H = WORLD_H;
+  if (!floorCv) buildFloor();
+  lctx.fillStyle = '#17120c';
+  lctx.fillRect(0, 0, VIEW_W, VIEW_H);
+  lctx.save();
+  lctx.translate(-Math.round(cam.x), -Math.round(cam.y));
+  if (floorCv) lctx.drawImage(floorCv, 0, 0);
+  // click-to-move marker: a ring settling into the floor
+  if (moveTarget) {
+    const ph = (t % 900) / 900;
+    lctx.strokeStyle = 'rgba(224,179,76,' + (.35 * (1 - ph)) + ')';
+    lctx.lineWidth = 1.5;
+    lctx.beginPath(); lctx.arc(moveTarget.x, moveTarget.y, 6 + ph * 14, 0, 7); lctx.stroke();
+  }
+  const meP = CV.players[me.pid];
+  // hearing circle around self
+  if (POS[me.pid]) {
+    const col = meP && meP.ghost ? '143,163,184' : '224,179,76';
+    lctx.strokeStyle = 'rgba(' + col + ',.13)';
+    lctx.lineWidth = 1.5;
+    lctx.shadowColor = 'rgba(' + col + ',.25)'; lctx.shadowBlur = 10;
+    lctx.beginPath(); lctx.arc(POS[me.pid].dx, POS[me.pid].dy, CHAT_R, 0, 7); lctx.stroke();
+    lctx.shadowBlur = 0;
+  }
+  // dots: living first, ghosts drift above
+  const entries = Object.entries(CV.players).filter(([pid, p]) => p.connected && POS[pid]);
+  for (const [pid, p] of entries) {
+    const q = POS[pid];
+    if (pid !== me.pid) {
+      if (q.dx == null) { q.dx = q.x; q.dy = q.y; }
+      const k = 1 - Math.exp(-.016 * 11); // smooth chase of the last known spot
+      q.dx += (q.x - q.dx) * k;
+      q.dy += (q.y - q.dy) * k;
+    }
+    // smoothed movement estimate → footstep bob amplitude
+    const spd = pid === me.pid ? Math.hypot(q.vx || 0, q.vy || 0) : Math.hypot(q.x - q.dx, q.y - q.dy) * 9;
+    q.mv = (q.mv || 0) + (spd - (q.mv || 0)) * .12;
+  }
+  for (const [pid, p] of entries) if (!p.ghost) drawDot(pid, p, POS[pid], t);
+  for (const [pid, p] of entries) if (p.ghost) drawDot(pid, p, POS[pid], t);
+  // speech bubbles (recipient-only: we only ever received what we could hear)
+  lctx.textAlign = 'center';
+  for (const b of bubbles) {
+    if (t > b.until || !POS[b.pid]) continue;
+    const q = POS[b.pid];
+    const txt = b.text.length > 44 ? b.text.slice(0, 43) + '…' : b.text;
+    lctx.font = '13px Georgia, serif';
+    const tw = lctx.measureText(txt).width;
+    const w = Math.min(380, Math.max(46, tw)) + 20;
+    const bx = clamp(q.dx, w / 2 + 6, W - w / 2 - 6), by = clamp(q.dy - 64, 28, H);
+    lctx.globalAlpha = clamp((b.until - t) / 800, 0, 1);
+    lctx.fillStyle = b.ghost ? '#1a1f26' : '#241d15';
+    lctx.strokeStyle = b.ghost ? 'rgba(143,163,184,.5)' : '#4a3826';
+    lctx.lineWidth = 1;
+    lctx.beginPath();
+    if (lctx.roundRect) lctx.roundRect(bx - w / 2, by - 15, w, 25, 5);
+    else lctx.rect(bx - w / 2, by - 15, w, 25);
+    lctx.fill(); lctx.stroke();
+    // tail
+    lctx.beginPath();
+    lctx.moveTo(bx - 4, by + 10); lctx.lineTo(bx, by + 17); lctx.lineTo(bx + 5, by + 10);
+    lctx.fill();
+    lctx.fillStyle = b.ghost ? '#8fa3b8' : '#e8dcc3';
+    lctx.fillText(txt, bx, by + 3);
+    lctx.globalAlpha = 1;
+  }
+  lctx.restore();
+  if (bannerUntil && t > bannerUntil) { el.banner.classList.add('hidden'); bannerUntil = 0; }
+}
+
+// ---------------------------------------------------------------------
+// Main loop
+// ---------------------------------------------------------------------
+let lastFrame = 0;
+function frame() {
+  const t = now();
+  const dt = clamp((t - lastFrame) / 1000, 0, 0.1);
+  lastFrame = t;
+  if (net.mode) {
+    updateSelf(dt);
+    updateCam(dt);
+    updateVoice();
+    if (me.isHost && G) hostPump();
+    drawLobby(t);
+    if (CH && !CH.spectate && CH.state !== 'results') {
+      if (CH.state === 'countdown' && t >= CH.startAt) CH.state = 'play';
+      if (CH.state === 'play' || CH.state === 'done') {
+        if (CH.inst.tick) CH.inst.tick(dt, t);
+      }
+      if (CH.state === 'countdown') {
+        cctx.fillStyle = '#18130d'; cctx.fillRect(0, 0, 520, 560);
+        cctx.textAlign = 'center';
+        cctx.fillStyle = '#e0b34c';
+        cctx.shadowColor = 'rgba(224,179,76,.55)'; cctx.shadowBlur = 34;
+        cctx.font = '88px Georgia, serif';
+        cctx.fillText(String(Math.ceil((CH.startAt - t) / 1000)), 260, 305);
+        cctx.shadowBlur = 0;
+        cctx.font = '13px Georgia, serif';
+        cctx.fillStyle = '#a8977a';
+        cctx.fillText('STEADY…', 260, 350);
+      } else if (CH.inst.draw) {
+        CH.inst.draw(cctx, 520, 560, t);
+      }
+      if (!CH._sideAt || t - CH._sideAt > 400) { CH._sideAt = t; renderChSide(); }
+    }
+  }
+  requestAnimationFrame(frame);
+}
+
+// ---------------------------------------------------------------------
+// Input wiring
+// ---------------------------------------------------------------------
+function canvasXY(cv, ev) {
+  const r = cv.getBoundingClientRect();
+  return {
+    x: (ev.clientX - r.left) * (cv.width / (r.width || cv.width)),
+    y: (ev.clientY - r.top) * (cv.height / (r.height || cv.height)),
+  };
+}
+document.addEventListener('keydown', e => {
+  const typing = document.activeElement && (document.activeElement.tagName === 'INPUT');
+  if (typing) {
+    if (e.key === 'Enter' && document.activeElement === el.chatIn) {
+      sendChat(el.chatIn.value); el.chatIn.value = '';
+    }
+    return;
+  }
+  if (CH && !CH.spectate && (CH.state === 'play')) {
+    if (CH.inst.key) CH.inst.key(e);
+    if (e.key === ' ') e.preventDefault();
+    return;
+  }
+  if (e.key === 'Enter') { el.chatIn.focus(); e.preventDefault(); return; }
+  const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+  keys[k] = true;
+});
+document.addEventListener('keyup', e => {
+  const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+  keys[k] = false;
+});
+el.lobbyCanvas.addEventListener('mousedown', ev => {
+  const { x, y } = canvasXY(el.lobbyCanvas, ev);
+  moveTarget = { x: clamp(x + cam.x, 20, WORLD_W - 20), y: clamp(y + cam.y, 20, WORLD_H - 20) };
+});
+el.chCanvas.addEventListener('mousedown', ev => {
+  if (!CH || CH.spectate || CH.state !== 'play') return;
+  const { x, y } = canvasXY(el.chCanvas, ev);
+  if (CH.inst.click) CH.inst.click(x, y);
+});
+el.chatBtn.addEventListener('click', () => { sendChat(el.chatIn.value); el.chatIn.value = ''; });
+el.voiceBtn.addEventListener('click', () => { VOICE.on ? leaveVoice() : joinVoice(); });
+el.muteBtn.addEventListener('click', toggleMute);
+el.megaBtn.addEventListener('click', () => {
+  if (me.isHost && G && G.players[me.pid]) hostSetMega(!G.players[me.pid].mega);
+});
+
+// ----- title screen -----
+function renderModeCards() {
+  el.modeCards.innerHTML = Object.values(MODES).map(m =>
+    '<div class="mcard' + (m.key === hostModeSel ? ' sel' : '') + '" data-mode="' + m.key + '">' +
+    '<div class="ms">' + symSvg(m.sym, 26) + '</div>' +
+    '<div class="mn">' + esc(m.name) + '</div>' +
+    '<div class="mb">' + esc(m.blurb) + '</div></div>'
+  ).join('');
+  for (const c of el.modeCards.querySelectorAll ? el.modeCards.querySelectorAll('[data-mode]') : []) {
+    c.onclick = () => { hostModeSel = c.getAttribute('data-mode'); renderModeCards(); };
+  }
+}
+renderModeCards();
+el.nameIn.value = lsGet('blindside-name') || '';
+el.hostBtn.addEventListener('click', () => {
+  me.name = (el.nameIn.value || 'HOST').trim().slice(0, 14) || 'HOST';
+  lsSet('blindside-name', me.name);
+  hostLobby(hostModeSel);
+});
+el.joinBtn.addEventListener('click', () => {
+  me.name = (el.nameIn.value || 'PLAYER').trim().slice(0, 14) || 'PLAYER';
+  lsSet('blindside-name', me.name);
+  const code = (el.codeIn.value || '').trim().toUpperCase();
+  if (code.length !== 5) { el.titleMsg.textContent = 'THE CODE IS FIVE LETTERS'; return; }
+  joinLobby(code);
+});
+
+// ----- host console -----
+el.clearTagsBtn.addEventListener('click', () => { if (me.isHost) hostClearTags(); });
+el.drawTribesBtn.addEventListener('click', () => { if (me.isHost) hostDrawTribes(); });
+el.mergeBtn.addEventListener('click', () => { if (me.isHost) hostMergeTribes(); });
+for (const [k, d] of Object.entries(CHALLENGES)) {
+  const o = document.createElement('option');
+  o.value = k; o.textContent = d.name;
+  el.chSelect.appendChild(o);
+}
+el.chStartBtn.addEventListener('click', () => { if (me.isHost) hostStartChallenge(el.chSelect.value); });
+el.voteSetupBtn.addEventListener('click', () => { if (me.isHost) hostOpenVoteSetup(); });
+el.annBtn.addEventListener('click', () => {
+  if (!me.isHost) return;
+  const t = (el.annIn.value || '').trim().slice(0, 120);
+  if (!t) return;
+  el.annIn.value = '';
+  hostBroadcast({ t: 'ann', text: t });
+});
+
+// url ?code=XXXXX prefill
+try {
+  const u = new URLSearchParams(location.search);
+  if (u.get('code')) el.codeIn.value = u.get('code').toUpperCase();
+} catch (e) {}
+
+requestAnimationFrame(frame);
+
+// Debug/test hook
+window.__bls = {
+  me, net, POS, CHALLENGES, MODES, TRIBES, TAGDEF,
+  get G() { return G; }, get CV() { return CV; }, get CH() { return CH; },
+  hostLobby, joinLobby, sendChat, castVote, backToTitle,
+  hostStartChallenge, hostEndChallenge, hostCloseChallenge,
+  hostToggleTag, hostSetGhost, hostClearTags, hostKick,
+  hostSetTribe, hostDrawTribes, hostMergeTribes, hostGrantTribeImmunity,
+  hostStartVote, hostRevealNext, hostEndVote, hostClearVote,
+  VOICE, joinVoice, leaveVoice, toggleMute, hostSetMega, reconcileVoice,
+  onHostMsg, onNetMsg, setName(n) { me.name = n; },
+};
+</script>
+</body>
+</html>
