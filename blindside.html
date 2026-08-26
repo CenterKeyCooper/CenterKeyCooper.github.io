@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>BLINDSIDE</title>
+<link id="favicon" rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='5' fill='%231a1510'/%3E%3Cpath d='M12 3v18M4.2 7.5l15.6 9M19.8 7.5l-15.6 9' fill='none' stroke='%23e0b34c' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 <style>
 :root{
   --bg:#1a1510;
@@ -469,6 +470,19 @@ const SYM = {
   point:  { d: 'M3.5 12h14M12.5 6l7 6-7 6', w: 2 },
   hail:   { d: 'M8 13V7a1.3 1.3 0 0 1 2.6 0v4M10.6 11V5.6a1.3 1.3 0 0 1 2.6 0V11M13.2 11V6.4a1.3 1.3 0 0 1 2.6 0V13a4.6 4.6 0 0 1-4.6 4.6c-2.2 0-3.4-1-4.6-3l-1.3-2.2c-.5-.9.7-1.8 1.4-1l1.5 1.6M19.2 5.8a6.5 6.5 0 0 1 1.3 2.6', w: 1.6 },
 };
+// The tab icon wears the mode's glyph: star at rest, eye in the BB
+// house, flame on the island.
+function setFavicon(symKey) {
+  const s = SYM[symKey];
+  const link = document.getElementById('favicon');
+  if (!s || !link) return;
+  const svg = "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'>" +
+    "<rect width='24' height='24' rx='5' fill='#1a1510'/>" +
+    "<path d='" + s.d + "' fill='none' stroke='#e0b34c' stroke-width='" + (s.w + .3) +
+    "' stroke-linecap='round' stroke-linejoin='round'/></svg>";
+  link.href = 'data:image/svg+xml,' + encodeURIComponent(svg);
+}
+
 function symSvg(key, size, color) {
   const s = SYM[key];
   if (!s) return '';
@@ -766,6 +780,7 @@ function joinLobby(code) {
 
 function backToTitle(msg) {
   try { leaveVoice(); } catch (e) {}
+  setFavicon('spark');
   el.main.classList.add('hidden');
   el.chModal.classList.add('hidden');
   el.voteModal.classList.add('hidden');
@@ -786,6 +801,7 @@ function enterMain() {
   el.modeTag.textContent = '· ' + curMode().name;
   el.hostPanel.classList.toggle('hidden', !me.isHost);
   el.tribeSec.classList.toggle('hidden', !curMode().tribes);
+  setFavicon(curMode().sym);
   cam.init = false;
   floorCv = null; wallCache = null; // rebuild: the map depends on the mode
   renderPlayers();
