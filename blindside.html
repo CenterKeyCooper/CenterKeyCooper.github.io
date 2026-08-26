@@ -198,7 +198,7 @@ select{
 
 /* ================= MODALS ================= */
 .modal{
-  position:fixed; inset:0; z-index:10;
+  position:fixed; inset:0; right:330px; z-index:10;  /* the sidebar stays live: keep talking */
   background:radial-gradient(ellipse at 50% 40%, rgba(10,8,5,.78), rgba(5,4,2,.92));
   display:flex; align-items:center; justify-content:center;
 }
@@ -266,6 +266,38 @@ select{
 @keyframes cardIn{from{opacity:0; transform:translateY(-16px) rotate(4deg);}}
 .vctrl{display:flex; gap:10px; justify-content:center; margin-top:14px; align-items:center;}
 .vnote{color:var(--faint); font-size:11.5px; letter-spacing:.1em;}
+
+/* ---------- challenge picker ---------- */
+#pickTitle{
+  margin:0 0 14px; letter-spacing:.34em; margin-left:.34em; text-align:center;
+  font-weight:normal; font-size:19px;
+  background:linear-gradient(100deg,#8a6a2e,#e0b34c 30%,#f7e3ae 50%,#e0b34c 70%,#8a6a2e);
+  -webkit-background-clip:text; background-clip:text; color:transparent;
+  filter:drop-shadow(0 -1px 1px rgba(0,0,0,.8));
+}
+#pickGrid{display:grid; grid-template-columns:repeat(4, 1fr); gap:12px;}
+.gcard{
+  padding:13px 13px 11px; cursor:pointer; text-align:left;
+  border:1px solid var(--line); border-radius:10px;
+  background:linear-gradient(180deg, rgba(255,240,210,.025), rgba(0,0,0,.22));
+  transition:all .22s; display:flex; flex-direction:column; gap:7px;
+}
+.gcard:hover{
+  border-color:var(--gold);
+  box-shadow:inset 0 0 20px rgba(224,179,76,.07), 0 0 14px rgba(224,179,76,.12);
+}
+.gcard .gn{font-size:12.5px; letter-spacing:.16em; color:var(--ink); text-shadow:0 -1px 1px rgba(0,0,0,.7);}
+.gcard .chips{display:flex; gap:5px; flex-wrap:wrap;}
+.gcard .chip{
+  font-size:8.5px; letter-spacing:.18em; color:var(--dim);
+  border:1px solid var(--line); border-radius:8px; padding:2px 7px;
+}
+.gcard .chip.lv{color:var(--leaf); border-color:rgba(143,191,111,.4);}
+.gcard .chip.bad{color:var(--danger); border-color:rgba(226,96,58,.45);}
+.gcard.off{opacity:.45; cursor:default;}
+.gcard.off:hover{border-color:var(--line); box-shadow:none;}
+.gcard .gd{font-size:11px; line-height:1.5; color:var(--dim); flex:1;}
+@media (max-width:1100px){ #pickGrid{grid-template-columns:repeat(2,1fr);} }
 </style>
 </head>
 <body>
@@ -320,8 +352,8 @@ select{
         <div class="sec">
           <div class="lbl">CHALLENGE</div>
           <div class="hrow">
-            <select id="chSelect"></select>
-            <button id="chStartBtn" class="tagbtn">BEGIN</button>
+            <button id="chPickBtn" class="tagbtn">OPEN THE ARSENAL</button>
+            <button id="tutBtn" class="tagbtn"></button>
           </div>
         </div>
         <div class="sec">
@@ -350,7 +382,7 @@ select{
       <div id="chHead"></div>
       <div id="chWrap">
         <canvas id="chCanvas" width="520" height="560"></canvas>
-        <div id="chSide"></div>
+        <div id="chSide"><div id="chSideList"></div><div id="chSideCtl"></div></div>
       </div>
     </div>
   </div>
@@ -358,6 +390,15 @@ select{
   <!-- ================= VOTE MODAL ================= -->
   <div id="voteModal" class="modal hidden">
     <div class="mpanel"><div id="voteBody"></div></div>
+  </div>
+
+  <!-- ================= CHALLENGE PICKER ================= -->
+  <div id="pickModal" class="modal hidden">
+    <div class="mpanel" style="max-width:860px">
+      <h2 id="pickTitle">THE ARSENAL</h2>
+      <div id="pickGrid"></div>
+      <div class="vctrl"><button id="pickCancel">NOT NOW</button></div>
+    </div>
   </div>
 
 <script>
@@ -373,6 +414,7 @@ select{
 // can't watch every corner at once. That's the point.
 const WORLD_W = 2400, WORLD_H = 1400;
 const VIEW_W = 1280, VIEW_H = 720;
+const CH_COUNTDOWN = 5000;   // breathing room to read the rules before GO
 const CHAT_R = 230;
 const MAXV = 300, STEER = 6.5;   // fluid movement: steer toward a desired velocity
 const POS_HZ = 10, PROG_HZ = 4;
@@ -503,10 +545,12 @@ const el = {
   voiceBtn: $('voiceBtn'), muteBtn: $('muteBtn'), megaBtn: $('megaBtn'), voiceMsg: $('voiceMsg'),
   hostPanel: $('hostPanel'), hpPlayers: $('hpPlayers'), clearTagsBtn: $('clearTagsBtn'),
   tribeSec: $('tribeSec'), drawTribesBtn: $('drawTribesBtn'), mergeBtn: $('mergeBtn'),
-  chSelect: $('chSelect'), chStartBtn: $('chStartBtn'),
+  chPickBtn: $('chPickBtn'), tutBtn: $('tutBtn'),
+  pickModal: $('pickModal'), pickGrid: $('pickGrid'), pickCancel: $('pickCancel'),
   voteSetup: $('voteSetup'), voteSetupBtn: $('voteSetupBtn'),
   annIn: $('annIn'), annBtn: $('annBtn'),
-  chModal: $('chModal'), chHead: $('chHead'), chCanvas: $('chCanvas'), chSide: $('chSide'),
+  chModal: $('chModal'), chHead: $('chHead'), chCanvas: $('chCanvas'),
+  chSide: $('chSide'), chSideList: $('chSideList'), chSideCtl: $('chSideCtl'),
   voteModal: $('voteModal'), voteBody: $('voteBody'),
 };
 const lctx = el.lobbyCanvas.getContext('2d');
@@ -573,6 +617,7 @@ function pubState() {
   let challenge = null;
   if (G.challenge) challenge = {
     key: G.challenge.key, seed: G.challenge.seed, active: G.challenge.active,
+    practice: !!G.challenge.practice,
     results: G.challenge.results || null, ghostResults: G.challenge.ghostResults || null,
     tribeResults: G.challenge.tribeResults || null,
   };
@@ -727,6 +772,14 @@ function onHostMsg(pid, msg, conn) {
     }
     case 'chat': hostChat(pid, String(msg.text || '').slice(0, 140)); break;
     case 'chTick': hostChTick(pid, msg); break;
+    case 'chAct': {
+      const c = G.challenge;
+      if (!c || !c.active) break;
+      const def = CHALLENGES[c.key];
+      const p = G.players[pid];
+      if (def.board && def.board.onAct && p && !p.ghost) def.board.onAct(pid, msg.a, hostGameCtx(c));
+      break;
+    }
     case 'voteCast': hostVoteCast(pid, msg.pick); break;
     case 'voiceOn': { const p = G.players[pid]; if (p) { p.voice = true; sync(); } break; }
     case 'voiceOff': { const p = G.players[pid]; if (p) { p.voice = false; sync(); } break; }
@@ -742,12 +795,25 @@ function hostChat(fromPid, text) {
   const from = G.players[fromPid];
   const fpos = POS[fromPid];
   if (!from || !fpos) return;
+  const chatMsg = { t: 'chat', from: fromPid, name: from.name, ghost: from.ghost, text };
+  // group-chat comps (e.g. The Vault): words reach only your crew for
+  // the round — distance stops mattering while you're locked in
+  const c = G.challenge;
+  const cdef = c && c.active ? CHALLENGES[c.key] : null;
+  if (cdef && cdef.groupChat && cdef.groupsFor) {
+    const groups = cdef.groupsFor(c.seed, c.round, livingSortedPids());
+    for (const [pid, p] of Object.entries(G.players)) {
+      if (!p.connected) continue;
+      if (from.ghost) { if (p.ghost) sendTo(pid, chatMsg); continue; }
+      if (p.ghost || groups[pid] === groups[fromPid]) sendTo(pid, chatMsg);
+    }
+    return;
+  }
   for (const [pid, p] of Object.entries(G.players)) {
     if (!p.connected || !POS[pid]) continue;
     const inR = dist(POS[pid], fpos) <= CHAT_R;
     if (from.ghost && !p.ghost) continue;
-    sendTo(pid, inR ? { t: 'chat', from: fromPid, name: from.name, ghost: from.ghost, text }
-                    : { t: 'talk', pid: fromPid });
+    sendTo(pid, inR ? chatMsg : { t: 'talk', pid: fromPid });
   }
 }
 
@@ -866,12 +932,25 @@ function onNetMsg(msg) {
       bannerUntil = now() + 6000;
       break;
     }
-    case 'chStart': startChallengeLocal(msg.key, msg.seed, msg.in); break;
+    case 'chStart': startChallengeLocal(msg.key, msg.seed, msg.in, msg.practice); break;
     case 'chProg': { if (CH) { Object.assign(CH.prog, msg.p); renderChSide(); } break; }
+    case 'chBoard': { if (CH && CH.inst && CH.inst.onBoard) CH.inst.onBoard(msg.b); break; }
+    case 'chRound': {
+      if (!CH) break;
+      CH.roundsV = CH.roundsV || {};
+      CH.roundsV[msg.r] = msg.v;
+      if (CH.inst && CH.inst.onRound) CH.inst.onRound(msg.r, msg.v);
+      break;
+    }
+    case 'chEv': {
+      if (CH && CH.inst && CH.inst.onEv) CH.inst.onEv(msg.e);
+      break;
+    }
     case 'chEnd': {
       if (!CH) break;
       CH.state = 'results';
       CH.results = msg.results; CH.ghostResults = msg.ghostResults; CH.tribeResults = msg.tribeResults;
+      el.chModal.classList.remove('hidden');   // arena games surface their standings now
       renderChHead(); renderChSide();
       break;
     }
@@ -910,6 +989,9 @@ function sendChat(text) {
   text = String(text || '').trim().slice(0, 140);
   if (!text) return;
   toHost({ t: 'chat', text });
+  // return the keyboard to the game/lobby — a focused input would
+  // otherwise swallow every game key ("my moves don't register")
+  try { el.chatIn.blur(); } catch (e) {}
 }
 
 // ---------------------------------------------------------------------
@@ -923,7 +1005,7 @@ function sendChat(text) {
 const CHALLENGES = {
 
   tensec: {
-    name: 'TEN SECONDS', better: 'low', liveScore: false,
+    name: 'TEN SECONDS', kind: 'PRECISION', better: 'low', liveScore: false, players: [2, 14],
     desc: 'Start the clock, stop it as close to 10.000 seconds as you can. The face goes dark after three. Closest wins.',
     fmt: s => s == null ? '—' : (s / 1000).toFixed(3) + 's off',
     create(rng, api) {
@@ -933,7 +1015,7 @@ const CHALLENGES = {
         if (st === 'idle') { st = 'run'; t0 = t; }
         else if (st === 'run') {
           st = 'done'; stopped = t - t0;
-          api.report({ score: Math.round(Math.abs(stopped - 10000)), pct: 1, done: true });
+          api.report({ score: Math.round(Math.abs(stopped - 10000)), tie: Math.abs(stopped - 10000), pct: 1, done: true });
         }
       }
       return {
@@ -986,7 +1068,7 @@ const CHALLENGES = {
   },
 
   simon: {
-    name: 'ECHO CHAMBER', better: 'high', liveScore: true,
+    name: 'ECHO CHAMBER', kind: 'MEMORY', better: 'high', liveScore: true, players: [2, 14],
     desc: 'Watch the pattern, repeat it with clicks or arrow keys. One more light each round. The longest memory wins — twelve rounds is perfection.',
     fmt: s => s == null ? '—' : s + (s === 1 ? ' round' : ' rounds'),
     create(rng, api) {
@@ -996,21 +1078,23 @@ const CHALLENGES = {
       const COLORS = ['#e2603a', '#5ea8d8', '#8fbf6f', '#e0b34c'];
       const KEYMAP = { ArrowUp: 0, ArrowRight: 1, ArrowDown: 2, ArrowLeft: 3 };
       let round = 1, phase = 'show', inputIdx = 0, flash = -1, flashUntil = 0, done = false;
-      let phaseT0 = null;
+      let phaseT0 = null, lastOk = null;   // tiebreak: who reached the same round faster
       function fail() {
         done = true; phase = 'dead';
-        api.report({ score: round - 1, pct: (round - 1) / MAXR, done: true });
+        api.report({ score: round - 1, tie: lastOk, pct: (round - 1) / MAXR, done: true });
       }
       function win() {
         done = true; phase = 'won';
-        api.report({ score: MAXR, pct: 1, done: true });
+        api.report({ score: MAXR, tie: lastOk, pct: 1, done: true });
       }
       function input(pad, t) {
         if (phase !== 'input' || done) return;
         flash = pad; flashUntil = t + 180;
         if (pad !== seq[inputIdx]) { fail(); return; }
         inputIdx++;
+        api.report({ score: round - 1, pct: (round - 1 + inputIdx / round) / MAXR, done: false });
         if (inputIdx >= round) {
+          lastOk = api.now() - api.playStart();
           api.report({ score: round, pct: round / MAXR, done: false });
           if (round >= MAXR) { win(); return; }
           round++; phase = 'show'; phaseT0 = null; inputIdx = 0;
@@ -1070,7 +1154,7 @@ const CHALLENGES = {
   },
 
   flappy: {
-    name: 'TORCHBEARER', better: 'high', liveScore: true,
+    name: 'TORCHBEARER', kind: 'DEXTERITY', better: 'high', liveScore: true, players: [2, 14],
     desc: 'Carry your ember through the standing stones. Tap SPACE or click to rise. One life — the stones fall the same for everyone.',
     fmt: s => s == null ? '—' : s + (s === 1 ? ' gate' : ' gates'),
     create(rng, api) {
@@ -1087,7 +1171,8 @@ const CHALLENGES = {
       }
       function die() {
         dead = true;
-        api.report({ score, pct: clamp(score / 20, 0, 1), done: true });
+        // same gates -> the longer flight wins (tie is negative: lower = better)
+        api.report({ score, tie: -(api.now() - t0), pct: clamp(score / 20, 0, 1), done: true });
       }
       return {
         key(e) { if (e.key === ' ' || e.key === 'ArrowUp') flap(); },
@@ -1144,29 +1229,1066 @@ const CHALLENGES = {
       };
     },
   },
+
+  maze: {
+    name: 'THE LABYRINTH', kind: 'SPATIAL', live: true, better: 'low', liveScore: false, players: [2, 14],
+    desc: 'One maze for everyone, run at once. Race to the golden door — the shades of your rivals run beside you.',
+    fmt: s => s == null ? '—' : (s / 1000).toFixed(1) + 's',
+    create(rng, api) {
+      const C = 19, R = 15, CS = 26, OX = (520 - C * CS) / 2, OY = 30;
+      // recursive backtracker; wall bits 1=N 2=E 4=S 8=W
+      const W = [];
+      for (let r = 0; r < R; r++) { W.push([]); for (let c = 0; c < C; c++) W[r].push(15); }
+      const stack = [[0, 0]], vis = new Set(['0,0']);
+      while (stack.length) {
+        const [cx, cy] = stack[stack.length - 1];
+        const opts = [];
+        if (cy > 0 && !vis.has(cx + ',' + (cy - 1))) opts.push([0, -1, 1, 4]);
+        if (cx < C - 1 && !vis.has((cx + 1) + ',' + cy)) opts.push([1, 0, 2, 8]);
+        if (cy < R - 1 && !vis.has(cx + ',' + (cy + 1))) opts.push([0, 1, 4, 1]);
+        if (cx > 0 && !vis.has((cx - 1) + ',' + cy)) opts.push([-1, 0, 8, 2]);
+        if (!opts.length) { stack.pop(); continue; }
+        const [dx, dy, wb, ob] = opts[Math.floor(rng() * opts.length)];
+        W[cy][cx] &= ~wb; W[cy + dy][cx + dx] &= ~ob;
+        vis.add((cx + dx) + ',' + (cy + dy));
+        stack.push([cx + dx, cy + dy]);
+      }
+      let px = 0, py = 0, done = false;
+      function move(dx, dy, wb) {
+        if (done) return;
+        if (W[py][px] & wb) return;
+        px += dx; py += dy;
+        if (px === C - 1 && py === R - 1) {
+          done = true;
+          const el2 = api.now() - api.playStart();
+          api.report({ score: Math.max(1, Math.round(el2)), tie: el2, pct: 1, extra: [px, py], done: true });
+        } else {
+          const rem = (C - 1 - px) + (R - 1 - py);
+          api.report({ score: null, pct: 1 - rem / (C + R - 2), extra: [px, py], done: false });
+        }
+      }
+      const KEY = { ArrowUp: [0, -1, 1], ArrowRight: [1, 0, 2], ArrowDown: [0, 1, 4], ArrowLeft: [-1, 0, 8], w: [0, -1, 1], d: [1, 0, 2], s: [0, 1, 4], a: [-1, 0, 8] };
+      const ctr = (c, r) => [OX + c * CS + CS / 2, OY + r * CS + CS / 2];
+      return {
+        key(e) { const m = KEY[e.key] || KEY[String(e.key || '').toLowerCase()]; if (m) move(...m); },
+        tick(dt, t) {
+          if (!done && t - api.playStart() > 180000) { done = true; api.report({ score: 180000, pct: 1, done: true }); }
+        },
+        draw(ctx, w, h, t) {
+          ctx.fillStyle = '#18130d'; ctx.fillRect(0, 0, w, h);
+          ctx.strokeStyle = '#6f5940'; ctx.lineWidth = 2; ctx.lineCap = 'round';
+          ctx.beginPath();
+          for (let r = 0; r < R; r++) for (let c = 0; c < C; c++) {
+            const x = OX + c * CS, y = OY + r * CS, wl = W[r][c];
+            if (wl & 1) { ctx.moveTo(x, y); ctx.lineTo(x + CS, y); }
+            if (wl & 8) { ctx.moveTo(x, y); ctx.lineTo(x, y + CS); }
+            if (r === R - 1 && (wl & 4)) { ctx.moveTo(x, y + CS); ctx.lineTo(x + CS, y + CS); }
+            if (c === C - 1 && (wl & 2)) { ctx.moveTo(x + CS, y); ctx.lineTo(x + CS, y + CS); }
+          }
+          ctx.stroke();
+          // the golden door
+          const glow = .25 + .12 * Math.sin(t / 300);
+          ctx.fillStyle = 'rgba(224,179,76,' + glow + ')';
+          ctx.fillRect(OX + (C - 1) * CS + 4, OY + (R - 1) * CS + 4, CS - 8, CS - 8);
+          // rival shades
+          for (const q of api.peers()) {
+            if (!Array.isArray(q.extra)) continue;
+            const [qx, qy] = ctr(q.extra[0], q.extra[1]);
+            ctx.globalAlpha = .38;
+            ctx.fillStyle = q.color;
+            ctx.beginPath(); ctx.arc(qx, qy, 7, 0, 7); ctx.fill();
+            ctx.globalAlpha = 1;
+          }
+          // me
+          const [mx, my] = ctr(px, py);
+          ctx.shadowColor = api.color; ctx.shadowBlur = 10;
+          ctx.fillStyle = api.color;
+          ctx.beginPath(); ctx.arc(mx, my, 8, 0, 7); ctx.fill();
+          ctx.shadowBlur = 0;
+          ctx.textAlign = 'center';
+          ctx.fillStyle = '#e8dcc3'; ctx.font = '18px Georgia, serif';
+          ctx.fillText(done ? 'THROUGH!' : ((t - api.playStart()) / 1000).toFixed(1) + 's', w / 2, h - 92);
+          ctx.fillStyle = '#a8977a'; ctx.font = '12px Georgia, serif';
+          ctx.fillText('arrows / wasd — reach the golden door', w / 2, h - 66);
+        },
+      };
+    },
+  },
+
+  trail: {
+    name: 'EMBER TRAIL', kind: 'MEMORY', better: 'high', liveScore: true, players: [2, 14],
+    desc: 'A trail of embers lights across the grid, one step at a time. Retrace it from the first step. Each round the trail grows by one.',
+    fmt: s => s == null ? '—' : s + (s === 1 ? ' round' : ' rounds'),
+    create(rng, api) {
+      const N = 6, MAXR = 10, CS = 64, OX = (520 - N * CS) / 2, OY = 60;
+      const path = [[Math.floor(rng() * N), Math.floor(rng() * N)]];
+      while (path.length < MAXR + 3) {
+        const [cx, cy] = path[path.length - 1];
+        const prev = path[path.length - 2];
+        const opts = [[1, 0], [-1, 0], [0, 1], [0, -1]]
+          .map(([dx, dy]) => [cx + dx, cy + dy])
+          .filter(([x, y]) => x >= 0 && y >= 0 && x < N && y < N)
+          .filter(([x, y]) => !(prev && prev[0] === x && prev[1] === y));
+        path.push(opts[Math.floor(rng() * opts.length)]);
+      }
+      const len = r => r + 3;
+      let round = 1, phase = 'show', phaseT0 = null, idx = 0, done = false, flash = null, flashUntil = 0, flashBad = false;
+      let lastOk = null;   // tiebreak: faster to the same round wins
+      function fail() { done = true; phase = 'dead'; api.report({ score: round - 1, tie: lastOk, pct: (round - 1) / MAXR, done: true }); }
+      function input(cx, cy, t) {
+        if (phase !== 'input' || done) return;
+        flash = [cx, cy]; flashUntil = t + 200;
+        const [ex, ey] = path[idx];
+        if (cx !== ex || cy !== ey) { flashBad = true; fail(); return; }
+        flashBad = false;
+        idx++;
+        api.report({ score: round - 1, pct: (round - 1 + idx / len(round)) / MAXR, done: false });
+        if (idx >= len(round)) {
+          lastOk = api.now() - api.playStart();
+          api.report({ score: round, pct: round / MAXR, done: false });
+          if (round >= MAXR) { done = true; phase = 'won'; api.report({ score: MAXR, tie: lastOk, pct: 1, done: true }); return; }
+          round++; phase = 'show'; phaseT0 = null; idx = 0;
+        }
+      }
+      return {
+        click(x, y) {
+          const cx = Math.floor((x - OX) / CS), cy = Math.floor((y - OY) / CS);
+          if (cx >= 0 && cy >= 0 && cx < N && cy < N) input(cx, cy, api.now());
+        },
+        tick(dt, t) {
+          if (phase === 'show') {
+            if (phaseT0 == null) phaseT0 = t;
+            const step = Math.floor((t - phaseT0) / 450);
+            if (step < len(round)) { flash = path[step]; flashUntil = t + 300; flashBad = false; }
+            else { phase = 'input'; flash = null; }
+          }
+        },
+        draw(ctx, w, h, t) {
+          ctx.fillStyle = '#18130d'; ctx.fillRect(0, 0, w, h);
+          for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+            const x = OX + c * CS, y = OY + r * CS;
+            const lit = flash && flash[0] === c && flash[1] === r && t < flashUntil;
+            ctx.fillStyle = lit ? (flashBad ? '#e2603a' : '#e0b34c') : '#241d15';
+            if (lit) { ctx.shadowColor = flashBad ? '#e2603a' : '#e0b34c'; ctx.shadowBlur = 22; }
+            ctx.fillRect(x + 4, y + 4, CS - 8, CS - 8);
+            ctx.shadowBlur = 0;
+            ctx.strokeStyle = '#453723'; ctx.lineWidth = 1;
+            ctx.strokeRect(x + 4.5, y + 4.5, CS - 9, CS - 9);
+          }
+          ctx.textAlign = 'center'; ctx.font = '15px Georgia, serif'; ctx.fillStyle = '#e8dcc3';
+          if (phase === 'show') ctx.fillText('ROUND ' + round + ' — WATCH THE TRAIL (' + len(round) + ' EMBERS)', w / 2, h - 92);
+          else if (phase === 'input') ctx.fillText('ROUND ' + round + ' — RETRACE IT (' + idx + ' of ' + len(round) + ')', w / 2, h - 92);
+          else if (phase === 'dead') { ctx.fillStyle = '#e2603a'; ctx.fillText('THE TRAIL GOES COLD — ' + (round - 1) + ' ROUNDS', w / 2, h - 92); }
+          else { ctx.fillStyle = '#e0b34c'; ctx.fillText('PERFECT — ALL ' + MAXR + ' ROUNDS', w / 2, h - 92); }
+          ctx.fillStyle = '#a8977a'; ctx.font = '12px Georgia, serif';
+          ctx.fillText('click the cells in the order they lit', w / 2, h - 66);
+        },
+      };
+    },
+  },
+
+  herd: {
+    name: 'COUNT THE HERD', kind: 'INSTINCT', better: 'low', liveScore: false, players: [2, 14],
+    desc: 'The herd passes three times. Count heads while you can, then type your guess. Lowest total error takes it.',
+    fmt: s => s == null ? '—' : 'off by ' + s,
+    create(rng, api) {
+      const ROUNDS = 3, SHOW_MS = 4000;
+      const counts = [], clouds = [];
+      for (let r = 0; r < ROUNDS; r++) {
+        const n = 25 + Math.floor(rng() * 120);
+        counts.push(n);
+        const pts = [];
+        for (let i = 0; i < n; i++) pts.push([34 + rng() * 452, 70 + rng() * 320, 2.6 + rng() * 2.6]);
+        clouds.push(pts);
+      }
+      let r = 0, phase = 'show', phaseT0 = null, buf = '', total = 0, done = false, lastErr = null;
+      return {
+        key(e) {
+          if (phase !== 'guess' || done) return;
+          if (/^[0-9]$/.test(e.key) && buf.length < 3) buf += e.key;
+          else if (e.key === 'Backspace') buf = buf.slice(0, -1);
+          else if (e.key === 'Enter' && buf.length) {
+            lastErr = Math.abs((+buf || 0) - counts[r]);
+            total += lastErr;
+            buf = '';
+            r++;
+            if (r >= ROUNDS) { done = true; api.report({ score: total, tie: api.now() - api.playStart(), pct: 1, done: true }); }
+            else { phase = 'show'; phaseT0 = null; api.report({ score: null, pct: r / ROUNDS, done: false }); }
+          }
+        },
+        tick(dt, t) {
+          if (phase === 'show' && !done) {
+            if (phaseT0 == null) phaseT0 = t;
+            if (t - phaseT0 > SHOW_MS) phase = 'guess';
+          }
+          if (!done) api.report({ score: null, pct: clamp((r + (phase === 'guess' ? .6 : .3)) / ROUNDS, 0, 1), done: false });
+        },
+        draw(ctx, w, h, t) {
+          ctx.fillStyle = '#18130d'; ctx.fillRect(0, 0, w, h);
+          ctx.textAlign = 'center';
+          if (done) {
+            ctx.fillStyle = '#e0b34c'; ctx.font = '26px Georgia, serif';
+            ctx.fillText('TOTAL ERROR — ' + total, w / 2, h / 2 - 10);
+            return;
+          }
+          if (phase === 'show') {
+            ctx.fillStyle = '#c9b892';
+            for (const [x, y, rad] of clouds[r]) { ctx.beginPath(); ctx.arc(x, y, rad, 0, 7); ctx.fill(); }
+            const left = Math.max(0, SHOW_MS - (t - (phaseT0 == null ? t : phaseT0)));
+            ctx.fillStyle = '#a8977a'; ctx.font = '13px Georgia, serif';
+            ctx.fillText('HERD ' + (r + 1) + ' OF ' + ROUNDS + ' — COUNT! (' + (left / 1000).toFixed(1) + 's)', w / 2, h - 92);
+          } else {
+            ctx.fillStyle = '#e8dcc3'; ctx.font = '20px Georgia, serif';
+            ctx.fillText('HOW MANY DID YOU COUNT?', w / 2, 200);
+            ctx.fillStyle = '#e0b34c'; ctx.font = '46px Georgia, serif';
+            ctx.fillText(buf + '_', w / 2, 280);
+            if (lastErr != null && r > 0) {
+              ctx.fillStyle = '#a8977a'; ctx.font = '13px Georgia, serif';
+              ctx.fillText('last herd: off by ' + lastErr, w / 2, 330);
+            }
+            ctx.fillStyle = '#a8977a'; ctx.font = '12px Georgia, serif';
+            ctx.fillText('type your guess, ENTER to lock it', w / 2, h - 66);
+          }
+        },
+      };
+    },
+  },
+
+  reaction: {
+    name: 'DEAD EYE', kind: 'REFLEX', live: true, better: 'high', liveScore: true, players: [2, 10],
+    desc: 'When the gold flare bursts, strike. Each round the slowest hand is cut. Jump early and you ARE the slowest. Outlast them all.',
+    fmt: s => s == null ? '—' : (s >= 7 ? 'outlasted all' : 'cut in round ' + (s + 1)),
+    rounds: {
+      period: 8000, judgeAt: 7000, count: 7,
+      judge(r, ctx) {
+        const st = ctx.state;
+        st.out = st.out || [];
+        const alive = [], times = {};
+        for (const [pid, p] of Object.entries(ctx.players)) {
+          if (!p.connected || p.ghost || st.out.includes(pid)) continue;
+          alive.push(pid);
+          const pr = ctx.progress[pid];
+          if (pr && pr.x && pr.x.r === r && typeof pr.x.ms === 'number') times[pid] = pr.x.ms;
+        }
+        if (alive.length <= 1) return { out: null, times, aliveLeft: alive.length, settled: true };
+        let worst = null, wv = -1;
+        for (const pid of alive) {
+          const v = (pid in times) ? times[pid] : 1e9;
+          if (v > wv) { wv = v; worst = pid; }
+        }
+        st.out.push(worst);
+        return {
+          out: worst,
+          name: ctx.players[worst] ? ctx.players[worst].name : '?',
+          ms: (worst in times) ? times[worst] : null,
+          times, aliveLeft: alive.length - 1,
+        };
+      },
+    },
+    create(rng, api) {
+      const PERIOD = 8000, COUNT = 7;
+      const delays = [];
+      for (let i = 0; i < COUNT; i++) delays.push(1500 + rng() * 3500);
+      let myOut = false, survived = 0, lastMsg = '', clickedR = -1, myMs = null, sumMs = 0;
+      const roundOf = t => Math.floor((t - api.playStart()) / PERIOD);
+      const flashAt = r => api.playStart() + r * PERIOD + delays[r];
+      function press() {
+        const t = api.now();
+        const r = roundOf(t);
+        if (myOut || r < 0 || r >= COUNT || clickedR === r) return;
+        clickedR = r;
+        myMs = t < flashAt(r) ? 9999 : Math.round(t - flashAt(r));
+        sumMs += myMs;   // tiebreak among survivors: total reaction time
+        api.report({ score: survived, pct: (r + 1) / COUNT, extra: { r, ms: myMs }, done: false });
+      }
+      return {
+        key(e) { if (e.key === ' ' || e.key === 'Enter') press(); },
+        click() { press(); },
+        tick(dt, t) {
+          if (!myOut) api.report({ score: survived, pct: clamp((t - api.playStart()) / (COUNT * PERIOD), 0, 1), done: false });
+        },
+        onRound(r, v) {
+          if (v.out === api.pid) {
+            myOut = true;
+            lastMsg = 'YOU ARE CUT — round ' + (r + 1);
+            api.report({ score: r, tie: sumMs, pct: (r + 1) / COUNT, done: true });
+            return;
+          }
+          if (v.out) lastMsg = v.name + ' cut' + (v.ms != null ? (v.ms === 9999 ? ' — jumped the gun' : ' — ' + v.ms + 'ms') : ' — no strike');
+          if (!myOut) {
+            survived = r + 1;
+            if (r >= COUNT - 1 || v.settled || v.aliveLeft <= 1) {
+              api.report({ score: COUNT, tie: sumMs, pct: 1, done: true });
+            } else {
+              api.report({ score: survived, pct: (r + 1) / COUNT, done: false });
+            }
+          }
+        },
+        draw(ctx, w, h, t) {
+          ctx.fillStyle = '#18130d'; ctx.fillRect(0, 0, w, h);
+          ctx.textAlign = 'center';
+          const r = roundOf(t);
+          const cr = clamp(r, 0, COUNT - 1);
+          ctx.fillStyle = '#a8977a'; ctx.font = '13px Georgia, serif';
+          ctx.fillText('ROUND ' + (cr + 1) + ' OF ' + COUNT, w / 2, 50);
+          if (myOut) {
+            ctx.fillStyle = '#e2603a'; ctx.font = '24px Georgia, serif';
+            ctx.fillText('CUT — WATCH THE REST', w / 2, 240);
+          } else if (r >= 0 && r < COUNT) {
+            const ft = flashAt(r);
+            if (clickedR === r) {
+              ctx.fillStyle = myMs === 9999 ? '#e2603a' : '#e0b34c';
+              ctx.font = '40px Georgia, serif';
+              ctx.fillText(myMs === 9999 ? 'TOO SOON' : myMs + 'ms', w / 2, 250);
+            } else if (t >= ft) {
+              ctx.fillStyle = '#e0b34c';
+              ctx.shadowColor = 'rgba(224,179,76,.8)'; ctx.shadowBlur = 60;
+              ctx.beginPath(); ctx.arc(w / 2, 240, 74 + (t - ft) / 22, 0, 7); ctx.fill();
+              ctx.shadowBlur = 0;
+              ctx.fillStyle = '#18130d'; ctx.font = '26px Georgia, serif';
+              ctx.fillText('STRIKE!', w / 2, 250);
+            } else {
+              ctx.fillStyle = '#71603f'; ctx.font = '20px Georgia, serif';
+              ctx.fillText('WAIT FOR THE FLARE…', w / 2, 250);
+            }
+          }
+          // who has struck this round
+          let sx = w / 2 - (api.peers().length * 18) / 2;
+          for (const q of api.peers()) {
+            ctx.globalAlpha = (q.extra && q.extra.r === cr) ? 1 : .25;
+            ctx.fillStyle = q.color;
+            ctx.beginPath(); ctx.arc(sx, 400, 6, 0, 7); ctx.fill();
+            sx += 18;
+          }
+          ctx.globalAlpha = 1;
+          if (lastMsg) {
+            ctx.fillStyle = '#a8977a'; ctx.font = '13px Georgia, serif';
+            ctx.fillText(lastMsg, w / 2, 448);
+          }
+          ctx.fillStyle = '#a8977a'; ctx.font = '12px Georgia, serif';
+          ctx.fillText('strike: SPACE or click', w / 2, h - 66);
+        },
+      };
+    },
+  },
+
+  majority: {
+    name: 'MAJORITY RULES', kind: 'SOCIAL', better: 'high', liveScore: true, players: [3, 14],
+    desc: 'Seven questions, two doors. Pick the side you think the HOUSE will pick — read the room, not your heart. Stand with the majority to score.',
+    fmt: s => s == null ? '—' : s + ' pts',
+    rounds: {
+      period: 12000, judgeAt: 9500, count: 7,
+      judge(r, ctx) {
+        const picks = {}, counts = { a: 0, b: 0 };
+        for (const [pid, p] of Object.entries(ctx.players)) {
+          if (!p.connected || p.ghost) continue;   // ghosts play along but can't tip the house
+          const pr = ctx.progress[pid];
+          if (pr && pr.x && pr.x.r === r && (pr.x.pick === 'a' || pr.x.pick === 'b')) {
+            picks[pid] = pr.x.pick;
+            counts[pr.x.pick]++;
+          }
+        }
+        const maj = counts.a > counts.b ? 'a' : counts.b > counts.a ? 'b' : null;
+        return { counts, maj };
+      },
+    },
+    create(rng, api) {
+      const PERIOD = 12000, PICK_MS = 9000, COUNT = 7;
+      const bank = [['CATS', 'DOGS'], ['SUNRISE', 'SUNSET'], ['COFFEE', 'TEA'], ['MOUNTAINS', 'OCEAN'],
+        ['SWEET', 'SALTY'], ['BOOK', 'FILM'], ['SUMMER', 'WINTER'], ['CITY', 'COUNTRY'],
+        ['GOLD', 'SILVER'], ['PAST', 'FUTURE'], ['LOUD', 'QUIET'], ['FIRE', 'WATER'],
+        ['KNIGHT', 'WIZARD'], ['TRUTH', 'DARE'], ['EARLY', 'LATE'], ['MAP', 'COMPASS'],
+        ['THUNDER', 'LIGHTNING'], ['BREAD', 'RICE'], ['MOON', 'STARS'], ['SWORD', 'SHIELD']];
+      for (let i = bank.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [bank[i], bank[j]] = [bank[j], bank[i]]; }
+      const Q = bank.slice(0, COUNT);
+      let score = 0, myPicks = {}, results = {}, finished = false, latSum = 0, picksMade = 0;
+      const roundOf = t => Math.floor((t - api.playStart()) / PERIOD);
+      function pick(side) {
+        const t = api.now();
+        const r = roundOf(t);
+        if (finished || r < 0 || r >= COUNT || myPicks[r] != null) return;
+        const inRound = (t - api.playStart()) - r * PERIOD;
+        if (inRound >= PICK_MS) return; // window closed
+        myPicks[r] = side;
+        latSum += inRound; picksMade++;   // tiebreak: the faster read wins
+        api.report({ score, pct: r / COUNT, extra: { r, pick: side }, done: false });
+      }
+      return {
+        key(e) {
+          if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') pick('a');
+          if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') pick('b');
+        },
+        click(x) { pick(x < 260 ? 'a' : 'b'); },
+        tick(dt, t) {
+          if (!finished) api.report({ score, pct: clamp((t - api.playStart()) / (COUNT * PERIOD), 0, 1), done: false });
+        },
+        onRound(r, v) {
+          results[r] = v;
+          if (v.maj && myPicks[r] === v.maj) score++;
+          const fin = r >= COUNT - 1;
+          if (fin) finished = true;
+          api.report({ score, tie: fin ? latSum + (COUNT - picksMade) * PICK_MS : undefined, pct: (r + 1) / COUNT, done: fin });
+        },
+        draw(ctx, w, h, t) {
+          ctx.fillStyle = '#18130d'; ctx.fillRect(0, 0, w, h);
+          ctx.textAlign = 'center';
+          const r = roundOf(t);
+          const cr = clamp(r, 0, COUNT - 1);
+          const inRound = (t - api.playStart()) - cr * PERIOD;
+          ctx.fillStyle = '#a8977a'; ctx.font = '13px Georgia, serif';
+          ctx.fillText('QUESTION ' + (cr + 1) + ' OF ' + COUNT + '  ·  YOUR SCORE ' + score, w / 2, 50);
+          if (finished) {
+            ctx.fillStyle = '#e0b34c'; ctx.font = '28px Georgia, serif';
+            ctx.fillText(score + ' WITH THE HOUSE', w / 2, 250);
+            return;
+          }
+          const [A, B] = Q[cr];
+          const pickable = inRound < PICK_MS && myPicks[cr] == null;
+          const half = (x, label, side) => {
+            const mine = myPicks[cr] === side;
+            ctx.fillStyle = mine ? 'rgba(224,179,76,.15)' : '#241d15';
+            ctx.fillRect(x, 130, 230, 260);
+            ctx.strokeStyle = mine ? '#e0b34c' : '#453723';
+            ctx.lineWidth = mine ? 2 : 1;
+            ctx.strokeRect(x + .5, 130.5, 230, 260);
+            ctx.fillStyle = mine ? '#e0b34c' : '#e8dcc3';
+            ctx.font = '22px Georgia, serif';
+            ctx.fillText(label, x + 115, 268);
+          };
+          half(20, A, 'a'); half(270, B, 'b');
+          if (pickable) {
+            const frac = clamp(1 - inRound / PICK_MS, 0, 1);
+            ctx.fillStyle = 'rgba(224,179,76,.5)';
+            ctx.fillRect(20, 408, 480 * frac, 5);
+          } else if (myPicks[cr] != null && !results[cr]) {
+            ctx.fillStyle = '#a8977a'; ctx.font = '13px Georgia, serif';
+            ctx.fillText('LOCKED — waiting for the house…', w / 2, 420);
+          }
+          const last = results[cr] || (cr > 0 ? results[cr - 1] : null);
+          if (last) {
+            const li = results[cr] ? cr : cr - 1;
+            ctx.fillStyle = last.maj ? '#e0b34c' : '#a8977a';
+            ctx.font = '14px Georgia, serif';
+            ctx.fillText(last.maj
+              ? 'THE HOUSE CHOSE ' + Q[li][last.maj === 'a' ? 0 : 1] + '  (' + last.counts.a + '–' + last.counts.b + ')'
+              : 'DEAD SPLIT (' + last.counts.a + '–' + last.counts.b + ') — no points', w / 2, 448);
+          }
+          ctx.fillStyle = '#a8977a'; ctx.font = '12px Georgia, serif';
+          ctx.fillText('click a side, or press A / D', w / 2, h - 66);
+        },
+      };
+    },
+  },
+
+  pairs: {
+    name: 'PAIRS ROYALE', kind: 'MEMORY', live: true, better: 'high', liveScore: true, players: [2, 10],
+    desc: 'Forty cards, one board, taken in turns. Flip two — match and you bank the pair AND go again; miss and the turn passes. Everyone sees every flip, so every miss feeds your rivals.',
+    fmt: s => s == null ? '—' : s + (s === 1 ? ' pair' : ' pairs'),
+    board: (() => {
+      const TURN_MS = 15000, REVEAL_MS = 1400;
+      function finish(st, ctx) {
+        for (const [qid, q] of Object.entries(ctx.players)) {
+          if (!q.connected || q.ghost) continue;
+          // equal pairs -> whoever banked their last pair first
+          ctx.setProg(qid, { s: st.banked[qid] || 0, p: 1, d: true, tb: st.lastBank[qid] || null });
+        }
+        ctx.pushBoard();
+        ctx.end();
+      }
+      function advanceTurn(st, ctx, t) {
+        for (let n = 0; n < st.order.length; n++) {
+          st.ti = (st.ti + 1) % st.order.length;
+          const p = ctx.players[st.order[st.ti]];
+          if (p && p.connected && !p.ghost) break;
+        }
+        st.phase = 'pick1';
+        st.up = [];
+        st.turnEndsAt = t + TURN_MS;
+      }
+      return {
+        init(rng, players) {
+          const syms = ['crown', 'veto', 'idol', 'target', 'wisp', 'speech', 'laurel', 'horn', 'check', 'flame', 'wave', 'eye', 'spark', 'mic'];
+          const faces = [], used = new Set();
+          while (faces.length < 20) {
+            const f = syms[Math.floor(rng() * syms.length)] + '|' + PALETTE[Math.floor(rng() * PALETTE.length)];
+            if (used.has(f)) continue;
+            used.add(f); faces.push(f);
+          }
+          const deck = [];
+          faces.forEach((f, fi) => { deck.push(fi, fi); });
+          for (let i = deck.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [deck[i], deck[j]] = [deck[j], deck[i]]; }
+          const order = Object.keys(players).filter(pid => players[pid].connected && !players[pid].ghost);
+          for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
+          return {
+            faces,
+            cards: deck.map(fi => ({ f: fi, taken: null })),
+            order, ti: 0, phase: 'pick1', up: [],
+            revealUntil: 0, turnEndsAt: 0, lastPush: 0,
+            banked: {}, lastBank: {},
+          };
+        },
+        onAct(pid, a, ctx) {
+          const st = ctx.state;
+          if (!st || a == null) return;
+          if (st.order[st.ti] !== pid || st.phase === 'reveal') return;   // not your turn
+          const i = Number(a.i);
+          const card = st.cards[i];
+          if (!card || card.taken != null || st.up.includes(i)) return;
+          const t = ctx.now();
+          if (st.phase === 'pick1') {
+            st.up = [i];
+            st.phase = 'pick2';
+          } else {
+            st.up.push(i);
+            const [i0, i1] = st.up;
+            if (st.cards[i0].f === st.cards[i1].f) {
+              st.cards[i0].taken = pid; st.cards[i1].taken = pid;
+              st.banked[pid] = (st.banked[pid] || 0) + 1;
+              st.lastBank[pid] = t;
+              ctx.setProg(pid, { s: st.banked[pid], p: Math.min(1, st.banked[pid] / 6), d: false });
+              if (st.cards.every(cc => cc.taken != null)) { finish(st, ctx); return; }
+              st.up = []; st.phase = 'pick1';           // a match earns another go
+              st.turnEndsAt = t + TURN_MS;
+            } else {
+              st.phase = 'reveal';                       // the whole room memorizes your miss
+              st.revealUntil = t + REVEAL_MS;
+            }
+          }
+          ctx.pushBoard();
+        },
+        tick(ctx) {
+          const st = ctx.state;
+          if (!st) return;
+          const t = ctx.now();
+          if (!st.turnEndsAt) { st.turnEndsAt = t + TURN_MS; ctx.pushBoard(); }
+          if (st.phase === 'reveal' && t >= st.revealUntil) { advanceTurn(st, ctx, t); ctx.pushBoard(); }
+          else if (st.phase !== 'reveal' && t >= st.turnEndsAt) { advanceTurn(st, ctx, t); ctx.pushBoard(); }   // dawdlers forfeit the turn
+          if (t - st.lastPush > 1000) { st.lastPush = t; ctx.pushBoard(); }   // steady resync: no client ever stays stuck
+        },
+        pub(st, t) {
+          return {
+            cards: st.cards.map((c, i) =>
+              c.taken != null ? { s: 't' } : (st.up.includes(i) ? { s: 'u', f: st.faces[c.f] } : { s: 'd' })),
+            turn: st.order[st.ti],
+            phase: st.phase,
+            msLeft: Math.max(0, Math.round((st.phase === 'reveal' ? st.revealUntil : st.turnEndsAt) - t)),
+            banked: st.banked,
+          };
+        },
+      };
+    })(),
+    create(rng, api) {
+      const COLS = 8, ROWS = 5, CS = 60, OX = (520 - COLS * CS) / 2, OY = 56;
+      let B = null, recvAt = 0;
+      return {
+        onBoard(b) { B = b; recvAt = api.now(); },
+        click(x, y) {
+          if (api.isGhost() || !B || B.turn !== api.pid || B.phase === 'reveal') return;
+          const c = Math.floor((x - OX) / CS), r = Math.floor((y - OY) / CS);
+          if (c < 0 || r < 0 || c >= COLS || r >= ROWS) return;
+          api.act({ i: r * COLS + c });
+        },
+        tick() {},
+        draw(ctx, w, h, t) {
+          ctx.fillStyle = '#18130d'; ctx.fillRect(0, 0, w, h);
+          ctx.textAlign = 'center';
+          if (!B) {
+            ctx.fillStyle = '#a8977a'; ctx.font = '15px Georgia, serif';
+            ctx.fillText('SHUFFLING THE BOARD…', w / 2, h / 2);
+            return;
+          }
+          for (let i = 0; i < 40; i++) {
+            const cx2 = OX + (i % COLS) * CS, cy2 = OY + Math.floor(i / COLS) * CS;
+            const cd = B.cards[i];
+            if (cd.s === 't') {
+              ctx.globalAlpha = .16;
+              ctx.strokeStyle = '#453723';
+              ctx.strokeRect(cx2 + 5.5, cy2 + 5.5, CS - 11, CS - 11);
+              ctx.globalAlpha = 1;
+              continue;
+            }
+            ctx.fillStyle = cd.s === 'u' ? '#2e251a' : '#241d15';
+            ctx.fillRect(cx2 + 4, cy2 + 4, CS - 8, CS - 8);
+            ctx.strokeStyle = cd.s === 'u' ? '#e0b34c' : '#453723';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(cx2 + 4.5, cy2 + 4.5, CS - 9, CS - 9);
+            if (cd.s === 'u' && cd.f) {
+              const [sym, col] = cd.f.split('|');
+              symDraw(ctx, sym, cx2 + CS / 2, cy2 + CS / 2, 30, col);
+            } else if (cd.s === 'd') {
+              symDraw(ctx, 'spark', cx2 + CS / 2, cy2 + CS / 2, 12, 'rgba(113,96,63,.5)');
+            }
+          }
+          // whose turn
+          const mine = B.turn === api.pid;
+          const turnName = mine ? 'YOUR TURN' :
+            ((api.peers().find(q => q.pid === B.turn) || {}).name || '…') + "'S TURN";
+          ctx.fillStyle = mine ? '#e0b34c' : '#e8dcc3';
+          ctx.font = '17px Georgia, serif';
+          if (mine) { ctx.shadowColor = 'rgba(224,179,76,.5)'; ctx.shadowBlur = 14; }
+          ctx.fillText(turnName + (B.phase === 'reveal' ? ' — NO MATCH' : mine ? ' — FLIP TWO' : ''), w / 2, 34);
+          ctx.shadowBlur = 0;
+          // turn timer
+          const left = Math.max(0, B.msLeft - (t - recvAt));
+          ctx.fillStyle = 'rgba(224,179,76,.5)';
+          ctx.fillRect(20, 44, (w - 40) * clamp(left / 15000, 0, 1), 4);
+          ctx.fillStyle = '#e8dcc3'; ctx.font = '14px Georgia, serif';
+          ctx.fillText('YOUR PAIRS — ' + (B.banked[api.pid] || 0), w / 2, h - 160);
+          ctx.fillStyle = '#a8977a'; ctx.font = '12px Georgia, serif';
+          ctx.fillText(api.isGhost() ? 'the departed may only watch' : 'match a pair and you go again', w / 2, h - 136);
+        },
+      };
+    },
+  },
+
+  vault: {
+    name: 'THE VAULT', kind: 'SOCIAL', better: 'high', liveScore: true, groupChat: true, players: [4, 14],
+    desc: 'Each round you are locked in with a shifting crew — your chat reaches only them. The vault holds two coins per crew member. Ask for 1, 2, or 3. If the crew asks for more than it holds, everyone leaves with nothing.',
+    fmt: s => s == null ? '—' : s + (s === 1 ? ' coin' : ' coins'),
+    groupsFor(seed, round, pids) {
+      const rng = mulberry32((seed ^ ((round + 1) * 2654435761)) >>> 0);
+      const order = pids.slice();
+      for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
+      const out = {};
+      order.forEach((pid, i) => { out[pid] = i < Math.ceil(order.length / 2) ? 0 : 1; });
+      return out;
+    },
+    rounds: {
+      period: 20000, judgeAt: 17000, count: 5,
+      judge(r, ctx) {
+        const def = CHALLENGES.vault;
+        const pids = Object.keys(ctx.players).filter(pid => ctx.players[pid].connected && !ctx.players[pid].ghost).sort();
+        const groups = def.groupsFor(ctx.seed, r, pids);
+        const takes = {}, sum = [0, 0], size = [0, 0];
+        for (const pid of pids) {
+          size[groups[pid]]++;
+          const pr = ctx.progress[pid];
+          const tk = (pr && pr.x && pr.x.r === r && [1, 2, 3].includes(pr.x.take)) ? pr.x.take : 0;
+          takes[pid] = tk;
+          sum[groups[pid]] += tk;
+        }
+        const cap = [size[0] * 2, size[1] * 2];
+        return { groups, takes, sum, cap, bust: [sum[0] > cap[0], sum[1] > cap[1]] };
+      },
+    },
+    create(rng, api) {
+      const PERIOD = 20000, PICK_MS = 16000, COUNT = 5;
+      const GNAMES = ['EAST VAULT', 'WEST VAULT'];
+      let score = 0, myTakes = {}, results = {}, finished = false, latSum = 0;
+      const roundOf = t => Math.floor((t - api.playStart()) / PERIOD);
+      function livingPids() {
+        const pids = api.peers().filter(q => !q.ghost).map(q => q.pid);
+        if (!api.isGhost()) pids.push(api.pid);
+        return pids.sort();
+      }
+      function myGroup(r) {
+        if (api.isGhost()) return null;
+        return CHALLENGES.vault.groupsFor(api.seed, r, livingPids())[api.pid];
+      }
+      function pick(take) {
+        const t = api.now();
+        const r = roundOf(t);
+        if (finished || api.isGhost() || r < 0 || r >= COUNT || myTakes[r] != null) return;
+        const inRound = (t - api.playStart()) - r * PERIOD;
+        if (inRound >= PICK_MS) return;
+        myTakes[r] = take;
+        latSum += inRound;
+        api.report({ score, pct: r / COUNT, extra: { r, take }, done: false });
+      }
+      return {
+        key(e) { if (e.key === '1' || e.key === '2' || e.key === '3') pick(Number(e.key)); },
+        click(x, y) {
+          if (y < 300 || y > 380) return;
+          if (x >= 55 && x <= 165) pick(1);
+          else if (x >= 205 && x <= 315) pick(2);
+          else if (x >= 355 && x <= 465) pick(3);
+        },
+        tick(dt, t) {
+          if (!finished) api.report({ score, pct: clamp((t - api.playStart()) / (COUNT * PERIOD), 0, 1), done: false });
+        },
+        onRound(r, v) {
+          results[r] = v;
+          const g = v.groups[api.pid];
+          if (g != null && !v.bust[g]) score += (v.takes[api.pid] || 0);
+          const fin = r >= COUNT - 1;
+          if (fin) {
+            finished = true;
+            api.report({ score: api.isGhost() ? null : score, tie: latSum, pct: 1, done: true });
+          } else {
+            api.report({ score, pct: (r + 1) / COUNT, done: false });
+          }
+        },
+        draw(ctx, w, h, t) {
+          ctx.fillStyle = '#18130d'; ctx.fillRect(0, 0, w, h);
+          ctx.textAlign = 'center';
+          const r = roundOf(t);
+          const cr = clamp(r, 0, COUNT - 1);
+          const inRound = (t - api.playStart()) - cr * PERIOD;
+          ctx.fillStyle = '#a8977a'; ctx.font = '13px Georgia, serif';
+          ctx.fillText('ROUND ' + (cr + 1) + ' OF ' + COUNT + '   ·   YOUR COINS ' + score, w / 2, 44);
+          if (finished) {
+            ctx.fillStyle = '#e0b34c'; ctx.font = '28px Georgia, serif';
+            ctx.fillText(score + ' COINS BANKED', w / 2, 250);
+            return;
+          }
+          const g = myGroup(cr);
+          if (g == null) {
+            ctx.fillStyle = '#8fa3b8'; ctx.font = '16px Georgia, serif';
+            ctx.fillText('YOU HAUNT THE HALLS — WATCH THE CREWS SWEAT', w / 2, 250);
+            return;
+          }
+          const pids = livingPids();
+          const groups = CHALLENGES.vault.groupsFor(api.seed, cr, pids);
+          const crew = pids.filter(pid => groups[pid] === g);
+          const names = crew.map(pid => pid === api.pid ? 'YOU' : ((api.peers().find(q => q.pid === pid) || {}).name || '?'));
+          ctx.fillStyle = '#e0b34c'; ctx.font = '17px Georgia, serif';
+          ctx.fillText(GNAMES[g] + ' — ' + names.join(' · '), w / 2, 96);
+          ctx.fillStyle = '#a8977a'; ctx.font = '13px Georgia, serif';
+          ctx.fillText('the vault holds ' + (crew.length * 2) + ' coins — your chat reaches only this crew', w / 2, 122);
+          ctx.font = '15px Georgia, serif';
+          ctx.fillStyle = '#e8dcc3';
+          ctx.fillText('HOW MANY DO YOU ASK FOR?', w / 2, 270);
+          for (let i = 1; i <= 3; i++) {
+            const bx = 55 + (i - 1) * 150;
+            const mine = myTakes[cr] === i;
+            ctx.fillStyle = mine ? 'rgba(224,179,76,.15)' : '#241d15';
+            ctx.fillRect(bx, 300, 110, 80);
+            ctx.strokeStyle = mine ? '#e0b34c' : '#453723';
+            ctx.lineWidth = mine ? 2 : 1;
+            ctx.strokeRect(bx + .5, 300.5, 110, 80);
+            ctx.fillStyle = mine ? '#e0b34c' : '#e8dcc3';
+            ctx.font = '30px Georgia, serif';
+            ctx.fillText(String(i), bx + 55, 352);
+          }
+          if (inRound < PICK_MS) {
+            ctx.fillStyle = 'rgba(224,179,76,.5)';
+            ctx.fillRect(20, 400, 480 * clamp(1 - inRound / PICK_MS, 0, 1), 5);
+          }
+          const last = results[cr] || (cr > 0 ? results[cr - 1] : null);
+          if (last) {
+            const li = results[cr] ? cr : cr - 1;
+            const lg = last.groups[api.pid];
+            if (lg != null) {
+              ctx.font = '14px Georgia, serif';
+              ctx.fillStyle = last.bust[lg] ? '#e2603a' : '#8fbf6f';
+              ctx.fillText('ROUND ' + (li + 1) + ': crew asked ' + last.sum[lg] + ' of ' + last.cap[lg] +
+                (last.bust[lg] ? ' — THE VAULT SLAMMED SHUT' : ' — PAID IN FULL'), w / 2, 448);
+            }
+          }
+          ctx.fillStyle = '#a8977a'; ctx.font = '12px Georgia, serif';
+          ctx.fillText('press 1 / 2 / 3, or click', w / 2, h - 66);
+        },
+      };
+    },
+  },
+
+  jumpgun: {
+    name: 'JUMP THE GUN', kind: 'NERVE', better: 'high', liveScore: true, players: [2, 14],
+    desc: 'The pot grows a coin a second. Bank it before the gun fires — hold too long and the round pays nothing. Five rounds. Fortune favors the last to blink.',
+    fmt: s => s == null ? '—' : s + (s === 1 ? ' coin' : ' coins'),
+    create(rng, api) {
+      const PERIOD = 13000, COUNT = 5;
+      const busts = [];
+      for (let i = 0; i < COUNT; i++) busts.push(3000 + rng() * 8500);
+      const banked = {};
+      let score = 0, done = false, bravery = 0;
+      const roundOf = t => Math.floor((t - api.playStart()) / PERIOD);
+      function press() {
+        const t = api.now();
+        const r = roundOf(t);
+        if (done || r < 0 || r >= COUNT || banked[r] != null) return;
+        const rt = (t - api.playStart()) - r * PERIOD;
+        if (rt >= busts[r]) return;   // the gun already fired
+        const pot = 1 + Math.floor(rt / 1000);
+        banked[r] = pot;
+        score += pot;
+        bravery += rt;   // tiebreak: cumulative nerve — later banks win ties
+        api.report({ score, pct: (r + 1) / COUNT, extra: { r, pot }, done: false });
+      }
+      return {
+        key(e) { if (e.key === ' ' || e.key === 'Enter') press(); },
+        click() { press(); },
+        tick(dt, t) {
+          if (!done && t - api.playStart() >= COUNT * PERIOD) {
+            done = true;
+            api.report({ score, tie: -bravery, pct: 1, done: true });
+          } else if (!done) {
+            api.report({ score, pct: clamp((t - api.playStart()) / (COUNT * PERIOD), 0, 1), done: false });
+          }
+        },
+        draw(ctx, w, h, t) {
+          ctx.fillStyle = '#18130d'; ctx.fillRect(0, 0, w, h);
+          ctx.textAlign = 'center';
+          if (done) {
+            ctx.fillStyle = '#e0b34c'; ctx.font = '28px Georgia, serif';
+            ctx.fillText(score + ' COINS BANKED', w / 2, 250);
+            return;
+          }
+          const r = clamp(roundOf(t), 0, COUNT - 1);
+          const rt = (t - api.playStart()) - r * PERIOD;
+          ctx.fillStyle = '#a8977a'; ctx.font = '13px Georgia, serif';
+          ctx.fillText('ROUND ' + (r + 1) + ' OF ' + COUNT + '   ·   BANKED ' + score, w / 2, 50);
+          if (rt >= busts[r]) {
+            ctx.fillStyle = '#e2603a';
+            ctx.font = '44px Georgia, serif';
+            ctx.fillText('BANG!', w / 2, 240);
+            ctx.font = '15px Georgia, serif';
+            ctx.fillText(banked[r] != null ? 'you banked ' + banked[r] + ' in time' : 'you held too long — nothing', w / 2, 280);
+          } else if (banked[r] != null) {
+            ctx.fillStyle = '#8fbf6f'; ctx.font = '26px Georgia, serif';
+            ctx.fillText('BANKED ' + banked[r], w / 2, 240);
+            ctx.fillStyle = '#71603f'; ctx.font = '14px Georgia, serif';
+            ctx.fillText('…the pot keeps growing without you', w / 2, 276);
+          } else {
+            const pot = 1 + Math.floor(rt / 1000);
+            ctx.fillStyle = '#e0b34c';
+            ctx.shadowColor = 'rgba(224,179,76,.5)'; ctx.shadowBlur = 24 + pot * 2;
+            ctx.font = (40 + pot * 3) + 'px Georgia, serif';
+            ctx.fillText(String(pot), w / 2, 250);
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = '#a8977a'; ctx.font = '14px Georgia, serif';
+            ctx.fillText('BANK IT — SPACE / CLICK', w / 2, 300);
+          }
+          // who has banked this round
+          let sx = w / 2 - (api.peers().length * 18) / 2;
+          for (const q of api.peers()) {
+            const b = q.extra && q.extra.r === r ? q.extra.pot : null;
+            ctx.globalAlpha = b != null ? 1 : .25;
+            ctx.fillStyle = q.color;
+            ctx.beginPath(); ctx.arc(sx, 400, 6, 0, 7); ctx.fill();
+            if (b != null) { ctx.font = '10px Georgia, serif'; ctx.fillText(String(b), sx, 420); }
+            sx += 18;
+          }
+          ctx.globalAlpha = 1;
+          ctx.fillStyle = '#a8977a'; ctx.font = '12px Georgia, serif';
+          ctx.fillText('bank: SPACE or click', w / 2, h - 66);
+        },
+      };
+    },
+  },
+
+  parade: {
+    name: 'GLYPH PARADE', kind: 'INSTINCT', better: 'low', liveScore: false, players: [2, 14],
+    desc: 'A parade of letters marches across the wall — count how many DIFFERENT letters marched. Repeats are lies. Three parades, lowest total error wins.',
+    fmt: s => s == null ? '—' : 'off by ' + s,
+    create(rng, api) {
+      const ROUNDS = 3, SPEED = 175, SPACING = 62;
+      const rounds = [];
+      for (let r = 0; r < ROUNDS; r++) {
+        const alpha = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+        for (let i = alpha.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [alpha[i], alpha[j]] = [alpha[j], alpha[i]]; }
+        const U = 5 + Math.floor(rng() * 9);
+        const pool = alpha.slice(0, U);
+        const L = 20 + Math.floor(rng() * 15);
+        const seq = pool.slice();
+        while (seq.length < L) seq.push(pool[Math.floor(rng() * U)]);
+        for (let i = seq.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [seq[i], seq[j]] = [seq[j], seq[i]]; }
+        rounds.push({ U, seq, dur: (600 + (L - 1) * SPACING) / SPEED * 1000 });
+      }
+      let r = 0, phase = 'show', phaseT0 = null, buf = '', total = 0, done = false, lastErr = null;
+      return {
+        key(e) {
+          if (phase !== 'guess' || done) return;
+          if (/^[0-9]$/.test(e.key) && buf.length < 2) buf += e.key;
+          else if (e.key === 'Backspace') buf = buf.slice(0, -1);
+          else if (e.key === 'Enter' && buf.length) {
+            lastErr = Math.abs((+buf || 0) - rounds[r].U);
+            total += lastErr;
+            buf = '';
+            r++;
+            if (r >= ROUNDS) { done = true; api.report({ score: total, tie: api.now() - api.playStart(), pct: 1, done: true }); }
+            else { phase = 'show'; phaseT0 = null; api.report({ score: null, pct: r / ROUNDS, done: false }); }
+          }
+        },
+        tick(dt, t) {
+          if (phase === 'show' && !done) {
+            if (phaseT0 == null) phaseT0 = t;
+            if (t - phaseT0 > rounds[r].dur) phase = 'guess';
+          }
+          if (!done) api.report({ score: null, pct: clamp((r + (phase === 'guess' ? .6 : .3)) / ROUNDS, 0, 1), done: false });
+        },
+        draw(ctx, w, h, t) {
+          ctx.fillStyle = '#18130d'; ctx.fillRect(0, 0, w, h);
+          ctx.textAlign = 'center';
+          if (done) {
+            ctx.fillStyle = '#e0b34c'; ctx.font = '26px Georgia, serif';
+            ctx.fillText('TOTAL ERROR — ' + total, w / 2, h / 2 - 10);
+            return;
+          }
+          if (phase === 'show') {
+            const el2 = t - (phaseT0 == null ? t : phaseT0);
+            ctx.font = '32px Georgia, serif';
+            ctx.fillStyle = '#e8dcc3';
+            rounds[r].seq.forEach((ch, i) => {
+              const x = 560 + i * SPACING - SPEED * el2 / 1000;
+              if (x < -40 || x > 560) return;
+              ctx.fillText(ch, x, 236 + Math.sin(i * 1.7 + t / 300) * 14);
+            });
+            ctx.fillStyle = '#a8977a'; ctx.font = '13px Georgia, serif';
+            ctx.fillText('PARADE ' + (r + 1) + ' OF ' + ROUNDS + ' — COUNT THE DIFFERENT LETTERS', w / 2, h - 92);
+          } else {
+            ctx.fillStyle = '#e8dcc3'; ctx.font = '20px Georgia, serif';
+            ctx.fillText('HOW MANY DIFFERENT LETTERS MARCHED?', w / 2, 200);
+            ctx.fillStyle = '#e0b34c'; ctx.font = '46px Georgia, serif';
+            ctx.fillText(buf + '_', w / 2, 280);
+            if (lastErr != null && r > 0) {
+              ctx.fillStyle = '#a8977a'; ctx.font = '13px Georgia, serif';
+              ctx.fillText('last parade: off by ' + lastErr, w / 2, 330);
+            }
+            ctx.fillStyle = '#a8977a'; ctx.font = '12px Georgia, serif';
+            ctx.fillText('type your count, ENTER to lock it', w / 2, h - 66);
+          }
+        },
+      };
+    },
+  },
+
+  embertag: {
+    name: 'EMBER TAG', kind: 'ARENA', live: true, arena: true, better: 'high', liveScore: false, players: [3, 14],
+    desc: 'Played in the house itself. One of you holds a sputtering ember — brush against someone to hand it off. When it blows, the holder is out. Last one standing wins.',
+    fmt: s => s == null ? '—' : (s === 0 ? 'first out' : 'outlasted ' + s),
+    host: (() => {
+      function light(st, ctx, pid) {
+        st.holder = pid;
+        st.litAt = ctx.now();
+        st.fuseMs = 14000 + st.rng() * 16000;   // nobody knows how long the fuse is
+        st.coolUntil = ctx.now() + 1500;
+        ctx.emit({ f: 'light', who: pid, name: ctx.players[pid] ? ctx.players[pid].name : '?' });
+      }
+      return {
+        init(rng, ctx) {
+          const alive = Object.keys(ctx.players).filter(pid => ctx.players[pid].connected && !ctx.players[pid].ghost);
+          const st = { alive, out: [], holder: null, litAt: 0, fuseMs: 0, coolUntil: 0, rng };
+          if (alive.length < 2) { ctx.end(); return st; }
+          light(st, ctx, alive[Math.floor(rng() * alive.length)]);
+          return st;
+        },
+        tick(ctx) {
+          const st = ctx.state;
+          if (!st || !st.holder) return;
+          const t = ctx.now();
+          if (t >= st.coolUntil) {
+            const hp = ctx.pos[st.holder];
+            if (hp) for (const pid of st.alive) {
+              if (pid === st.holder) continue;
+              const qp = ctx.pos[pid];
+              if (qp && Math.hypot(hp.x - qp.x, hp.y - qp.y) < 46) {
+                const from = st.holder;
+                st.holder = pid;
+                st.coolUntil = t + 1100;
+                ctx.emit({ f: 'pass', from, to: pid });
+                break;
+              }
+            }
+          }
+          if (t - st.litAt >= st.fuseMs) {
+            const dead = st.holder;
+            st.alive = st.alive.filter(p => p !== dead);
+            st.out.push(dead);
+            ctx.setProg(dead, { s: st.out.length - 1, p: st.out.length / (st.out.length + st.alive.length), d: true });
+            ctx.emit({ f: 'boom', out: dead, name: ctx.players[dead] ? ctx.players[dead].name : '?', left: st.alive.length });
+            if (st.alive.length <= 1) {
+              const win = st.alive[0];
+              if (win) {
+                ctx.setProg(win, { s: st.out.length, p: 1, d: true });
+                ctx.emit({ f: 'win', who: win, name: ctx.players[win] ? ctx.players[win].name : '?' });
+              }
+              st.holder = null;
+              ctx.end();
+              return;
+            }
+            light(st, ctx, st.alive[Math.floor(st.rng() * st.alive.length)]);
+          }
+        },
+      };
+    })(),
+    create(rng, api) {
+      let holder = null, msg = 'THE EMBER IS BEING LIT…', out = new Set();
+      return {
+        onEv(e) {
+          if (e.f === 'light') { holder = e.who; msg = e.name + ' holds the ember'; }
+          else if (e.f === 'pass') holder = e.to;
+          else if (e.f === 'boom') { out.add(e.out); holder = null; msg = 'BOOM — ' + e.name + ' is out · ' + e.left + ' remain'; }
+          else if (e.f === 'win') msg = e.name + ' outlasts them all';
+        },
+        tick() {},
+        lobbyDraw(ctx, t) {   // world space: the ember over the holder's head
+          if (!holder) return;
+          const q = api.posOf(holder);
+          if (!q) return;
+          const flick = .5 + .5 * Math.sin(t / 90);
+          ctx.shadowColor = 'rgba(232,114,42,.9)';
+          ctx.shadowBlur = 24 + flick * 16;
+          symDraw(ctx, 'flame', q.dx, (q.dy || q.y) - 38, 24, '#e8722a');
+          ctx.shadowBlur = 0;
+        },
+        hud(ctx, t) {         // screen space
+          ctx.font = '15px Georgia, serif';
+          ctx.fillStyle = 'rgba(0,0,0,.6)';
+          ctx.fillText('EMBER TAG — ' + msg, VIEW_W / 2, 31);
+          ctx.fillStyle = '#e8722a';
+          ctx.fillText('EMBER TAG — ' + msg, VIEW_W / 2, 30);
+          if (holder === api.pid) {
+            ctx.fillStyle = '#e0b34c'; ctx.font = '14px Georgia, serif';
+            ctx.fillText('YOU HOLD THE EMBER — PASS IT BEFORE IT BLOWS', VIEW_W / 2, 54);
+          } else if (out.has(api.pid)) {
+            ctx.fillStyle = '#8fa3b8'; ctx.font = '13px Georgia, serif';
+            ctx.fillText('you are out — enjoy the chaos', VIEW_W / 2, 54);
+          }
+        },
+      };
+    },
+  },
 };
 
 // ----- host: challenge control -----
-function hostStartChallenge(key) {
+function hostStartChallenge(key, practice) {
   if (!CHALLENGES[key] || (G.challenge && G.challenge.active)) return;
+  const def = CHALLENGES[key];
   const seed = Math.floor(Math.random() * 0x7fffffff);
-  G.challenge = { key, seed, active: true, progress: {}, results: null, ghostResults: null, tribeResults: null };
-  sysMsg('CHALLENGE — ' + CHALLENGES[key].name);
+  const lead = CH_COUNTDOWN;   // countdown -> tutorial -> real game: every run gets its beat
+  G.challenge = {
+    key, seed, active: true, practice: !!practice,
+    progress: {}, results: null, ghostResults: null, tribeResults: null,
+    // host-judged rounds: the host is the one referee, so round verdicts
+    // (who's eliminated, what the majority was) are authoritative
+    round: 0,
+    roundAt: def.rounds ? now() + lead + (def.rounds.judgeAt || def.rounds.period) : 0,
+    playAt: now() + lead,
+    judgeState: {},
+    gameState: null,
+  };
+  // shared-board games: the host owns the one true board
+  if (def.board) G.challenge.gameState = def.board.init(mulberry32(seed), G.players);
+  sysMsg((practice ? 'PRACTICE — ' : 'CHALLENGE — ') + def.name);
   sync();
-  hostBroadcast({ t: 'chStart', key, seed, in: 3000 });
+  hostBroadcast({ t: 'chStart', key, seed, in: lead, practice: !!practice });
+}
+// After the rehearsal, the same game runs for keeps.
+function hostRealRun() {
+  const c = G.challenge;
+  if (!c || !c.practice) return;
+  const key = c.key;
+  G.challenge = null;
+  hostBroadcast({ t: 'chClose' });
+  hostStartChallenge(key, false);
 }
 function hostChTick(pid, msg) {
   const c = G.challenge;
   if (!c || !c.active || !G.players[pid]) return;
   const prev = c.progress[pid];
-  if (prev && prev.d) return;
+  if (prev && prev.d && !c.practice) return;   // practice allows retries
   c.progress[pid] = {
     s: msg.score == null ? null : Number(msg.score),
     p: clamp(Number(msg.pct) || 0, 0, 1),
     d: !!msg.done,
+    // a report without a payload must NOT erase the stored one — round
+    // judges read it after the fact (a heartbeat would wipe a pick)
+    x: msg.extra === undefined ? (prev ? prev.x : undefined) : msg.extra,
+    tb: msg.tie == null ? (prev ? prev.tb : null) : Number(msg.tie),
     at: now(),
   };
-  if (msg.done) {
+  if (msg.done && !c.practice) {
     hostBroadcast({ t: 'chProg', p: c.progress });
     let allDone = true;
     for (const [qid, q] of Object.entries(G.players))
@@ -1179,14 +2301,19 @@ function hostEndChallenge() {
   if (!c || !c.active || c.results) return;
   c.active = false;
   const def = CHALLENGES[c.key];
+  // no ties, ever: score, then the game's tiebreak (lower wins), then
+  // finish time, then pid — a strict order always falls out
   const rank = pids => pids
-    .map(pid => ({ pid, name: G.players[pid].name, color: G.players[pid].color, ...(c.progress[pid] || { s: null, d: false, at: Infinity }) }))
+    .map(pid => ({ pid, name: G.players[pid].name, color: G.players[pid].color, ...(c.progress[pid] || { s: null, tb: null, d: false, at: Infinity }) }))
     .sort((a, b) => {
-      if (a.s == null && b.s == null) return 0;
+      if (a.s == null && b.s == null) return (a.at || 0) - (b.at || 0) || (a.pid < b.pid ? -1 : 1);
       if (a.s == null) return 1;
       if (b.s == null) return -1;
       if (a.s !== b.s) return def.better === 'low' ? a.s - b.s : b.s - a.s;
-      return (a.at || 0) - (b.at || 0);
+      const atb = a.tb == null ? Infinity : a.tb, btb = b.tb == null ? Infinity : b.tb;
+      if (atb !== btb) return atb - btb;
+      if ((a.at || 0) !== (b.at || 0)) return (a.at || 0) - (b.at || 0);
+      return a.pid < b.pid ? -1 : 1;
     })
     .map((r, i) => ({ pid: r.pid, name: r.name, color: r.color, score: r.s, rank: i + 1 }));
   const living = [], ghosts = [];
@@ -1205,13 +2332,15 @@ function hostEndChallenge() {
       c.tribeResults = [0, 1].map(t => ({
         tribe: t, name: TRIBES[t].name,
         avg: Math.round(byTribe[t].reduce((a, b) => a + b, 0) / byTribe[t].length * 100) / 100,
-      })).sort((a, b) => a.avg - b.avg);
+        best: Math.min(...byTribe[t]),
+      })).sort((a, b) => a.avg - b.avg || a.best - b.best);   // avg tie -> best individual place
     }
   }
   const w = c.results[0];
-  if (c.tribeResults) sysMsg('CHALLENGE OVER — ' + c.tribeResults[0].name + ' takes it');
+  if (c.practice) sysMsg('Practice over — the real thing awaits');
+  else if (c.tribeResults) sysMsg('CHALLENGE OVER — ' + c.tribeResults[0].name + ' takes it');
   else if (w && w.score != null) sysMsg('WINNER — ' + w.name + ' · ' + def.fmt(w.score));
-  hostBroadcast({ t: 'chEnd', results: c.results, ghostResults: c.ghostResults, tribeResults: c.tribeResults });
+  hostBroadcast({ t: 'chEnd', results: c.results, ghostResults: c.ghostResults, tribeResults: c.tribeResults, practice: c.practice });
   sync();
 }
 function hostCloseChallenge() {
@@ -1220,18 +2349,61 @@ function hostCloseChallenge() {
   sync();
 }
 
+// Context handed to host-side game logic (shared boards + arena games).
+function hostGameCtx(c) {
+  return {
+    get state() { return c.gameState; },
+    players: G.players,
+    pos: POS,
+    now,
+    seed: c.seed,
+    emit(ev) { hostBroadcast({ t: 'chEv', e: ev }); },
+    pushBoard() {
+      const def = CHALLENGES[c.key];
+      if (def.board && def.board.pub && c.gameState) hostBroadcast({ t: 'chBoard', b: def.board.pub(c.gameState, now()) });
+    },
+    setProg(pid, patch) {
+      const cur = c.progress[pid] || { s: null, p: 0, d: false, tb: null, x: undefined };
+      c.progress[pid] = { ...cur, ...patch, at: patch.at != null ? patch.at : now() };
+    },
+    end() { hostEndChallenge(); },
+  };
+}
+function livingSortedPids() {
+  return Object.keys(G.players).filter(pid => G.players[pid].connected && !G.players[pid].ghost).sort();
+}
+
 // ----- client: challenge runtime -----
-function startChallengeLocal(key, seed, inMs) {
+function startChallengeLocal(key, seed, inMs, practice) {
   const def = CHALLENGES[key];
   if (!def) return;
   const t = now();
   CH = {
-    key, def, startAt: t + inMs, state: 'countdown',
+    key, def, startAt: t + inMs, state: inMs > 0 ? 'countdown' : 'play',
     my: { score: null, pct: 0, done: false }, prog: {},
-    lastSend: 0, spectate: false,
+    lastSend: 0, spectate: false, arena: !!def.arena, practice: !!practice,
   };
   const api = {
     now,
+    pid: me.pid,
+    seed,
+    color: (CV.players[me.pid] || {}).color || '#e0b34c',
+    isGhost() { return !!(CV.players[me.pid] || {}).ghost; },
+    act(a) { toHost({ t: 'chAct', a }); },
+    posOf(pid) { return POS[pid]; },
+    playStart() { return CH ? CH.startAt : 0; },
+    // rival presence: everyone else's latest progress + live payload,
+    // so a game can draw the shades of its opponents on the field
+    peers() {
+      const out = [];
+      if (!CH) return out;
+      for (const [pid, p] of Object.entries(CV.players)) {
+        if (pid === me.pid || !p.connected) continue;
+        const pr = CH.prog[pid] || {};
+        out.push({ pid, name: p.name, color: p.color, ghost: p.ghost, extra: pr.x, pct: pr.p || 0, done: !!pr.d });
+      }
+      return out;
+    },
     report(r) {
       if (!CH || CH.my.done) return;
       CH.my = { score: r.score, pct: r.pct, done: !!r.done };
@@ -1239,14 +2411,18 @@ function startChallengeLocal(key, seed, inMs) {
       // and may end the whole challenge (state -> 'results') inside it
       if (r.done) CH.state = 'done';
       const t2 = now();
-      if (r.done || t2 - CH.lastSend > 1000 / PROG_HZ) {
+      if (r.done || r.extra !== undefined || t2 - CH.lastSend > 1000 / PROG_HZ) {
         CH.lastSend = t2;
-        toHost({ t: 'chTick', score: r.score, pct: r.pct, done: !!r.done });
+        toHost({ t: 'chTick', score: r.score, pct: r.pct, done: !!r.done, extra: r.extra, tie: r.tie });
       }
     },
   };
+  CH.api = api;
   CH.inst = def.create(mulberry32(seed), api);
-  el.chModal.classList.remove('hidden');
+  // the countdown lives in the lobby; the modal only opens at GO
+  // (practice runs open at once, arena games never open until results)
+  if (!def.arena && CH.state === 'play') el.chModal.classList.remove('hidden');
+  else el.chModal.classList.add('hidden');
   renderChHead(); renderChSide();
 }
 function openChallengeSpectate(chPub) {
@@ -1254,7 +2430,7 @@ function openChallengeSpectate(chPub) {
   if (!def) return;
   CH = {
     key: chPub.key, def, startAt: 0, state: chPub.results ? 'results' : 'play',
-    my: { done: true }, prog: {}, spectate: true,
+    my: { done: true }, prog: {}, spectate: true, practice: !!chPub.practice,
     results: chPub.results, ghostResults: chPub.ghostResults, tribeResults: chPub.tribeResults,
   };
   el.chModal.classList.remove('hidden');
@@ -1264,12 +2440,13 @@ function openChallengeSpectate(chPub) {
 function renderChHead() {
   if (!CH) return;
   let status = '';
-  if (CH.state === 'results') status = 'THE RESULTS';
+  if (CH.practice) status = CH.state === 'results' ? 'PRACTICE RESULTS — NOTHING COUNTS' : 'PRACTICE RUN — NO STAKES, JUST LEARN IT';
+  else if (CH.state === 'results') status = 'THE RESULTS';
   else if (CH.spectate) status = 'WATCHING FROM THE BENCH';
   el.chHead.innerHTML =
     '<div class="cname">' + esc(CH.def.name) + '</div>' +
     '<div class="cdesc">' + esc(CH.def.desc) + '</div>' +
-    (status ? '<div class="cstat">' + status + '</div>' : '');
+    (status ? '<div class="cstat"' + (CH.practice ? ' style="color:var(--leaf)"' : '') + '>' + status + '</div>' : '');
 }
 
 function grantBtnHtml() {
@@ -1289,65 +2466,102 @@ function grantBtnHtml() {
   return html;
 }
 
+// The side panel is TWO containers: a list that refreshes freely (bars,
+// standings) and a controls strip that only re-renders when its content
+// changes. Rebuilding a button between mousedown and mouseup destroys
+// the click — so buttons must live in stable DOM.
 function renderChSide() {
   if (!CH) return;
-  let html = '';
+  let list = '', ctl = '';
   if (CH.state === 'results' && (CH.results || CH.ghostResults)) {
     if (CH.tribeResults) {
-      html += '<div class="lbl">TRIBES</div>';
+      list += '<div class="lbl">TRIBES</div>';
       CH.tribeResults.forEach((t, i) => {
-        html += '<div class="trow' + (i === 0 ? '" style="color:' + TRIBES[t.tribe].color + '"' : '"') + '>' +
+        list += '<div class="trow' + (i === 0 ? '" style="color:' + TRIBES[t.tribe].color + '"' : '"') + '>' +
           symSvg(TRIBES[t.tribe].sym, 15, TRIBES[t.tribe].color) + '<span>' + esc(t.name) + '</span>' +
           '<span class="avg">avg place ' + t.avg + '</span></div>';
       });
     }
-    html += '<div class="lbl">STANDINGS</div>';
+    list += '<div class="lbl">' + (CH.practice ? 'PRACTICE STANDINGS' : 'STANDINGS') + '</div>';
     for (const r of (CH.results || [])) {
-      html += '<div class="rrow' + (r.rank === 1 && r.score != null ? ' win' : '') + '">' +
+      list += '<div class="rrow' + (r.rank === 1 && r.score != null ? ' win' : '') + '">' +
         '<span class="rk">' + r.rank + '</span>' +
         '<span class="pdot" style="background:' + r.color + '"></span>' +
         '<span>' + esc(r.name) + '</span>' +
         '<span style="margin-left:auto;color:var(--dim);font-size:11px">' + esc(CH.def.fmt(r.score)) + '</span></div>';
     }
     if (CH.ghostResults && CH.ghostResults.length) {
-      html += '<div class="lbl">FROM BEYOND — NO STAKES</div>';
+      list += '<div class="lbl">FROM BEYOND — NO STAKES</div>';
       for (const r of CH.ghostResults) {
-        html += '<div class="rrow" style="opacity:.6;color:var(--ghost)">' + symSvg('wisp', 12) +
+        list += '<div class="rrow" style="opacity:.6;color:var(--ghost)">' + symSvg('wisp', 12) +
           '<span>' + esc(r.name) + '</span><span style="margin-left:auto;font-size:11px">' + esc(CH.def.fmt(r.score)) + '</span></div>';
       }
     }
     if (me.isHost) {
-      html += grantBtnHtml();
-      html += '<div class="hrow" style="margin-top:10px"><button id="chCloseBtn" class="tagbtn">CLOSE RESULTS</button></div>';
+      if (!CH.practice) ctl += grantBtnHtml();
+      if (CH.practice) ctl += '<div class="hrow" style="margin-top:10px"><button id="chRealBtn" class="tagbtn">RUN IT FOR REAL</button></div>';
+      ctl += '<div class="hrow" style="margin-top:10px"><button id="chCloseBtn" class="tagbtn">' + (CH.practice ? 'SCRAP IT' : 'CLOSE RESULTS') + '</button></div>';
     } else {
-      html += '<div style="color:var(--faint);margin-top:10px;font-size:11.5px;letter-spacing:.14em">THE HOST WEIGHS THE SPOILS…</div>';
+      ctl += '<div style="color:var(--faint);margin-top:10px;font-size:11.5px;letter-spacing:.14em">' +
+        (CH.practice ? 'WARM UP — THE HOST CALLS THE REAL RUN' : 'THE HOST WEIGHS THE SPOILS…') + '</div>';
     }
   } else {
-    html += '<div class="lbl">THE FIELD</div>';
+    list += '<div class="lbl">THE FIELD</div>';
     for (const [pid, p] of Object.entries(CV.players)) {
       if (!p.connected) continue;
       const pr = pid === me.pid ? { s: CH.my.score, p: CH.my.pct || 0, d: CH.my.done } : (CH.prog[pid] || { s: null, p: 0, d: false });
-      html += '<div class="srow' + (p.ghost ? '" style="opacity:.5' : '') + '">' +
+      list += '<div class="srow' + (p.ghost ? '" style="opacity:.5' : '') + '">' +
         '<span class="pdot" style="background:' + p.color + '"></span>' +
         '<span class="nm">' + esc(p.name) + '</span>' +
         '<span class="barwrap"><span class="bar" style="width:' + Math.round((pr.p || 0) * 100) + '%;background:' + p.color + '"></span></span>' +
         '<span class="sc">' + (pr.d ? symSvg('check', 10, '#8fbf6f') + ' ' : '') +
         (pr.s != null && (CH.def.liveScore || pr.d) ? esc(CH.def.fmt(pr.s)) : '') + '</span></div>';
     }
-    if (me.isHost && CH.state !== 'results') {
-      html += '<div class="hrow" style="margin-top:12px"><button id="chEndBtn" class="tagbtn">CALL IT — END NOW</button></div>';
+    // practice: solo games can be retried while people learn
+    if (CH.practice && CH.my.done && !CH.def.rounds && !CH.def.board && !CH.def.arena) {
+      ctl += '<div class="hrow" style="margin-top:10px"><button id="chRetryBtn" class="tagbtn">TRY AGAIN</button></div>';
+    }
+    if (me.isHost) {
+      if (CH.practice) {
+        ctl += '<div class="hrow" style="margin-top:12px"><button id="chRealBtn" class="tagbtn">RUN IT FOR REAL</button>' +
+          '<button id="chCloseBtn2" class="tagbtn">SCRAP IT</button></div>';
+      } else {
+        ctl += '<div class="hrow" style="margin-top:12px"><button id="chEndBtn" class="tagbtn">CALL IT — END NOW</button></div>';
+      }
+    } else if (CH.practice) {
+      ctl += '<div style="color:var(--faint);margin-top:10px;font-size:11px;letter-spacing:.14em">PRACTICE — THE HOST STARTS THE REAL RUN</div>';
     }
   }
-  el.chSide.innerHTML = html;
-  const endBtn = document.getElementById('chEndBtn');
-  if (endBtn) endBtn.onclick = () => hostEndChallenge();
-  const closeBtn = document.getElementById('chCloseBtn');
-  if (closeBtn) closeBtn.onclick = () => hostCloseChallenge();
-  for (const b of el.chSide.querySelectorAll ? el.chSide.querySelectorAll('[data-grant]') : []) {
-    b.onclick = () => { hostToggleTag(CH.results[0].pid, b.getAttribute('data-grant')); renderChSide(); };
+  if (CH._lh !== list) {
+    CH._lh = list;
+    el.chSideList.innerHTML = list;
   }
-  for (const b of el.chSide.querySelectorAll ? el.chSide.querySelectorAll('[data-tribeim]') : []) {
-    b.onclick = () => { hostGrantTribeImmunity(Number(b.getAttribute('data-tribeim'))); renderChSide(); };
+  if (CH._ch !== ctl) {
+    CH._ch = ctl;
+    el.chSideCtl.innerHTML = ctl;
+    const endBtn = document.getElementById('chEndBtn');
+    if (endBtn) endBtn.onclick = () => hostEndChallenge();
+    const closeBtn = document.getElementById('chCloseBtn');
+    if (closeBtn) closeBtn.onclick = () => hostCloseChallenge();
+    const closeBtn2 = document.getElementById('chCloseBtn2');
+    if (closeBtn2) closeBtn2.onclick = () => hostCloseChallenge();
+    const realBtn = document.getElementById('chRealBtn');
+    if (realBtn) realBtn.onclick = () => hostRealRun();
+    const retryBtn = document.getElementById('chRetryBtn');
+    if (retryBtn) retryBtn.onclick = () => {
+      if (!CH || !CH.practice) return;
+      CH.my = { score: null, pct: 0, done: false };
+      CH.state = 'play';
+      CH.lastSend = 0;
+      CH.inst = CH.def.create(mulberry32(Math.floor(Math.random() * 0x7fffffff)), CH.api);
+      renderChSide();
+    };
+    for (const b of el.chSideCtl.querySelectorAll ? el.chSideCtl.querySelectorAll('[data-grant]') : []) {
+      b.onclick = () => { hostToggleTag(CH.results[0].pid, b.getAttribute('data-grant')); renderChSide(); };
+    }
+    for (const b of el.chSideCtl.querySelectorAll ? el.chSideCtl.querySelectorAll('[data-tribeim]') : []) {
+      b.onclick = () => { hostGrantTribeImmunity(Number(b.getAttribute('data-tribeim'))); renderChSide(); };
+    }
   }
 }
 
@@ -1470,9 +2684,10 @@ function castVote(pick) {
   renderVoteModal();
 }
 
+let lastVoteHtml = '';
 function renderVoteModal() {
   const v = CV.vote;
-  if (!v) { el.voteModal.classList.add('hidden'); voteUI = { cast: false }; return; }
+  if (!v) { el.voteModal.classList.add('hidden'); voteUI = { cast: false }; lastVoteHtml = ''; return; }
   el.voteModal.classList.remove('hidden');
   const meP = CV.players[me.pid] || {};
   let html = '<h2>' + esc(curMode().voteTitle) + '</h2>';
@@ -1511,6 +2726,8 @@ function renderVoteModal() {
     html += '<span class="vnote">THE HOST DECIDES WHAT COMES NEXT</span>';
   }
   html += '</div>';
+  if (html === lastVoteHtml) return;   // don't nuke buttons mid-click for nothing
+  lastVoteHtml = html;
   el.voteBody.innerHTML = html;
   for (const b of el.voteBody.querySelectorAll ? el.voteBody.querySelectorAll('[data-vote]') : []) {
     b.onclick = () => castVote(b.getAttribute('data-vote'));
@@ -1694,6 +2911,7 @@ function badgeHtml(p) {
   if (p.ghost) s += symSvg('wisp', 13, '#8fa3b8');
   return s;
 }
+let lastPlayersHtml = '', lastPanelHtml = '';
 function renderPlayers() {
   let html = '';
   const entries = Object.entries(CV.players);
@@ -1717,6 +2935,8 @@ function renderPlayers() {
   } else {
     html = entries.map(row).join('');
   }
+  if (html === lastPlayersHtml) return;
+  lastPlayersHtml = html;
   el.playersDiv.innerHTML = html;
 }
 function renderHostPanel() {
@@ -1738,6 +2958,8 @@ function renderHostPanel() {
     if (pid !== me.pid) html += '<button class="tagbtn kick" title="REMOVE" data-kick="' + pid + '">&#215;</button>';
     html += '</div>';
   }
+  if (html === lastPanelHtml) return;
+  lastPanelHtml = html;
   el.hpPlayers.innerHTML = html;
   const qs = sel => el.hpPlayers.querySelectorAll ? el.hpPlayers.querySelectorAll(sel) : [];
   for (const b of qs('[data-tag]'))
@@ -2211,9 +3433,23 @@ function hostPump() {
     const snap = positionsSnapshot();
     for (const [pid, c] of net.conns) if (c.open) { try { c.send({ t: 'posAll', p: snap }); } catch (e) {} }
   }
-  if (G.challenge && G.challenge.active && t - lastProgBcast > 1000 / PROG_HZ) {
-    lastProgBcast = t;
-    hostBroadcast({ t: 'chProg', p: G.challenge.progress });
+  const c = G.challenge;
+  if (c && c.active) {
+    const def = CHALLENGES[c.key];
+    // arena games: the host simulates them from the moment play begins
+    if (def.host && !c.gameState && t >= c.playAt) c.gameState = def.host.init(mulberry32(c.seed), hostGameCtx(c));
+    if (def.host && c.gameState && c.active) def.host.tick(hostGameCtx(c));
+    if (def.board && def.board.tick && c.active && t >= c.playAt) def.board.tick(hostGameCtx(c));
+    if (c.active && def.rounds && c.round < def.rounds.count && t >= c.roundAt) {
+      const v = def.rounds.judge(c.round, { progress: c.progress, players: G.players, state: c.judgeState, seed: c.seed });
+      hostBroadcast({ t: 'chRound', r: c.round, v });
+      c.round++;
+      c.roundAt += def.rounds.period;
+    }
+    if (t - lastProgBcast > 1000 / PROG_HZ) {
+      lastProgBcast = t;
+      hostBroadcast({ t: 'chProg', p: c.progress });
+    }
   }
 }
 
@@ -2377,7 +3613,28 @@ function drawLobby(t) {
     lctx.fillText(txt, bx, by + 3);
     lctx.globalAlpha = 1;
   }
+  // arena game world-space layer (the ember on someone's head)
+  if (CH && CH.arena && CH.inst && CH.inst.lobbyDraw && CH.state !== 'results') CH.inst.lobbyDraw(lctx, t);
   lctx.restore();
+  // every challenge counts down HERE, in the house, before it begins
+  if (CH && !CH.spectate && CH.state === 'countdown') {
+    const n = Math.ceil((CH.startAt - t) / 1000);
+    const title = (CH.practice ? 'PRACTICE: ' : '') + CH.def.name + '  —  ' + n;
+    lctx.textAlign = 'center';
+    lctx.fillStyle = 'rgba(0,0,0,.65)';
+    lctx.font = '26px Georgia, serif';
+    lctx.fillText(title, VIEW_W / 2, 51);
+    lctx.fillStyle = CH.practice ? '#8fbf6f' : '#e0b34c';
+    lctx.shadowColor = 'rgba(224,179,76,.5)'; lctx.shadowBlur = 16;
+    lctx.fillText(title, VIEW_W / 2, 50);
+    lctx.shadowBlur = 0;
+    lctx.font = '13px Georgia, serif';
+    lctx.fillStyle = '#b5a385';
+    lctx.fillText(CH.def.desc.split('. ')[0] + '.', VIEW_W / 2, 76);
+  } else if (CH && CH.arena && CH.state !== 'results' && CH.inst && CH.inst.hud) {
+    lctx.textAlign = 'center';
+    CH.inst.hud(lctx, t);
+  }
   if (bannerUntil && t > bannerUntil) { el.banner.classList.add('hidden'); bannerUntil = 0; }
 }
 
@@ -2396,25 +3653,17 @@ function frame() {
     if (me.isHost && G) hostPump();
     drawLobby(t);
     if (CH && !CH.spectate && CH.state !== 'results') {
-      if (CH.state === 'countdown' && t >= CH.startAt) CH.state = 'play';
+      if (CH.state === 'countdown' && t >= CH.startAt) {
+        CH.state = 'play';
+        if (!CH.arena) el.chModal.classList.remove('hidden');   // GO — the game appears
+      }
       if (CH.state === 'play' || CH.state === 'done') {
         if (CH.inst.tick) CH.inst.tick(dt, t);
       }
-      if (CH.state === 'countdown') {
-        cctx.fillStyle = '#18130d'; cctx.fillRect(0, 0, 520, 560);
-        cctx.textAlign = 'center';
-        cctx.fillStyle = '#e0b34c';
-        cctx.shadowColor = 'rgba(224,179,76,.55)'; cctx.shadowBlur = 34;
-        cctx.font = '88px Georgia, serif';
-        cctx.fillText(String(Math.ceil((CH.startAt - t) / 1000)), 260, 305);
-        cctx.shadowBlur = 0;
-        cctx.font = '13px Georgia, serif';
-        cctx.fillStyle = '#a8977a';
-        cctx.fillText('STEADY…', 260, 350);
-      } else if (CH.inst.draw) {
+      if (!CH.arena && CH.state !== 'countdown' && CH.inst.draw) {
         CH.inst.draw(cctx, 520, 560, t);
       }
-      if (!CH._sideAt || t - CH._sideAt > 400) { CH._sideAt = t; renderChSide(); }
+      if (!CH.arena && (!CH._sideAt || t - CH._sideAt > 400)) { CH._sideAt = t; renderChSide(); }
     }
   }
   requestAnimationFrame(frame);
@@ -2438,7 +3687,7 @@ document.addEventListener('keydown', e => {
     }
     return;
   }
-  if (CH && !CH.spectate && (CH.state === 'play')) {
+  if (CH && !CH.spectate && !CH.arena && (CH.state === 'play')) {
     if (CH.inst.key) CH.inst.key(e);
     if (e.key === ' ') e.preventDefault();
     return;
@@ -2498,12 +3747,51 @@ el.joinBtn.addEventListener('click', () => {
 el.clearTagsBtn.addEventListener('click', () => { if (me.isHost) hostClearTags(); });
 el.drawTribesBtn.addEventListener('click', () => { if (me.isHost) hostDrawTribes(); });
 el.mergeBtn.addEventListener('click', () => { if (me.isHost) hostMergeTribes(); });
-for (const [k, d] of Object.entries(CHALLENGES)) {
-  const o = document.createElement('option');
-  o.value = k; o.textContent = d.name;
-  el.chSelect.appendChild(o);
+
+// ----- the arsenal: challenge picker -----
+function openPicker() {
+  if (!me.isHost || (G && G.challenge && G.challenge.active)) return;
+  const living = Object.values(CV.players).filter(p => p.connected && !p.ghost).length;
+  let html = '';
+  for (const [k, d] of Object.entries(CHALLENGES)) {
+    const [lo, hi] = d.players || [2, 14];
+    const fits = living >= lo && living <= hi;
+    html += '<div class="gcard' + (fits ? '' : ' off') + '"' + (fits ? ' data-ch="' + k + '"' : '') + '>' +
+      '<div class="gn">' + esc(d.name) + '</div>' +
+      '<div class="chips"><span class="chip">' + esc(d.kind || 'GAME') + '</span>' +
+      '<span class="chip' + (fits ? '' : ' bad') + '">' + lo + '–' + hi + ' PLAYERS</span>' +
+      (d.live ? '<span class="chip lv">LIVE RIVALS</span>' : '') +
+      (d.rounds ? '<span class="chip lv">' + d.rounds.count + ' ROUNDS</span>' : '') +
+      (d.arena ? '<span class="chip lv">IN THE HOUSE</span>' : '') +
+      (d.groupChat ? '<span class="chip lv">CREW CHAT</span>' : '') +
+      '</div>' +
+      '<div class="gd">' + esc(d.desc) + '</div></div>';
+  }
+  el.pickGrid.innerHTML = html;
+  for (const c of el.pickGrid.querySelectorAll ? el.pickGrid.querySelectorAll('[data-ch]') : []) {
+    c.onclick = () => {
+      el.pickModal.classList.add('hidden');
+      hostStartChallenge(c.getAttribute('data-ch'), hostTutorials);
+    };
+  }
+  el.pickModal.classList.remove('hidden');
 }
-el.chStartBtn.addEventListener('click', () => { if (me.isHost) hostStartChallenge(el.chSelect.value); });
+el.chPickBtn.addEventListener('click', openPicker);
+el.pickCancel.addEventListener('click', () => el.pickModal.classList.add('hidden'));
+
+// tutorial-first: every pick opens as a practice run until the host
+// says otherwise — the real run is one click away
+let hostTutorials = lsGet('blindside-tut') !== '0';
+function renderTutBtn() {
+  el.tutBtn.textContent = 'TUTORIAL FIRST: ' + (hostTutorials ? 'ON' : 'OFF');
+  el.tutBtn.classList.toggle('on', hostTutorials);
+}
+renderTutBtn();
+el.tutBtn.addEventListener('click', () => {
+  hostTutorials = !hostTutorials;
+  lsSet('blindside-tut', hostTutorials ? '1' : '0');
+  renderTutBtn();
+});
 el.voteSetupBtn.addEventListener('click', () => { if (me.isHost) hostOpenVoteSetup(); });
 el.annBtn.addEventListener('click', () => {
   if (!me.isHost) return;
@@ -2526,7 +3814,7 @@ window.__bls = {
   me, net, POS, CHALLENGES, MODES, TRIBES, TAGDEF,
   get G() { return G; }, get CV() { return CV; }, get CH() { return CH; },
   hostLobby, joinLobby, sendChat, castVote, backToTitle,
-  hostStartChallenge, hostEndChallenge, hostCloseChallenge,
+  hostStartChallenge, hostEndChallenge, hostCloseChallenge, hostRealRun,
   hostToggleTag, hostSetGhost, hostClearTags, hostKick,
   hostSetTribe, hostDrawTribes, hostMergeTribes, hostGrantTribeImmunity,
   hostStartVote, hostRevealNext, hostEndVote, hostClearVote,
