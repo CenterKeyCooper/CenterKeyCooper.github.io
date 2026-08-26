@@ -160,7 +160,13 @@ select{
 #chatLog .sys{color:var(--dim); font-style:italic; font-size:12.5px;}
 #chatLog .ann{color:var(--gold);}
 #chatLog .gh{color:var(--ghost); font-style:italic;}
-#chatBar{display:flex; gap:8px; padding:10px 12px; border-top:1px solid var(--line);}
+#chatLog .fnt{color:#8a7a5f; font-style:italic;}
+#emoteBar{
+  display:flex; gap:5px; padding:7px 12px 0; justify-content:center;
+  border-top:1px solid var(--line);
+}
+#emoteBar button{padding:4px 9px; border-radius:9px; line-height:1;}
+#chatBar{display:flex; gap:8px; padding:10px 12px;}
 #chatIn{flex:1; border-radius:18px;}
 #chatBtn{padding:7px 13px;}
 
@@ -350,6 +356,14 @@ select{
           </div>
         </div>
         <div class="sec">
+          <div class="lbl">HOW FAR VOICES CARRY</div>
+          <div class="hrow">
+            <button id="rangeDn" class="tagbtn">&#8722;</button>
+            <span id="rangeVal" style="min-width:36px;text-align:center;font-size:13px">1&times;</span>
+            <button id="rangeUp" class="tagbtn">+</button>
+          </div>
+        </div>
+        <div class="sec">
           <div class="lbl">CHALLENGE</div>
           <div class="hrow">
             <button id="chPickBtn" class="tagbtn">OPEN THE ARSENAL</button>
@@ -369,6 +383,7 @@ select{
           </div>
         </div>
       </details>
+      <div id="emoteBar"></div>
       <div id="chatBar">
         <input id="chatIn" type="text" maxlength="140" placeholder="SPEAK TO THOSE NEARBY">
         <button id="chatBtn">SAY</button>
@@ -446,6 +461,13 @@ const SYM = {
   eye:    { d: 'M2.5 12S6.5 5.5 12 5.5 21.5 12 21.5 12 17.5 18.5 12 18.5 2.5 12 2.5 12zM12 9.2a2.8 2.8 0 1 0 .01 0z', w: 1.6 },
   spark:  { d: 'M12 3v18M4.2 7.5l15.6 9M19.8 7.5l-15.6 9', w: 1.7 },
   mic:    { d: 'M12 3.5a2.8 2.8 0 0 1 2.8 2.8v5a2.8 2.8 0 0 1-5.6 0v-5A2.8 2.8 0 0 1 12 3.5zM6.8 11.5a5.2 5.2 0 0 0 10.4 0M12 16.7V20M9 20h6', w: 1.7 },
+  laugh:  { d: 'M12 3a9 9 0 1 0 .01 0zM7.8 13.2a4.2 4.2 0 0 0 8.4 0zM8.6 9.3h.8M14.6 9.3h.8', w: 1.7 },
+  heart:  { d: 'M12 20C6 15.2 3.8 12 3.8 8.9A4.2 4.2 0 0 1 12 7.2a4.2 4.2 0 0 1 8.2 1.7c0 3.1-2.2 6.3-8.2 11.1z', w: 1.8 },
+  shock:  { d: 'M12 3.5v10M11.9 19h.2', w: 2.6 },
+  quest:  { d: 'M8.3 8.7a3.7 3.7 0 1 1 5.3 3.3c-1.2.6-1.6 1.4-1.6 2.8M11.9 19.5h.2', w: 2.2 },
+  rage:   { d: 'M6.5 17c1.7-1.3 1.7-3.1.2-4.6C5.2 10.9 5.2 9.1 7 7.6M12 17.6c1.7-1.3 1.7-3.1.2-4.6-1.5-1.5-1.5-3.3.3-4.8M17.5 17c1.7-1.3 1.7-3.1.2-4.6-1.5-1.5-1.5-3.3.3-4.8', w: 1.8 },
+  point:  { d: 'M3.5 12h14M12.5 6l7 6-7 6', w: 2 },
+  hail:   { d: 'M8 13V7a1.3 1.3 0 0 1 2.6 0v4M10.6 11V5.6a1.3 1.3 0 0 1 2.6 0V11M13.2 11V6.4a1.3 1.3 0 0 1 2.6 0V13a4.6 4.6 0 0 1-4.6 4.6c-2.2 0-3.4-1-4.6-3l-1.3-2.2c-.5-.9.7-1.8 1.4-1l1.5 1.6M19.2 5.8a6.5 6.5 0 0 1 1.3 2.6', w: 1.6 },
 };
 function symSvg(key, size, color) {
   const s = SYM[key];
@@ -454,20 +476,40 @@ function symSvg(key, size, color) {
     '<path d="' + s.d + '" fill="none" stroke="' + (color || 'currentColor') +
     '" stroke-width="' + s.w + '" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 }
-function symDraw(ctx, key, x, y, size, color, alpha) {
+function symDraw(ctx, key, x, y, size, color, alpha, rot) {
   const s = SYM[key];
   if (!s) return;
   if (s.p === undefined) { try { s.p = new Path2D(s.d); } catch (e) { s.p = null; } }
   if (!s.p) return;
   ctx.save();
-  ctx.translate(x - size / 2, y - size / 2);
+  ctx.translate(x, y);
+  if (rot) ctx.rotate(rot);
   ctx.scale(size / 24, size / 24);
+  ctx.translate(-12, -12);
   ctx.strokeStyle = color;
   ctx.globalAlpha = alpha == null ? 1 : alpha;
   ctx.lineWidth = s.w * 1.2;
   ctx.lineCap = 'round'; ctx.lineJoin = 'round';
   ctx.stroke(s.p);
   ctx.restore();
+}
+
+// ---------------------------------------------------------------------
+// Emotes: silent theater. Visible to EVERYONE regardless of distance —
+// you can see laughter across a room you can't hear into. Ghost emotes
+// are for ghost eyes only. "Point" accuses the nearest player.
+// ---------------------------------------------------------------------
+const EMOTES = [
+  { sym: 'laugh', name: 'LAUGH',  color: '#e0b34c' },
+  { sym: 'heart', name: 'HEART',  color: '#d66a92' },
+  { sym: 'shock', name: 'SHOCK',  color: '#efe5cf' },
+  { sym: 'quest', name: 'HMM?',   color: '#5ea8d8' },
+  { sym: 'rage',  name: 'FUME',   color: '#e2603a' },
+  { sym: 'hail',  name: 'WAVE',   color: '#8fbf6f' },
+];
+const EMO = [];   // live emote bursts: {pid, k, tp, t0}
+function sendEmote(k) {
+  if (net.mode) toHost({ t: 'emote', k });
 }
 
 // ---------------------------------------------------------------------
@@ -543,8 +585,10 @@ const el = {
   roomCode: $('roomCode'), modeTag: $('modeTag'), playersDiv: $('playersDiv'),
   chatLog: $('chatLog'), chatIn: $('chatIn'), chatBtn: $('chatBtn'),
   voiceBtn: $('voiceBtn'), muteBtn: $('muteBtn'), megaBtn: $('megaBtn'), voiceMsg: $('voiceMsg'),
+  emoteBar: $('emoteBar'),
   hostPanel: $('hostPanel'), hpPlayers: $('hpPlayers'), clearTagsBtn: $('clearTagsBtn'),
   tribeSec: $('tribeSec'), drawTribesBtn: $('drawTribesBtn'), mergeBtn: $('mergeBtn'),
+  rangeDn: $('rangeDn'), rangeUp: $('rangeUp'), rangeVal: $('rangeVal'),
   chPickBtn: $('chPickBtn'), tutBtn: $('tutBtn'),
   pickModal: $('pickModal'), pickGrid: $('pickGrid'), pickCancel: $('pickCancel'),
   voteSetup: $('voteSetup'), voteSetupBtn: $('voteSetupBtn'),
@@ -621,7 +665,7 @@ function pubState() {
     results: G.challenge.results || null, ghostResults: G.challenge.ghostResults || null,
     tribeResults: G.challenge.tribeResults || null,
   };
-  return { players, vote, challenge, mode: G.mode };
+  return { players, vote, challenge, mode: G.mode, range: G.rangeMul || 1 };
 }
 function sync() { hostBroadcast({ t: 'state', s: pubState() }); }
 function sysMsg(text) { hostBroadcast({ t: 'sys', text }); }
@@ -668,7 +712,7 @@ function hostLobby(modeKey) {
   net.peer.on('open', () => {
     me.pid = net.peer.id;
     me.isHost = true;
-    G = { players: {}, vote: null, challenge: null, mode };
+    G = { players: {}, vote: null, challenge: null, mode, rangeMul: 1 };
     hostAddPlayer(me.pid, me.name);
     CV = pubState();
     enterMain();
@@ -783,6 +827,21 @@ function onHostMsg(pid, msg, conn) {
     case 'voteCast': hostVoteCast(pid, msg.pick); break;
     case 'voiceOn': { const p = G.players[pid]; if (p) { p.voice = true; sync(); } break; }
     case 'voiceOff': { const p = G.players[pid]; if (p) { p.voice = false; sync(); } break; }
+    case 'emote': {
+      const p = G.players[pid];
+      const k = Number(msg.k);
+      if (!p || !(k >= 0 && k < EMOTES.length)) break;
+      const t = now();
+      if (p.lastEmote && t - p.lastEmote < 70) break;   // piano-rolls welcome; floods are not
+      p.lastEmote = t;
+      const out = { t: 'emoteAt', pid, k };
+      for (const [qid, q] of Object.entries(G.players)) {
+        if (!q.connected) continue;
+        if (p.ghost && !q.ghost) continue;
+        sendTo(qid, out);
+      }
+      break;
+    }
   }
 }
 
@@ -809,12 +868,31 @@ function hostChat(fromPid, text) {
     }
     return;
   }
+  // two rings: clear words inside R, a garbled whisper out to 1.6R
+  const R = CHAT_R * (G.rangeMul || 1), WR = R * 1.6;
   for (const [pid, p] of Object.entries(G.players)) {
     if (!p.connected || !POS[pid]) continue;
-    const inR = dist(POS[pid], fpos) <= CHAT_R;
     if (from.ghost && !p.ghost) continue;
-    sendTo(pid, inR ? chatMsg : { t: 'talk', pid: fromPid });
+    const d = dist(POS[pid], fpos);
+    if (d <= R) sendTo(pid, chatMsg);
+    else if (d <= WR) sendTo(pid, { ...chatMsg, text: garble(text), faint: true });
+    else sendTo(pid, { t: 'talk', pid: fromPid });
   }
+}
+// what a whisper sounds like from the far edge of earshot
+function garble(text) {
+  let out = '';
+  for (const ch of text) out += (ch === ' ' || Math.random() < .3) ? ch : '·';
+  return out;
+}
+function hostSetRange(mul) {
+  if (!me.isHost || !G) return;
+  mul = Math.round(clamp(mul, .5, 2) * 4) / 4;
+  if (mul === G.rangeMul) return;
+  G.rangeMul = mul;
+  el.rangeVal.textContent = mul + '×';
+  sysMsg('Voices now carry ' + mul + '× as far');
+  sync();
 }
 
 // ----- host: powers / ghosts / tribes / kick -----
@@ -918,12 +996,19 @@ function onNetMsg(msg) {
       break;
     }
     case 'chat': {
-      bubbles.push({ pid: msg.from, text: msg.text, ghost: msg.ghost, until: now() + 4500 });
+      bubbles.push({ pid: msg.from, text: msg.text, ghost: msg.ghost, faint: msg.faint, until: now() + 4500 });
       if (bubbles.length > 30) bubbles.shift();
-      addChat(msg.ghost ? 'gh' : 'm', msg.name + ' — ' + msg.text, msg.ghost ? 'wisp' : null);
+      addChat(msg.ghost ? 'gh' : (msg.faint ? 'fnt' : 'm'), msg.name + ' — ' + msg.text, msg.ghost ? 'wisp' : null);
       break;
     }
     case 'talk': talks[msg.pid] = now() + 2000; break;
+    case 'emoteAt': {
+      // scatter along a 120-degree arc crowning the head, just off the dot
+      const th = (Math.random() * 2 - 1) * (Math.PI / 3);
+      EMO.push({ pid: msg.pid, k: msg.k, t0: now(), ox: Math.sin(th) * 34, oy: -Math.cos(th) * 34 - 4 });
+      if (EMO.length > 80) EMO.shift();
+      break;
+    }
     case 'sys': addChat('sys', msg.text); break;
     case 'ann': {
       addChat('ann', msg.text, 'horn');
@@ -989,9 +1074,13 @@ function sendChat(text) {
   text = String(text || '').trim().slice(0, 140);
   if (!text) return;
   toHost({ t: 'chat', text });
-  // return the keyboard to the game/lobby — a focused input would
-  // otherwise swallow every game key ("my moves don't register")
-  try { el.chatIn.blur(); } catch (e) {}
+}
+function sendAnnounce() {
+  if (!me.isHost) return;
+  const t = (el.annIn.value || '').trim().slice(0, 120);
+  if (!t) return;
+  el.annIn.value = '';
+  hostBroadcast({ t: 'ann', text: t });
 }
 
 // ---------------------------------------------------------------------
@@ -2242,11 +2331,14 @@ const CHALLENGES = {
 };
 
 // ----- host: challenge control -----
-function hostStartChallenge(key, practice) {
+function hostStartChallenge(key, practice, instant) {
   if (!CHALLENGES[key] || (G.challenge && G.challenge.active)) return;
   const def = CHALLENGES[key];
   const seed = Math.floor(Math.random() * 0x7fffffff);
-  const lead = CH_COUNTDOWN;   // countdown -> tutorial -> real game: every run gets its beat
+  // one countdown per challenge: it runs before the FIRST thing people
+  // see (practice if tutorials are on); the real run after a practice
+  // starts at once — everyone is already warmed up and waiting
+  const lead = instant ? 0 : CH_COUNTDOWN;
   G.challenge = {
     key, seed, active: true, practice: !!practice,
     progress: {}, results: null, ghostResults: null, tribeResults: null,
@@ -2271,7 +2363,7 @@ function hostRealRun() {
   const key = c.key;
   G.challenge = null;
   hostBroadcast({ t: 'chClose' });
-  hostStartChallenge(key, false);
+  hostStartChallenge(key, false, true);
 }
 function hostChTick(pid, msg) {
   const c = G.challenge;
@@ -2862,7 +2954,8 @@ function updateVoice() {
     let g = 0;
     if (p && p.connected && p.voice && myPos && POS[pid]) {
       const d = dist(myPos, POS[pid]);
-      const prox = clamp(1 - (d - VOICE_NEAR) / (VOICE_FAR - VOICE_NEAR), 0, 1);
+      const mul = CV.range || 1;
+      const prox = clamp(1 - (d - VOICE_NEAR * mul) / ((VOICE_FAR - VOICE_NEAR) * mul), 0, 1);
       if (p.mega) g = 1;                    // megaphone reaches every ear
       else if (meP && meP.ghost) g = prox;  // ghosts overhear anyone nearby
       else if (p.ghost) g = 0;              // the living never hear ghosts
@@ -3562,14 +3655,20 @@ function drawLobby(t) {
     lctx.beginPath(); lctx.arc(moveTarget.x, moveTarget.y, 6 + ph * 14, 0, 7); lctx.stroke();
   }
   const meP = CV.players[me.pid];
-  // hearing circle around self
+  // hearing circles around self: clear words inside, faintest whisper out
   if (POS[me.pid]) {
     const col = meP && meP.ghost ? '143,163,184' : '224,179,76';
+    const R = CHAT_R * (CV.range || 1);
     lctx.strokeStyle = 'rgba(' + col + ',.13)';
     lctx.lineWidth = 1.5;
     lctx.shadowColor = 'rgba(' + col + ',.25)'; lctx.shadowBlur = 10;
-    lctx.beginPath(); lctx.arc(POS[me.pid].dx, POS[me.pid].dy, CHAT_R, 0, 7); lctx.stroke();
+    lctx.beginPath(); lctx.arc(POS[me.pid].dx, POS[me.pid].dy, R, 0, 7); lctx.stroke();
     lctx.shadowBlur = 0;
+    lctx.strokeStyle = 'rgba(' + col + ',.05)';
+    lctx.lineWidth = 1;
+    if (lctx.setLineDash) lctx.setLineDash([3, 9]);
+    lctx.beginPath(); lctx.arc(POS[me.pid].dx, POS[me.pid].dy, R * 1.6, 0, 7); lctx.stroke();
+    if (lctx.setLineDash) lctx.setLineDash([]);
   }
   // dots: living first, ghosts drift above
   const entries = Object.entries(CV.players).filter(([pid, p]) => p.connected && POS[pid]);
@@ -3587,31 +3686,58 @@ function drawLobby(t) {
   }
   for (const [pid, p] of entries) if (!p.ghost) drawDot(pid, p, POS[pid], t);
   for (const [pid, p] of entries) if (p.ghost) drawDot(pid, p, POS[pid], t);
-  // speech bubbles (recipient-only: we only ever received what we could hear)
+  // speech bubbles (recipient-only: we only ever received what we could
+  // hear). Rapid messages stack into a queue that climbs and fades.
   lctx.textAlign = 'center';
+  const byPid = {};
   for (const b of bubbles) {
     if (t > b.until || !POS[b.pid]) continue;
-    const q = POS[b.pid];
-    const txt = b.text.length > 44 ? b.text.slice(0, 43) + '…' : b.text;
-    lctx.font = '13px Georgia, serif';
-    const tw = lctx.measureText(txt).width;
-    const w = Math.min(380, Math.max(46, tw)) + 20;
-    const bx = clamp(q.dx, w / 2 + 6, W - w / 2 - 6), by = clamp(q.dy - 64, 28, H);
-    lctx.globalAlpha = clamp((b.until - t) / 800, 0, 1);
-    lctx.fillStyle = b.ghost ? '#1a1f26' : '#241d15';
-    lctx.strokeStyle = b.ghost ? 'rgba(143,163,184,.5)' : '#4a3826';
-    lctx.lineWidth = 1;
-    lctx.beginPath();
-    if (lctx.roundRect) lctx.roundRect(bx - w / 2, by - 15, w, 25, 5);
-    else lctx.rect(bx - w / 2, by - 15, w, 25);
-    lctx.fill(); lctx.stroke();
-    // tail
-    lctx.beginPath();
-    lctx.moveTo(bx - 4, by + 10); lctx.lineTo(bx, by + 17); lctx.lineTo(bx + 5, by + 10);
-    lctx.fill();
-    lctx.fillStyle = b.ghost ? '#8fa3b8' : '#e8dcc3';
-    lctx.fillText(txt, bx, by + 3);
-    lctx.globalAlpha = 1;
+    (byPid[b.pid] = byPid[b.pid] || []).push(b);
+  }
+  for (const [bpid, blist] of Object.entries(byPid)) {
+    const q = POS[bpid];
+    blist.sort((a, b) => a.until - b.until);
+    const stack = blist.slice(-4);
+    for (let k = 0; k < stack.length; k++) {
+      const b = stack[k];
+      const idx = stack.length - 1 - k;   // 0 = newest, at the mouth
+      const faded = b.faint || b.ghost;
+      const txt = b.text.length > 44 ? b.text.slice(0, 43) + '…' : b.text;
+      lctx.font = (b.faint ? 'italic ' : '') + '13px Georgia, serif';
+      const tw = lctx.measureText(txt).width;
+      const w = Math.min(380, Math.max(46, tw)) + 20;
+      const rise = (1 - clamp((b.until - t) / 4500, 0, 1)) * 7;   // old words drift upward
+      const bx = clamp(q.dx, w / 2 + 6, W - w / 2 - 6);
+      const by = clamp(q.dy - 64 - idx * 28 - rise, 28, H);
+      lctx.globalAlpha = clamp((b.until - t) / 800, 0, 1) * (1 - idx * .22) * (b.faint ? .7 : 1);
+      lctx.fillStyle = faded ? '#1a1f26' : '#241d15';
+      lctx.strokeStyle = faded ? 'rgba(143,163,184,.45)' : '#4a3826';
+      lctx.lineWidth = 1;
+      lctx.beginPath();
+      if (lctx.roundRect) lctx.roundRect(bx - w / 2, by - 15, w, 25, 5);
+      else lctx.rect(bx - w / 2, by - 15, w, 25);
+      lctx.fill(); lctx.stroke();
+      if (idx === 0) {
+        lctx.beginPath();
+        lctx.moveTo(bx - 4, by + 10); lctx.lineTo(bx, by + 17); lctx.lineTo(bx + 5, by + 10);
+        lctx.fill();
+      }
+      lctx.fillStyle = faded ? '#8fa3b8' : '#e8dcc3';
+      lctx.fillText(txt, bx, by + 3);
+      lctx.globalAlpha = 1;
+    }
+  }
+  // emote bursts: pop in, drift up, fade out
+  for (let i = EMO.length - 1; i >= 0; i--) {
+    const e = EMO[i];
+    const age = t - e.t0;
+    if (age > 2500 || !POS[e.pid]) { EMO.splice(i, 1); continue; }
+    const edef = EMOTES[e.k];
+    if (!edef) continue;
+    const q = POS[e.pid];
+    const al = clamp(1 - age / 2500, 0, 1);
+    const pop = age < 180 ? .5 + .5 * (age / 180) : 1;
+    symDraw(lctx, edef.sym, q.dx + e.ox, q.dy + e.oy - (age / 2500) * 30, 26 * pop, edef.color, al);
   }
   // arena game world-space layer (the ember on someone's head)
   if (CH && CH.arena && CH.inst && CH.inst.lobbyDraw && CH.state !== 'results') CH.inst.lobbyDraw(lctx, t);
@@ -3682,8 +3808,13 @@ function canvasXY(cv, ev) {
 document.addEventListener('keydown', e => {
   const typing = document.activeElement && (document.activeElement.tagName === 'INPUT');
   if (typing) {
+    // Enter sends and KEEPS focus (a11y: stay in the bar to keep talking);
+    // Escape steps back out to the room
+    if (e.key === 'Escape') { try { document.activeElement.blur(); } catch (err) {} return; }
     if (e.key === 'Enter' && document.activeElement === el.chatIn) {
       sendChat(el.chatIn.value); el.chatIn.value = '';
+    } else if (e.key === 'Enter' && document.activeElement === el.annIn) {
+      sendAnnounce();
     }
     return;
   }
@@ -3693,6 +3824,7 @@ document.addEventListener('keydown', e => {
     return;
   }
   if (e.key === 'Enter') { el.chatIn.focus(); e.preventDefault(); return; }
+  if (e.key >= '1' && e.key <= '6') { sendEmote(e.key.charCodeAt(0) - 49); return; }
   const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
   keys[k] = true;
 });
@@ -3709,7 +3841,15 @@ el.chCanvas.addEventListener('mousedown', ev => {
   const { x, y } = canvasXY(el.chCanvas, ev);
   if (CH.inst.click) CH.inst.click(x, y);
 });
-el.chatBtn.addEventListener('click', () => { sendChat(el.chatIn.value); el.chatIn.value = ''; });
+el.chatBtn.addEventListener('click', () => { sendChat(el.chatIn.value); el.chatIn.value = ''; el.chatIn.focus(); });
+EMOTES.forEach((em, i) => {
+  const b = document.createElement('button');
+  b.className = 'tagbtn';
+  b.title = em.name + '  (' + (i + 1) + ')';
+  b.innerHTML = symSvg(em.sym, 15, em.color);
+  b.addEventListener('click', () => sendEmote(i));
+  el.emoteBar.appendChild(b);
+});
 el.voiceBtn.addEventListener('click', () => { VOICE.on ? leaveVoice() : joinVoice(); });
 el.muteBtn.addEventListener('click', toggleMute);
 el.megaBtn.addEventListener('click', () => {
@@ -3747,6 +3887,8 @@ el.joinBtn.addEventListener('click', () => {
 el.clearTagsBtn.addEventListener('click', () => { if (me.isHost) hostClearTags(); });
 el.drawTribesBtn.addEventListener('click', () => { if (me.isHost) hostDrawTribes(); });
 el.mergeBtn.addEventListener('click', () => { if (me.isHost) hostMergeTribes(); });
+el.rangeDn.addEventListener('click', () => { if (me.isHost && G) hostSetRange((G.rangeMul || 1) - .25); });
+el.rangeUp.addEventListener('click', () => { if (me.isHost && G) hostSetRange((G.rangeMul || 1) + .25); });
 
 // ----- the arsenal: challenge picker -----
 function openPicker() {
@@ -3793,13 +3935,7 @@ el.tutBtn.addEventListener('click', () => {
   renderTutBtn();
 });
 el.voteSetupBtn.addEventListener('click', () => { if (me.isHost) hostOpenVoteSetup(); });
-el.annBtn.addEventListener('click', () => {
-  if (!me.isHost) return;
-  const t = (el.annIn.value || '').trim().slice(0, 120);
-  if (!t) return;
-  el.annIn.value = '';
-  hostBroadcast({ t: 'ann', text: t });
-});
+el.annBtn.addEventListener('click', () => { sendAnnounce(); el.annIn.focus(); });
 
 // url ?code=XXXXX prefill
 try {
@@ -3811,12 +3947,12 @@ requestAnimationFrame(frame);
 
 // Debug/test hook
 window.__bls = {
-  me, net, POS, CHALLENGES, MODES, TRIBES, TAGDEF,
+  me, net, POS, CHALLENGES, MODES, TRIBES, TAGDEF, EMOTES, EMO, sendEmote,
   get G() { return G; }, get CV() { return CV; }, get CH() { return CH; },
   hostLobby, joinLobby, sendChat, castVote, backToTitle,
   hostStartChallenge, hostEndChallenge, hostCloseChallenge, hostRealRun,
   hostToggleTag, hostSetGhost, hostClearTags, hostKick,
-  hostSetTribe, hostDrawTribes, hostMergeTribes, hostGrantTribeImmunity,
+  hostSetTribe, hostDrawTribes, hostMergeTribes, hostGrantTribeImmunity, hostSetRange,
   hostStartVote, hostRevealNext, hostEndVote, hostClearVote,
   VOICE, joinVoice, leaveVoice, toggleMute, hostSetMega, reconcileVoice,
   onHostMsg, onNetMsg, setName(n) { me.name = n; },
