@@ -625,6 +625,8 @@ const net = { mode: null, peer: null, conns: new Map(), hostConn: null, code: ''
 
 const bubbles = [];
 const talks = {};
+const TYPING = {};   // pid -> until: eyes merge while someone types
+const DUST = [];     // footstep dust motes
 let bannerUntil = 0;
 let colorIdx = 0;
 let hostModeSel = 'bb';
@@ -831,6 +833,16 @@ function onHostMsg(pid, msg, conn) {
       break;
     }
     case 'chat': hostChat(pid, String(msg.text || '').slice(0, 140)); break;
+    case 'typing': {
+      const p = G.players[pid];
+      if (!p) break;
+      for (const [qid, q] of Object.entries(G.players)) {
+        if (!q.connected) continue;
+        if (p.ghost && !q.ghost) continue;   // ghost fingers move unseen
+        sendTo(qid, { t: 'typingAt', pid });
+      }
+      break;
+    }
     case 'chTick': hostChTick(pid, msg); break;
     case 'chAct': {
       const c = G.challenge;
@@ -884,14 +896,16 @@ function hostChat(fromPid, text) {
     }
     return;
   }
-  // two rings: clear words inside R, a garbled whisper out to 1.6R
-  const R = CHAT_R * (G.rangeMul || 1), WR = R * 1.6;
+  // three rings: clear words inside R, a garbled whisper to 1.6R,
+  // unreadable mumbling out to 2.2R — beyond that, only moving lips
+  const R = CHAT_R * (G.rangeMul || 1), WR = R * 1.6, MR = R * 2.2;
   for (const [pid, p] of Object.entries(G.players)) {
     if (!p.connected || !POS[pid]) continue;
     if (from.ghost && !p.ghost) continue;
     const d = dist(POS[pid], fpos);
     if (d <= R) sendTo(pid, chatMsg);
     else if (d <= WR) sendTo(pid, { ...chatMsg, text: garble(text), faint: true });
+    else if (d <= MR) sendTo(pid, { ...chatMsg, text: mumble(text), faint: true, mumble: true });
     else sendTo(pid, { t: 'talk', pid: fromPid });
   }
 }
@@ -900,6 +914,13 @@ function garble(text) {
   let out = '';
   for (const ch of text) out += (ch === ' ' || Math.random() < .3) ? ch : '·';
   return out;
+}
+// and what carries even farther: just the shape of the sentence
+function mumble(text) {
+  return text.split(/\s+/).filter(w => w).map(w => {
+    const n = clamp(Math.round(w.length * .8), 2, 6);
+    return (Math.random() < .3 ? 'h' : 'm') + 'm'.repeat(n - 1);
+  }).join(' ');
 }
 function hostSetRange(mul) {
   if (!me.isHost || !G) return;
@@ -1012,12 +1033,13 @@ function onNetMsg(msg) {
       break;
     }
     case 'chat': {
-      bubbles.push({ pid: msg.from, text: msg.text, ghost: msg.ghost, faint: msg.faint, until: now() + 4500 });
+      bubbles.push({ pid: msg.from, text: msg.text, ghost: msg.ghost, faint: msg.faint, mumble: msg.mumble, until: now() + 4500 });
       if (bubbles.length > 30) bubbles.shift();
       addChat(msg.ghost ? 'gh' : (msg.faint ? 'fnt' : 'm'), msg.name + ' — ' + msg.text, msg.ghost ? 'wisp' : null);
       break;
     }
     case 'talk': talks[msg.pid] = now() + 2000; break;
+    case 'typingAt': TYPING[msg.pid] = now() + 1600; break;
     case 'emoteAt': {
       // scatter along a 120-degree arc crowning the head, just off the dot
       const th = (Math.random() * 2 - 1) * (Math.PI / 3);
@@ -2852,7 +2874,8 @@ function renderVoteModal() {
 // Ghost rules mirror text chat. The host's megaphone overrides
 // distance for everyone — the production voice.
 // ---------------------------------------------------------------------
-const VOICE_NEAR = 140, VOICE_FAR = CHAT_R * 1.6;
+// voice dies completely at the mumble ring (2.2x), not the whisper ring
+const VOICE_NEAR = 140, VOICE_FAR = CHAT_R * 2.2;
 const VOICE = {
   on: false, muted: false, stream: null, ctx: null,
   peers: new Map(),      // pid -> {call, stream, el, gain, an, level}
@@ -3602,17 +3625,74 @@ function drawDot(pid, p, q, t) {
     lctx.beginPath(); lctx.arc(dx, dy, 16.5, 0, 7); lctx.stroke();
     lctx.globalAlpha = gh ? .45 : 1;
   }
-  // the dot itself: one flat color, no glare
+  // the dot itself: one flat color, no glare — but alive. It leans into
+  // a run (squash & stretch along the facing) and breathes when idle.
+  if (q._ph == null) {
+    let h = 0;
+    for (let ci = 0; ci < pid.length; ci++) h = (h * 31 + pid.charCodeAt(ci)) >>> 0;
+    q._ph = h % 4000;
+  }
+  const fx = q.fx == null ? 0 : q.fx, fy = q.fy == null ? 1 : q.fy;
+  const ang = Math.atan2(fy, fx);
+  const sq = clamp((q.mv || 0) / 320, 0, 1) * .14;
+  const breathe = (q.mv || 0) < 30 ? Math.sin(t / 850 + q._ph) * .5 : 0;
+  const rx = 13 * (1 + sq) + breathe, ry = 13 * (1 - sq) + breathe;
   lctx.fillStyle = p.color;
-  lctx.beginPath(); lctx.arc(dx, dy, 13, 0, 7); lctx.fill();
+  lctx.beginPath(); lctx.ellipse(dx, dy, rx, ry, ang, 0, 7); lctx.fill();
   lctx.strokeStyle = 'rgba(0,0,0,.4)'; lctx.lineWidth = 1;
-  lctx.beginPath(); lctx.arc(dx, dy, 13, 0, 7); lctx.stroke();
+  lctx.beginPath(); lctx.ellipse(dx, dy, rx, ry, ang, 0, 7); lctx.stroke();
   if (gh) {
     lctx.strokeStyle = '#8fa3b8';
     if (lctx.setLineDash) lctx.setLineDash([3, 4]);
+    lctx.lineDashOffset = -t / 55;   // the outline swirls, unquiet
     lctx.lineWidth = 1.5;
-    lctx.beginPath(); lctx.arc(dx, dy, 13, 0, 7); lctx.stroke();
+    lctx.beginPath(); lctx.ellipse(dx, dy, rx, ry, ang, 0, 7); lctx.stroke();
     if (lctx.setLineDash) lctx.setLineDash([]);
+    lctx.lineDashOffset = 0;
+  }
+  // eyes: one plus, one cross — together, the game's asterisk. They
+  // trade places every blink (swapping while shut), and while their
+  // owner types or speaks they glide to the center and fuse into the
+  // full mark, slowly turning.
+  const bc = (t + q._ph) % 3800;
+  const pr = bc < 150 ? bc / 150 : 0;
+  // speech holds the fuse through the gaps between words — a ~1s hang
+  // after the last sound, plus a gentler release, so nobody has to hum
+  if (speakLevel(pid) > .045) q._spk = t + 950;
+  const talkingNow = (TYPING[pid] && t < TYPING[pid]) || (q._spk && t < q._spk);
+  const cmbT = talkingNow ? 1 : 0;
+  q._cmb = (q._cmb || 0) + (cmbT - (q._cmb || 0)) * (cmbT > (q._cmb || 0) ? .16 : .06);
+  q._crot = (q._crot || 0) + .019 * q._cmb;
+  // the fused mark never blinks: blink fades out as the eyes merge
+  const blinkScale = pr ? Math.abs(Math.cos(Math.PI * pr)) : 1;
+  const eyeScale = blinkScale + (1 - blinkScale) * q._cmb;
+  if (eyeScale > .12) {
+    const cmb = q._cmb;
+    const ex0 = dx + fx * 5.4, ey0 = dy + fy * 5.4;
+    const mx = dx, my2 = dy;   // the meeting point: dead center
+    const swap = Math.floor((t + q._ph - 75) / 3800) & 1;
+    lctx.strokeStyle = gh ? 'rgba(20,26,34,.9)' : 'rgba(22,16,9,.68)';
+    lctx.lineWidth = 1.5;
+    lctx.lineCap = 'round';
+    // each eye is a three-pointed star; one points up, the other down.
+    // Slide them together and — no morphing needed — they interlock
+    // into the equidistant six-point asterisk of the game's mark.
+    if (cmb < .03) q._crot = 0;
+    const rotAll = pr * Math.PI / 2 + q._crot * cmb;
+    for (const sgn of [-1, 1]) {
+      const sx3 = ex0 - fy * 3.6 * sgn, sy3 = ey0 + fx * 3.6 * sgn;
+      const cx3 = sx3 + (mx - sx3) * cmb, cy3 = sy3 + (my2 - sy3) * cmb;
+      const upStar = (sgn < 0) !== !!swap;
+      const baseRot = (upStar ? -Math.PI / 2 : Math.PI / 2) + rotAll;
+      const r = 2.7 * eyeScale * (1 + cmb * .9);
+      lctx.beginPath();
+      for (let ai = 0; ai < 3; ai++) {
+        const a = baseRot + ai * (Math.PI * 2 / 3);
+        lctx.moveTo(cx3, cy3);
+        lctx.lineTo(cx3 + Math.cos(a) * r, cy3 + Math.sin(a) * r);
+      }
+      lctx.stroke();
+    }
   }
   // name
   lctx.font = '12.5px Georgia, serif';
@@ -3680,10 +3760,14 @@ function drawLobby(t) {
     lctx.shadowColor = 'rgba(' + col + ',.25)'; lctx.shadowBlur = 10;
     lctx.beginPath(); lctx.arc(POS[me.pid].dx, POS[me.pid].dy, R, 0, 7); lctx.stroke();
     lctx.shadowBlur = 0;
-    lctx.strokeStyle = 'rgba(' + col + ',.05)';
-    lctx.lineWidth = 1;
+    lctx.strokeStyle = 'rgba(' + col + ',.09)';
+    lctx.lineWidth = 1.2;
     if (lctx.setLineDash) lctx.setLineDash([3, 9]);
     lctx.beginPath(); lctx.arc(POS[me.pid].dx, POS[me.pid].dy, R * 1.6, 0, 7); lctx.stroke();
+    // the last ring: past this, your voice is nothing at all
+    lctx.strokeStyle = 'rgba(' + col + ',.09)';
+    if (lctx.setLineDash) lctx.setLineDash([11, 8]);
+    lctx.beginPath(); lctx.arc(POS[me.pid].dx, POS[me.pid].dy, R * 2.2, 0, 7); lctx.stroke();
     if (lctx.setLineDash) lctx.setLineDash([]);
   }
   // dots: living first, ghosts drift above
@@ -3697,8 +3781,46 @@ function drawLobby(t) {
       q.dy += (q.y - q.dy) * k;
     }
     // smoothed movement estimate → footstep bob amplitude
-    const spd = pid === me.pid ? Math.hypot(q.vx || 0, q.vy || 0) : Math.hypot(q.x - q.dx, q.y - q.dy) * 9;
+    const mvx = pid === me.pid ? (q.vx || 0) : (q.x - q.dx) * 9;
+    const mvy = pid === me.pid ? (q.vy || 0) : (q.y - q.dy) * 9;
+    const spd = Math.hypot(mvx, mvy);
     q.mv = (q.mv || 0) + (spd - (q.mv || 0)) * .12;
+    // facing: eyes look where you're headed; standing still, they find
+    // the nearest person and watch them
+    let tfx = null, tfy = null, fk = .15;
+    if (spd > 50) {
+      tfx = mvx / spd; tfy = mvy / spd;
+    } else {
+      let bd = 300 * 300;
+      for (const [oid] of entries) {
+        if (oid === pid || !POS[oid]) continue;
+        const oq = POS[oid];
+        const ddx = oq.dx - q.dx, ddy = oq.dy - q.dy;
+        const d2 = ddx * ddx + ddy * ddy;
+        if (d2 < bd && d2 > 25) { bd = d2; const dl = Math.sqrt(d2); tfx = ddx / dl; tfy = ddy / dl; }
+      }
+      fk = .07;   // gaze drifts over, it doesn't snap
+    }
+    if (tfx != null) {
+      q.fx = (q.fx == null ? 0 : q.fx) + (tfx - (q.fx == null ? 0 : q.fx)) * fk;
+      q.fy = (q.fy == null ? 1 : q.fy) + (tfy - (q.fy == null ? 1 : q.fy)) * fk;
+      const fl = Math.hypot(q.fx, q.fy) || 1;
+      q.fx /= fl; q.fy /= fl;
+    }
+    // heels kick up dust at a run (the dead disturb nothing)
+    if (!p.ghost && q.mv > 150 && t - (q._dustAt || 0) > 110) {
+      q._dustAt = t;
+      DUST.push({ x: q.dx - (q.fx || 0) * 11 + (Math.random() * 6 - 3), y: q.dy + 11 + (Math.random() * 4 - 2), t0: t });
+      if (DUST.length > 70) DUST.shift();
+    }
+  }
+  // dust settles under everyone's feet
+  for (let i = DUST.length - 1; i >= 0; i--) {
+    const d = DUST[i];
+    const age = t - d.t0;
+    if (age > 600) { DUST.splice(i, 1); continue; }
+    lctx.fillStyle = 'rgba(200,180,140,' + (.14 * (1 - age / 600)).toFixed(3) + ')';
+    lctx.beginPath(); lctx.arc(d.x, d.y, 2 + age / 180, 0, 7); lctx.fill();
   }
   for (const [pid, p] of entries) if (!p.ghost) drawDot(pid, p, POS[pid], t);
   for (const [pid, p] of entries) if (p.ghost) drawDot(pid, p, POS[pid], t);
@@ -3739,7 +3861,13 @@ function drawLobby(t) {
         lctx.fill();
       }
       lctx.fillStyle = faded ? '#8fa3b8' : '#e8dcc3';
-      lctx.fillText(txt, bx, by + 3);
+      if (b.mumble && 'filter' in lctx) {
+        lctx.filter = 'blur(1.3px)';       // sound smeared by distance
+        lctx.fillText(txt, bx, by + 3);
+        lctx.filter = 'none';
+      } else {
+        lctx.fillText(txt, bx, by + 3);
+      }
       lctx.globalAlpha = 1;
     }
   }
@@ -3753,7 +3881,20 @@ function drawLobby(t) {
     const q = POS[e.pid];
     const al = clamp(1 - age / 2500, 0, 1);
     const pop = age < 180 ? .5 + .5 * (age / 180) : 1;
-    symDraw(lctx, edef.sym, q.dx + e.ox, q.dy + e.oy - (age / 2500) * 30, 26 * pop, edef.color, al);
+    // every emote moves in character
+    let ex = q.dx + e.ox, ey = q.dy + e.oy - (age / 2500) * 30, rot = 0, size = 26 * pop;
+    switch (edef.sym) {
+      case 'laugh': ey -= Math.abs(Math.sin(age / 95)) * 4; break;              // giggling bounce
+      case 'heart': size *= 1 + .11 * Math.sin(age / 130); break;               // a beating heart
+      case 'shock': size *= age < 240 ? 1.55 - .55 * (age / 240) : 1; break;    // slams in, settles
+      case 'quest': rot = .24 * Math.sin(age / 240); break;                     // puzzled head-tilt
+      case 'rage': ex += Math.sin(age / 32) * 2.4; break;                       // fuming tremble
+      case 'hail': rot = .5 * Math.sin(age / 140); break;                       // actually waving
+    }
+    lctx.shadowColor = edef.color;
+    lctx.shadowBlur = 9 * al;
+    symDraw(lctx, edef.sym, ex, ey, size, edef.color, al, rot);
+    lctx.shadowBlur = 0;
   }
   // arena game world-space layer (the ember on someone's head)
   if (CH && CH.arena && CH.inst && CH.inst.lobbyDraw && CH.state !== 'results') CH.inst.lobbyDraw(lctx, t);
@@ -3858,6 +3999,12 @@ el.chCanvas.addEventListener('mousedown', ev => {
   if (CH.inst.click) CH.inst.click(x, y);
 });
 el.chatBtn.addEventListener('click', () => { sendChat(el.chatIn.value); el.chatIn.value = ''; el.chatIn.focus(); });
+let lastTypeSent = 0;
+el.chatIn.addEventListener('input', () => {
+  if (!net.mode || !el.chatIn.value) return;
+  const t2 = now();
+  if (t2 - lastTypeSent > 1100) { lastTypeSent = t2; toHost({ t: 'typing' }); }
+});
 EMOTES.forEach((em, i) => {
   const b = document.createElement('button');
   b.className = 'tagbtn';
@@ -3963,7 +4110,7 @@ requestAnimationFrame(frame);
 
 // Debug/test hook
 window.__bls = {
-  me, net, POS, CHALLENGES, MODES, TRIBES, TAGDEF, EMOTES, EMO, sendEmote,
+  me, net, POS, CHALLENGES, MODES, TRIBES, TAGDEF, EMOTES, EMO, TYPING, sendEmote,
   get G() { return G; }, get CV() { return CV; }, get CH() { return CH; },
   hostLobby, joinLobby, sendChat, castVote, backToTitle,
   hostStartChallenge, hostEndChallenge, hostCloseChallenge, hostRealRun,
