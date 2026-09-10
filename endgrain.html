@@ -108,6 +108,7 @@
     box-shadow:inset 0 0 0 2px rgba(255,235,180,.55), inset 0 0 14px rgba(255,220,140,.5), 0 0 16px rgba(224,179,76,.55);
   }
   .tile.sel{box-shadow:inset 0 0 0 2.5px rgba(143,191,111,.95), inset 0 0 20px rgba(143,191,111,.3);}
+  .tile.pm{box-shadow:inset 0 0 0 2.5px rgba(224,179,76,.7), inset 0 0 16px rgba(224,179,76,.28);}
 
   #hl{position:absolute; inset:0; pointer-events:none; z-index:3;}
   .dot{
@@ -120,6 +121,11 @@
     background:transparent;
     border:3px solid rgba(226,96,58,.9);
     box-shadow:0 0 12px rgba(226,96,58,.55);
+  }
+  /* premove: gold dots while queuing, gold-tinted squares once queued */
+  .dot.pre{
+    background:rgba(224,179,76,.75);
+    box-shadow:0 0 8px rgba(224,179,76,.45), 0 2px 3px rgba(0,0,0,.3);
   }
   @keyframes dotIn{from{transform:scale(0); opacity:0;}}
 
@@ -235,14 +241,26 @@
   footer{
     flex:0 0 auto; padding:8px 20px calc(14px + env(safe-area-inset-bottom));
     display:flex; align-items:center; justify-content:space-between; gap:16px;
+    flex-wrap:nowrap; min-width:0;
   }
-  #status{font-size:14px; letter-spacing:.08em; color:var(--ink-dim); font-style:italic; min-height:20px;}
+  /* status is clipped, roster scrolls — the footer never changes height or
+     shoves its neighbors when the text swaps or the reserve grows */
+  #status{font-size:14px; letter-spacing:.08em; color:var(--ink-dim); font-style:italic; min-height:20px;
+    flex:0 1 auto; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
   #status.think::after{content:''; animation:dots 1.4s steps(4) infinite;}
   @keyframes dots{0%{content:'';}25%{content:'.';}50%{content:'..';}75%{content:'...';}}
-  #roster{display:flex; align-items:center; gap:14px; font-size:13px; color:var(--ink-dim);}
+  #roster{display:flex; align-items:center; gap:14px; font-size:13px; color:var(--ink-dim);
+    min-width:0; overflow-x:auto; scrollbar-width:none;}
+  #roster::-webkit-scrollbar{display:none;}
   .glyphs{display:inline-flex; align-items:center; gap:3px; flex-wrap:wrap; vertical-align:middle;}
-  #roster .res{opacity:.5;}
+  #roster .glyphs{flex-wrap:nowrap;}
   #roster .lbl{font-size:10px; letter-spacing:.18em; text-transform:uppercase;}
+  /* reserve pieces are tap targets: before your first move each ring,
+     tap one and then a grove piece to swap them */
+  #roster .rsw{cursor:pointer; display:inline-flex; border-radius:6px; padding:1px 2px;
+    opacity:.5; transition:opacity .2s, box-shadow .2s;}
+  #roster .rsw:hover{opacity:.85;}
+  #roster .rsw.msel{opacity:1; box-shadow:0 0 0 1.5px var(--leaf), 0 0 10px rgba(143,191,111,.45);}
 
   /* ---------- TOAST ---------- */
   #toast{
@@ -392,9 +410,13 @@
     #progress{margin-top:4px; gap:5px;}
     #progress .pip{width:7px; height:7px;}
     footer{padding:6px 12px calc(8px + env(safe-area-inset-bottom)); gap:10px;}
-    #status{font-size:11.5px; white-space:nowrap;}
-    #seedTag{font-size:8.5px; letter-spacing:.08em;}
-    #roster{gap:7px; font-size:11px;}
+    /* two rows: status + seed up top, the roster full-width below so every
+       reserve piece stays visible and tappable */
+    footer{flex-wrap:wrap; row-gap:3px; padding-top:4px;}
+    #status{font-size:11.5px; order:1; flex:1 1 0;}
+    #seedTag{font-size:8.5px; letter-spacing:.08em; order:2;}
+    #roster{gap:7px; font-size:11px; order:3; flex:0 0 100%;}
+    #roster .rsw{padding:3px 4px;}   /* friendlier fingertip target */
     #roster .lbl{font-size:8px; letter-spacing:.12em;}
     #roster svg{width:14px; height:14px;}
     #roster .tg{font-size:14px !important;}
@@ -475,26 +497,26 @@ const KNIGHT=[[1,2],[2,1],[-1,2],[-2,1],[1,-2],[2,-1],[-1,-2],[-2,-1]];
 const ALFIL=[[2,2],[2,-2],[-2,2],[-2,-2]];
 
 const TYPES={
-  P:{name:'Sapling',  v:1,    pawn:true,
-     desc:'steps forward, strikes diagonally — blooms into a Dryad at the far end of its file'},
-  N:{name:'Squirrel', v:3,    leaps:KNIGHT,
+  P:{name:'Pawn',     v:1,    pawn:true,
+     desc:'steps forward, strikes diagonally — promotes to a Queen at the far end of its file'},
+  N:{name:'Knight',   v:3,    leaps:KNIGHT,
      desc:'leaps in an L, over anything'},
-  B:{name:'Owl',      v:3.25, slides:DIAG, range:99,
+  B:{name:'Bishop',   v:3.25, slides:DIAG, range:99,
      desc:'glides any distance along diagonals'},
-  R:{name:'Root',     v:5,    slides:ORTHO, range:99,
+  R:{name:'Rook',     v:5,    slides:ORTHO, range:99,
      desc:'runs any distance along the grain'},
-  Q:{name:'Dryad',    v:9,    slides:DIRS8, range:99,
+  Q:{name:'Queen',    v:9,    slides:DIRS8, range:99,
      desc:'flows any distance in any direction'},
-  K:{name:'Monarch',  v:0,    leaps:DIRS8, royal:true,
+  K:{name:'King',     v:0,    leaps:DIRS8, royal:true,
      desc:'steps one square in any direction — royal: if cornered, the ring falls'},
-  T:{name:'Thornling',v:2,    leaps:DIRS8, gs:.78,
-     desc:'creeps one square in any direction'},
+  T:{name:'Thorn',    v:3,    leaps:DIRS8, gs:.78,
+     desc:'creeps one square in any direction — slow, but a stubborn defender'},
   W:{name:'Wisp',     v:2.5,  leaps:ALFIL.concat(DIAG), gs:.84,
      desc:'flits one square diagonally, or leaps two diagonally over anything'},
-  V:{name:'Vinelash', v:3,    slides:ORTHO, range:3, gs:.88,
+  V:{name:'Clover',   v:3,    slides:ORTHO, range:3, gs:.88,
      desc:'slides up to three squares along the grain'},
   E:{name:'The Elder',v:0,    slides:DIRS8, range:2, leaps:KNIGHT, royal:true, gs:.9,
-     desc:'royal — steps up to two squares any direction, or leaps like a Squirrel'},
+     desc:'royal — steps up to two squares any direction, or leaps like a Knight'},
 };
 
 /* inline SVG piece silhouettes (viewBox 0 0 100 100) — drawn in the classic
@@ -582,6 +604,11 @@ const TEMPLATES={
     ['.##.','####','####','#..#','####','****','.**.'],                          // the splinter
     ['..###..','.#####.','#######','#######','.#***#.','..***..'],               // the oval
   ],
+  sap:[   // ring two: strictly between small and medium, so the tree visibly grows
+    ['..###..','.#####.','#######','#######','.#***#.','..***..'],               // the oval (shared with the bark)
+    ['.#####.','#######','#######','#######','.#***#.','..***..'],               // the sapling
+    ['.######.','########','########','########','.#****#.','..#**#..'],         // the sapwood band
+  ],
   medium:[
     ['.#####.','#######','##...##','##...##','##...##','#*****#','.#***#.'],     // the hollow ring
     ['#######','#######','.#####.','..###..','.##*##.','#**#**#','##***##'],     // the knot
@@ -605,7 +632,7 @@ const TEMPLATES={
      '#########','.#*****#.','..#***#..'],                                       // the deep pith
   ],
 };
-const TIER_BY_RING=['small','small','medium','medium','medium','large','large','boss'];
+const TIER_BY_RING=['small','sap','medium','medium','medium','large','large','boss'];
 
 /* foe recruitment pool: weight, earliest ring, max copies per ring.
    Standard chessmen carry the armies; the tree's own creatures are rare accents. */
@@ -626,6 +653,7 @@ const game={
   board:null, pieces:[], occ:new Map(),
   turn:'w', busy:true, over:false,
   sel:null, selMoves:[], playerMoves:[], lastMove:null,
+  musterSel:null, musterLock:true, premove:null, presel:null,
   stats:{captures:0, recruits:0, moves:0, started:0},
   seed:0, usedUrlSeed:false, levelFoes:'',
 };
@@ -666,13 +694,16 @@ function generateLevel(idx){
     mask.add(key(x,y));
     if(c==='*') stars.push({x,y});
   }
-  // knot-hole mutation: punch holes that never break the board apart
-  const starSet=new Set(stars.map(s=>key(s.x,s.y)));
-  const wanted=tier==='small'? rint(3) : 1+rint(3);
+  // knot-hole mutation: punch holes that never break the board apart and
+  // never open beside the grove — every sapling keeps its first step clear
+  const nearStar=new Set();
+  for(const s of stars)
+    for(let dy=-1;dy<=1;dy++) for(let dx=-1;dx<=1;dx++) nearStar.add(key(s.x+dx,s.y+dy));
+  const wanted= tier==='small'? rint(3) : tier==='sap'? rint(2) : 1+rint(3);
   let punched=0;
   for(let tries=0; punched<wanted && tries<40; tries++){
     const k=pickOf([...mask]);
-    if(starSet.has(k)) continue;
+    if(nearStar.has(k)) continue;
     mask.delete(k);
     if(connected(mask)) punched++; else mask.add(k);
   }
@@ -683,9 +714,10 @@ function foeZone(){
   const minStarY=Math.min(...b.stars.map(s=>s.y));
   const all=[...b.mask].map(k=>{const[x,y]=k.split(',').map(Number); return {x,y};})
     .filter(t=>!b.stars.some(s=>s.x===t.x&&s.y===t.y));
-  let maxY=Math.max(1, Math.min(Math.floor((b.h-1)/2), minStarY-2));
+  // prefer two clear rows between the courts; fall back to one on tight boards
+  let maxY=Math.max(1, Math.min(Math.floor((b.h-1)/2), minStarY-3));
   let zone=all.filter(t=>t.y<=maxY);
-  while(zone.length<3 && maxY<minStarY-1){ maxY++; zone=all.filter(t=>t.y<=maxY); }
+  while(zone.length<3 && maxY<minStarY-2){ maxY++; zone=all.filter(t=>t.y<=maxY); }
   return zone;
 }
 function rollFoes(idx,cap){
@@ -711,10 +743,21 @@ function rollFoes(idx,cap){
 function placeFoes(types){
   const b=game.board, cx=(b.w-1)/2;
   const zone=foeZone();
+  // crown rings: no monarch rules here, so the gilded square is the only way
+  // in — choose it before placement so its guards can form around it. Only
+  // the deepest two rows qualify; the King must cross the whole board.
+  b.gold=null;
+  if(game.ring>0&&!types.some(t=>TYPES[t].royal)){
+    const backmost=Math.min(...zone.map(s=>s.y));
+    const deep=zone.filter(s=>s.y<=backmost+1);
+    const g=deep[rint(deep.length)];
+    b.gold={x:g.x,y:g.y};
+  }
   const byC=(a,q)=>Math.abs(a.x-cx)-Math.abs(q.x-cx);
   const back=[...zone].sort((a,q)=>a.y-q.y||byC(a,q));
   const front=[...zone].sort((a,q)=>q.y-a.y||byC(a,q));
   const used=new Set();
+  if(b.gold) used.add(key(b.gold.x,b.gold.y));   // the crown tile stays open
   const score=t=>TYPES[t].royal?999:TYPES[t].v;
   const placeOne=(t,list)=>{
     let fallback=null;
@@ -731,22 +774,14 @@ function placeFoes(types){
     if(fallback){ used.add(key(fallback.x,fallback.y)); addPiece(t,'b',fallback.x,fallback.y); }
   };
   const nonP=types.filter(t=>t!=='P').sort((a,q)=>score(q)-score(a));
-  for(const t of nonP) placeOne(t,back);
+  // the strongest piece wardens the crown; the rest hold the back rank
+  const nearGold=b.gold? [...zone].sort((a,q)=>
+    (Math.max(Math.abs(a.x-b.gold.x),Math.abs(a.y-b.gold.y))
+    -Math.max(Math.abs(q.x-b.gold.x),Math.abs(q.y-b.gold.y)))||byC(a,q)) : null;
+  nonP.forEach((t,i)=>placeOne(t,(nearGold&&i===0)?nearGold:back));
   for(const t of types.filter(t=>t==='P')){
     const pref=front.filter(s=>b.mask.has(key(s.x,s.y+1)));
     placeOne(t,pref.concat(front));
-  }
-  // kingless rings (after the first) get a gilded square deep in the foe
-  // zone: the player's King ending a move there wins and the survivors kneel
-  b.gold=null;
-  if(game.ring>0&&!types.some(t=>TYPES[t].royal)){
-    // only the deepest two rows of the foe zone qualify — the King must
-    // cross the whole board to reach it
-    const backmost=Math.min(...zone.map(s=>s.y));
-    const deep=zone.filter(s=>s.y<=backmost+1);
-    const open=deep.filter(s=>!at(s.x,s.y));
-    const pool=open.length?open:deep;
-    if(pool.length){ const g=pool[rint(pool.length)]; b.gold={x:g.x,y:g.y}; }
   }
 }
 function addPiece(t,side,x,y){
@@ -778,6 +813,19 @@ function placeArmy(){
     const s=take(open.length?open:front);
     if(s) addPiece(t,'w',s.x,s.y); else game.reserve.push(t);
   }
+}
+
+/* muster: before the first move of a ring, reserve pieces may take a grove
+   piece's place. Tokens are "<type><square>" — that reserve type swapped onto
+   that square — recorded per ring and replayed in order before any moves. */
+function applyMusterTok(tok){
+  const t=tok[0], p=coordToXY(tok.slice(1));
+  if(!p||!TYPES[t]||TYPES[t].royal) return false;
+  const pc=at(p.x,p.y), i=game.reserve.indexOf(t);
+  if(!pc||pc.side!=='w'||TYPES[pc.t].royal||i<0) return false;
+  game.reserve[i]=pc.t;
+  pc.t=t;
+  return true;
 }
 
 /* ---------------- move generation & rules ---------------- */
@@ -858,15 +906,10 @@ function allLegalMoves(side){
     if(!pc.alive||pc.side!==side) continue;
     for(const m of genMoves(pc,false)){
       if(hasRoyal){
-        // the King's arrival on the gilded square ends the ring instantly,
-        // before any reply — so it is exempt from the self-check rule
-        const exempt=side==='w'&&TYPES[pc.t].royal&&isGold(m.x2,m.y2);
-        if(!exempt){
-          apply(m);
-          const bad=inCheck(side);
-          undo(m);
-          if(bad) continue;
-        }
+        apply(m);
+        const bad=inCheck(side);
+        undo(m);
+        if(bad) continue;
       }
       out.push(m);
     }
@@ -891,20 +934,25 @@ function evalB(){
     if(T.pawn) v+=0.05*(pc.side==='w'? (game.board.h-1-pc.y) : pc.y);
     s+= pc.side==='b'? v : -v;
     if(g){
-      // small pull to defend the gilded square: keep the player's King away,
+      // pull to defend the gilded square: keep the player's King away,
       // keep a few of our own pieces near it
       const gd=Math.max(Math.abs(pc.x-g.x),Math.abs(pc.y-g.y));
-      if(pc.side==='w'&&T.royal) s+=0.16*Math.min(gd,6);
-      else if(pc.side==='b'&&!T.pawn&&gd<=2&&guards<3){ s+=0.06; guards++; }
+      if(pc.side==='w'&&T.royal) s+=0.2*Math.min(gd,6);
+      else if(pc.side==='b'&&!T.pawn&&gd<=2&&guards<3){ s+=0.12; guards++; }
     }
   }
+  // a covered crown cannot be claimed — reward keeping it under attack
+  if(g&&attackedBy('b',g.x,g.y)) s+=0.3;
   return s;
 }
 function evalFor(side){ const e=evalB(); return side==='b'?e:-e; }
 function negamax(depth,alpha,beta,side){
-  // the gold-arrival exemption lets search lines capture the player's royal;
-  // treat that as terminal instead of searching nonsense positions
-  if(!royalOf('w')) return (side==='w'?-1:1)*(10000+depth*10);
+  // a King standing on the gilded square has already won the ring — terminal;
+  // the self-check rule guarantees every arrival in a search line was legal
+  if(game.board.gold){
+    const kw=royalOf('w');
+    if(kw&&isGold(kw.x,kw.y)) return (side==='w'?1:-1)*(10000+depth*10);
+  }
   const moves=allLegalMoves(side);
   if(!moves.length){
     if(royalOf(side)) return inCheck(side)? -10000-depth*10 : 0;
@@ -1058,7 +1106,7 @@ function updateTileA11y(){
     const x=+t.dataset.x, y=+t.dataset.y;
     const pc=at(x,y);
     let label=coordName(x,y);
-    if(isGold(x,y)) label+=' — gilded square';
+    if(isGold(x,y)) label+=' — gilded square (your King arriving here wins the ring)';
     if(pc) label+=` — ${pc.side==='w'?'your':'foe'} ${TYPES[pc.t].name}`;
     if(game.sel){
       const m=game.selMoves.find(m=>m.x2===x&&m.y2===y);
@@ -1136,7 +1184,9 @@ function refreshChecks(){
 }
 function updateRoster(){
   const mine=aliveOf('w').map(p=>iconMark(p.t,18,'w')).join('');
-  const res=game.reserve.map(t=>iconMark(t,18,'w')).join('');
+  const res=game.reserve.map((t,i)=>
+    `<span class="rsw${game.musterSel===i?' msel':''}" data-i="${i}" role="button"
+      aria-label="reserve ${TYPES[t].name} — tap to muster it in">${iconMark(t,18,'w')}</span>`).join('');
   const foes=aliveOf('b').length;
   $('#roster').innerHTML=
     `<span class="lbl">grove</span><span class="glyphs mine">${mine||'—'}</span>`+
@@ -1146,8 +1196,8 @@ function updateRoster(){
 function updateHUD(){
   const L=LEVELS[game.ring];
   $('#ringTitle .rn').textContent=`${L.sub} · ${L.name}`;
-  $('#ringTitle .rs').textContent=royalOf('b')?'checkmate the monarch'
-    :(game.board.gold?'destroy every foe · or claim the gold':'destroy every foe');
+  $('#ringTitle .rs').textContent=royalOf('b')?'checkmate the enemy king'
+    :(game.board.gold?'claim the gilded square · or destroy every foe':'destroy every foe');
   const prog=$('#progress'); prog.innerHTML='';
   for(let i=0;i<LEVELS.length;i++){
     const p=document.createElement('div');
@@ -1174,9 +1224,10 @@ function toast(txt,cls){
 /* ---------------- tooltip (hold ⌘/Ctrl and hover) ---------------- */
 let hoverTile=null;
 function tryShowTip(){
-  if(!hoverTile||game.over) return;
+  if(!hoverTile) return;
   const pc=at(hoverTile.x,hoverTile.y);
-  if(pc&&pc.alive&&pc.el) showTip(pc);
+  if(pc&&pc.alive&&pc.el&&!game.over) showTip(pc);
+  else if(isGold(hoverTile.x,hoverTile.y)) showGoldTip(hoverTile.x,hoverTile.y);
 }
 const ARROWS={'1,0':'→','-1,0':'←','0,1':'↓','0,-1':'↑','1,1':'↘','1,-1':'↗','-1,1':'↙','-1,-1':'↖'};
 function moveDiagramHTML(pc){
@@ -1213,19 +1264,34 @@ function moveDiagramHTML(pc){
   if(T.slides&&T.range===3) parts.push('up to 3');
   return h+`<div class="tkey">${parts.join(' &nbsp;·&nbsp; ')}</div>`;
 }
+function positionTipNear(el){
+  const tip=$('#tip');
+  tip.classList.add('show');
+  const r=el.getBoundingClientRect(), w=tip.offsetWidth, h=tip.offsetHeight;
+  let lx=Math.min(Math.max(8, r.left+r.width/2-w/2), window.innerWidth-w-8);
+  let ly=r.top-h-12;
+  if(ly<8) ly=r.bottom+12;
+  tip.style.left=lx+'px'; tip.style.top=ly+'px';
+}
+const GOLD_NOTE='If your King ends a move here, the ring falls and every surviving foe kneels to your side. '
+  +'He cannot arrive while the square is guarded — break its cover first.';
 function showTip(pc){
   const T=TYPES[pc.t], tip=$('#tip');
   tip.innerHTML=
     `<div class="tname">${iconMark(pc.t,15,pc.side)} ${T.name}</div>`+
     `<div class="tside">${pc.side==='w'?'your grove':'foe'}${T.royal?' · royal':''}</div>`+
     `<div class="tdesc">${T.desc}</div>`+
-    moveDiagramHTML(pc);
-  tip.classList.add('show');
-  const r=pc.el.getBoundingClientRect(), w=tip.offsetWidth, h=tip.offsetHeight;
-  let lx=Math.min(Math.max(8, r.left+r.width/2-w/2), window.innerWidth-w-8);
-  let ly=r.top-h-12;
-  if(ly<8) ly=r.bottom+12;
-  tip.style.left=lx+'px'; tip.style.top=ly+'px';
+    moveDiagramHTML(pc)+
+    (isGold(pc.x,pc.y)? `<div class="tdesc" style="color:var(--gold)">standing on the gilded square — ${GOLD_NOTE}</div>` : '');
+  positionTipNear(pc.el);
+}
+function showGoldTip(x,y){
+  const tip=$('#tip');
+  tip.innerHTML=
+    `<div class="tname">Gilded Square</div>`+
+    `<div class="tside">alternate win</div>`+
+    `<div class="tdesc">${GOLD_NOTE}</div>`;
+  positionTipNear(tileEl(x,y));
 }
 function hideTip(){ $('#tip').classList.remove('show'); }
 
@@ -1312,14 +1378,130 @@ async function captureFX(pc,attacker){
 /* ---------------- turn flow ---------------- */
 function onTile(x,y){
   hideTip();
-  if(replay.on||game.busy||game.over||game.turn!=='w') return;
+  if(replay.on||game.over) return;
+  if(game.busy||game.turn!=='w'){ premoveTap(x,y); return; }
   const pc=at(x,y);
+  if(game.musterSel!=null){
+    if(pc&&pc.side==='w'&&!TYPES[pc.t].royal){ musterSwap(pc); return; }
+    game.musterSel=null; updateRoster(); defaultStatus();
+  }
   if(pc&&pc.side==='w'&&pc!==game.sel){ select(pc); return; }
   if(game.sel){
     const m=game.selMoves.find(m=>m.x2===x&&m.y2===y);
     if(m){ commitPlayerMove(m); return; }
   }
   deselect();
+}
+/* ---------------- premove (chess.com style) ----------------
+   While the tree thinks you may queue one move: targets are the piece's
+   movement pattern only, ignoring occupancy — the board may change before
+   it fires. The instant your turn returns it executes if fully legal,
+   otherwise it is quietly cancelled. Any tap cancels a queued premove. */
+function genPremoves(pc){
+  const out=[], T=TYPES[pc.t];
+  const push=(x2,y2)=>{ if(inMask(x2,y2)) out.push({x2,y2}); };
+  if(T.pawn){
+    const dy=pc.side==='w'?-1:1;
+    push(pc.x,pc.y+dy); push(pc.x-1,pc.y+dy); push(pc.x+1,pc.y+dy);
+  }
+  if(T.leaps) for(const[dx,dy]of T.leaps) push(pc.x+dx,pc.y+dy);
+  if(T.slides) for(const[dx,dy]of T.slides)
+    for(let s=1;s<=T.range;s++){
+      const nx=pc.x+dx*s, ny=pc.y+dy*s;
+      if(!inMask(nx,ny)) break;         // knot-holes block rays for good
+      out.push({x2:nx,y2:ny});
+    }
+  return out;
+}
+function depreselect(){
+  if(game.presel&&game.presel.el) game.presel.el.classList.remove('selp');
+  game.presel=null;
+  $('#hl').innerHTML='';
+}
+function preselect(pc){
+  depreselect();
+  game.presel=pc;
+  pc.el.classList.add('selp');
+  const hl=$('#hl');
+  genPremoves(pc).forEach((m,i)=>{
+    const d=document.createElement('div');
+    d.className='dot pre';
+    const sz=TS*.3;
+    d.style.width=sz+'px'; d.style.height=sz+'px';
+    d.style.left=(m.x2*TS+TS/2-sz/2)+'px';
+    d.style.top =(m.y2*TS+TS/2-sz/2)+'px';
+    d.style.animationDelay=(i*16)+'ms';
+    hl.appendChild(d);
+  });
+}
+function markPremove(){
+  clearTileClasses('pm');
+  if(!game.premove) return;
+  const a=tileEl(game.premove.x1,game.premove.y1), b=tileEl(game.premove.x2,game.premove.y2);
+  if(a)a.classList.add('pm'); if(b)b.classList.add('pm');
+}
+function clearPremove(){
+  game.premove=null;
+  markPremove();
+}
+function premoveTap(x,y){
+  if(!game.board) return;
+  const pc=at(x,y);
+  if(game.premove) clearPremove();          // any tap clears the queued move
+  if(game.presel&&!(pc&&pc.side==='w')){
+    const hit=genPremoves(game.presel).find(m=>m.x2===x&&m.y2===y);
+    if(hit){
+      game.premove={id:game.presel.id, x1:game.presel.x, y1:game.presel.y, x2:x, y2:y};
+      markPremove();
+      depreselect();
+      return;
+    }
+  }
+  if(pc&&pc.side==='w'&&pc!==game.presel){ preselect(pc); return; }
+  depreselect();
+}
+function tryPremove(){
+  const pm=game.premove;
+  if(!pm) return false;
+  clearPremove();
+  const pc=game.pieces.find(p=>p.id===pm.id);
+  if(!pc||!pc.alive||pc.x!==pm.x1||pc.y!==pm.y1) return false;
+  const m=game.playerMoves.find(m=>m.pc===pc&&m.x2===pm.x2&&m.y2===pm.y2);
+  if(!m) return false;
+  commitPlayerMove(m);
+  return true;
+}
+
+/* muster UI: tap a reserve glyph in the roster, then a grove piece to swap */
+function canMuster(){
+  return !replay.on&&!game.over&&!game.busy&&game.turn==='w'&&!game.musterLock;
+}
+function defaultStatus(){
+  status(inCheck('w')?'your King is threatened':'your move');
+}
+function musterSwap(pc){
+  const i=game.musterSel, inc=game.reserve[i];
+  if(inc===pc.t){ game.musterSel=null; updateRoster(); defaultStatus(); return; }
+  game.reserve[i]=pc.t; pc.t=inc;
+  const moves=allLegalMoves('w');
+  if(!moves.length){                       // never muster into a frozen grove
+    pc.t=game.reserve[i]; game.reserve[i]=inc;
+    shakeStage(); status('that swap would leave you no moves');
+    return;
+  }
+  game.musterSel=null;
+  game.playerMoves=moves;
+  refreshGlyph(pc);
+  pc.el.classList.add('joined');
+  setTimeout(()=>{ if(pc.el) pc.el.classList.remove('joined'); },850);
+  const c=pieceCenter(pc);
+  particles(c.x,c.y,['#8fbf6f','#e0b34c'],10);
+  if(!replay.on&&game.rec&&game.rec.rings[game.ring]){
+    game.rec.rings[game.ring].muster.push(inc+coordName(pc.x,pc.y));
+    saveRec();
+  }
+  refreshChecks(); updateRoster(); updateTileA11y();
+  defaultStatus();
 }
 function select(pc){
   deselect();
@@ -1371,7 +1553,7 @@ async function animateAndApply(m){
     m.pc.el.classList.add('joined');
     const c=pieceCenter(m.pc);
     particles(c.x,c.y,['#e0b34c','#f6ecd6'],16);
-    toast('A SAPLING BLOOMS','gold');
+    toast('PROMOTION','gold');
     await rs(500);
     m.pc.el.classList.remove('joined');
   }
@@ -1381,6 +1563,7 @@ async function animateAndApply(m){
 }
 async function commitPlayerMove(m){
   game.busy=true;
+  game.musterLock=true; game.musterSel=null;
   deselect();
   await animateAndApply(m);
   const res=afterPlayerMove();
@@ -1414,7 +1597,6 @@ function afterPlayerMove(){
     } else {
       shakeStage();
     }
-    status('the foes are frozen — move again');
     game.busy=false;
     return 'pass';
   }
@@ -1428,13 +1610,17 @@ function preparePlayerTurn(){
     gameOver(inCheck('w')?'mate':'stale');
     return;
   }
-  if(inCheck('w')){ toast('CHECK','danger'); status('your Monarch is threatened'); }
+  if(inCheck('w')){ toast('CHECK','danger'); status('your King is threatened'); }
+  else if(aliveOf('b').length&&!allLegalMoves('b').length) status('the foes are frozen — move again');
   else status('your move');
   game.busy=false;
+  if(tryPremove()) return;
+  // a piece picked up while the tree was thinking becomes a live selection
+  if(game.presel){ const pc=game.presel; depreselect(); if(pc.alive) select(pc); }
 }
 
 /* ---------------- logging (Airtable) ---------------- */
-const GAME_VERSION=2;   // bump when generation logic changes — gates replay codes
+const GAME_VERSION='3.0';   // bump when generation logic changes — gates replay codes
 const AT_BASE='appsvu3ApgrBKyAx6';
 const AT_TOKEN='patxeMh9t8lsRlU9l.973e131b2895f6b1e921cb91959264ec16e1a9c5e1d481e7ae18bd2c2e73881b';
 const AT_RUNS_TABLE='Endgrain';
@@ -1543,11 +1729,13 @@ function saveRec(){
 function loadRec(){
   try{
     const r=JSON.parse(localStorage.getItem('endgrainLastRun'));
-    return (r&&r.seed&&r.rings&&r.rings.length&&r.rings[0].moves.length)? r : null;
+    // recs from other versions regenerate different boards — refuse them
+    return (r&&r.v===GAME_VERSION&&r.seed&&r.rings&&r.rings.length&&r.rings[0].moves.length)? r : null;
   }catch(e){ return null; }
 }
 /* shareable replay codes: EG<v>.<base64url payload>.<checksum>
-   payload = seed|outcome|army:moves;army:moves…  (moves are fixed 4-char "c2c3")
+   payload = seed|outcome|army[~muster]:moves;…  (moves are fixed 4-char "c2c3",
+   muster tokens fixed 3-char "Nc1" — reserve type swapped onto that square)
    EG2 = deflate-compressed payload, EG1 = plain (fallback for browsers
    without CompressionStream; still decodable everywhere) */
 function hash32(s){
@@ -1577,7 +1765,9 @@ async function inflateStr(bytes){
 }
 async function encodeReplay(rec){
   const raw=GAME_VERSION+'|'+rec.seed+'|'+(rec.outcome||'')+'|'
-    +rec.rings.map(r=>r.army.join('')+':'+r.moves.join('')).join(';');
+    +rec.rings.map(r=>r.army.join('')
+      +((r.muster&&r.muster.length)?'~'+r.muster.join(''):'')
+      +':'+r.moves.join('')).join(';');
   const sum=hash32(raw);
   const packed=await deflateStr(raw).catch(()=>null);
   if(packed) return 'EG2.'+b64FromBytes(packed)+'.'+sum;
@@ -1608,8 +1798,20 @@ async function decodeReplay(str){
   for(const rr of ringsStr.split(';')){
     const ci=rr.indexOf(':');
     if(ci<1) return {error:'invalid'};
-    const army=rr.slice(0,ci).split(''), mv=rr.slice(ci+1);
-    if(!army.every(t=>TYPES[t])) return {error:'invalid'};
+    let head=rr.slice(0,ci);
+    const mv=rr.slice(ci+1);
+    const ti=head.indexOf('~');
+    let musterStr='';
+    if(ti>=0){ musterStr=head.slice(ti+1); head=head.slice(0,ti); }
+    const army=head.split('');
+    if(!head.length||!army.every(t=>TYPES[t])) return {error:'invalid'};
+    if(musterStr.length%3) return {error:'invalid'};
+    const muster=[];
+    for(let k=0;k<musterStr.length;k+=3){
+      const s=musterStr.slice(k,k+3);
+      if(!/^[A-Z][a-i][1-9]$/.test(s)||!TYPES[s[0]]||TYPES[s[0]].royal) return {error:'invalid'};
+      muster.push(s);
+    }
     if(mv.length%4) return {error:'invalid'};
     const moves=[];
     for(let k=0;k<mv.length;k+=4){
@@ -1617,7 +1819,7 @@ async function decodeReplay(str){
       if(!/^[a-i][1-9][a-i][1-9]$/.test(s)) return {error:'invalid'};
       moves.push(s);
     }
-    rings.push({army,moves});
+    rings.push({army,muster,moves});
   }
   if(!rings.length||rings.length>LEVELS.length) return {error:'invalid'};
   return {ok:true, run:{seed, outcome:outcome||null, rings}};
@@ -1654,7 +1856,9 @@ function seekReplay(r,i){
   game.ring=r;
   game.army=R.rings[r].army.slice();
   game.over=true; game.busy=true; game.turn='w'; game.sel=null; game.lastMove=null;
+  game.musterSel=null; game.musterLock=true;
   generateLevel(r); placeArmy(); placeFoes(rollFoes(r, foeZone().length));
+  for(const tok of (R.rings[r].muster||[])) applyMusterTok(tok);
   let last=null;
   for(let k=0;k<i;k++){
     const mv=parseRecMove(R.rings[r].moves[k]);
@@ -1868,8 +2072,10 @@ function nextRing(){
 function loadLevel(){
   game.over=false; game.busy=true; game.turn='w';
   game.sel=null; game.lastMove=null; game.breathShown=false;
+  game.musterSel=null; game.musterLock=false;
+  game.premove=null; game.presel=null;
   hideTip();
-  if(!replay.on&&game.rec){ game.rec.rings[game.ring]={army:game.army.slice(),moves:[]}; saveRec(); }
+  if(!replay.on&&game.rec){ game.rec.rings[game.ring]={army:game.army.slice(),muster:[],moves:[]}; saveRec(); }
   generateLevel(game.ring);
   placeArmy();
   placeFoes(rollFoes(game.ring, foeZone().length));
@@ -1893,7 +2099,7 @@ function startRun(){
   game.army=START_ARMY.slice();
   game.reserve=[];
   game.stats={captures:0,recruits:0,moves:0,started:0};   // clock starts at first ring entry
-  game.rec={seed:seedHex(), rings:[], outcome:null};
+  game.rec={v:GAME_VERSION, seed:seedHex(), rings:[], outcome:null};
   loadLevel();
 }
 function gameOver(kind){
@@ -1901,7 +2107,7 @@ function gameOver(kind){
   if(game.rec){ game.rec.outcome=kind==='mate'?'checkmated':'petrified'; saveRec(); }
   logRun(kind==='mate'?'checkmated':'petrified');
   const msg= kind==='mate'
-    ? 'Your Monarch is cornered.'
+    ? 'Your King is cornered.'
     : 'No legal moves. The run ends here.';
   setTimeout(()=>{
     showOverlay(`
@@ -1937,9 +2143,9 @@ function ringsSVG(current,dead){
 function intro(){
   const L=LEVELS[game.ring];
   const obj=royalOf('b')
-    ? 'Checkmate the enemy monarch — its surviving court will join your grove.'
+    ? 'Checkmate the enemy King — its surviving court will join your grove.'
     : (game.board.gold
-      ? 'No monarch rules this ring — destroy every hostile piece, or lead your King to the gilded square and its survivors will kneel.'
+      ? 'No monarch rules this ring — lead your King to the gilded square and its survivors will kneel, or destroy every hostile piece.'
       : 'No monarch rules this ring — destroy every hostile piece.');
   showOverlay(`
     ${ringsSVG(game.ring,false)}
@@ -1952,8 +2158,9 @@ function intro(){
 }
 function beginRing(){
   if(!game.stats.started) game.stats.started=Date.now();
-  status('your move');
   preparePlayerTurn();
+  if(canMuster()&&game.reserve.length&&!inCheck('w'))
+    status('your move — tap a reserve piece to muster');
 }
 function clearScreen(kind,recruits){
   const L=LEVELS[game.ring];
@@ -1997,11 +2204,12 @@ function titleScreen(){
     <div class="rules">
       <b>Descend</b> the eight rings of a great tree, outermost bark to pith.<br>
       <b>Click</b> a piece, then a glowing square, to move. Chess rules apply.<br>
-      <b>Checkmate</b> a ring's monarch and its surviving court <b>joins you</b>.<br>
-      <b>Kingless rings</b> fall by wiping every foe — or marching your King to the gilded square.<br>
+      <b>Checkmate</b> a ring's King and its surviving court <b>joins you</b>.<br>
+      <b>Kingless rings</b> fall when your King <b>claims the gilded square</b> — survivors kneel — or by wiping every foe.<br>
       <b>Your survivors carry on</b> — every piece you lose is lost for good.<br>
       <b>Guard your King.</b> If he is cornered, the run ends.<br>
-      <b>Saplings bloom</b> into Dryad Queens at the far end of their file.<br>
+      <b>Pawns promote</b> to Queens at the far end of their file.<br>
+      <b>Premove</b> while the tree thinks — it fires if still legal, else it's cancelled.<br>
       <b>Hold ⌘ / Ctrl</b> and hover any piece — or long-press on touch — to see how it moves.
     </div>
     <button onclick="hideOverlay();startRun()">enter the bark</button>
@@ -2033,6 +2241,21 @@ $('#btnRestart').addEventListener('click',()=>{
   }
 });
 $('#btnFeedback').addEventListener('click',()=>{ if(game.board) feedbackScreen(); });
+$('#roster').addEventListener('click',e=>{
+  const s=e.target.closest('.rsw');
+  if(!s) return;
+  if(!canMuster()){
+    if(!replay.on&&!game.over&&!game.busy&&game.musterLock)
+      status('the grove is set — muster only before your first move');
+    return;
+  }
+  const i=+s.dataset.i;
+  game.musterSel=(game.musterSel===i)?null:i;
+  deselect();
+  updateRoster();
+  if(game.musterSel!=null) status('now tap a grove piece to swap out');
+  else defaultStatus();
+});
 $('#rbPlay').addEventListener('click',replayTogglePlay);
 $('#rbStep').addEventListener('click',replayStepBtn);
 $('#rbBack').addEventListener('click',replayBack);
@@ -2047,6 +2270,7 @@ window.addEventListener('resize',()=>{
   drawBackdrop();
   for(const pc of game.pieces) if(pc.alive){ makePieceEl(pc); }
   markLastMove(game.lastMove);
+  markPremove();
   refreshChecks();
 });
 document.addEventListener('keydown',e=>{
@@ -2057,7 +2281,7 @@ document.addEventListener('keydown',e=>{
     else if(e.key==='Escape') exitReplay();
     return;
   }
-  if(e.key==='Escape') deselect();
+  if(e.key==='Escape'){ deselect(); depreselect(); clearPremove(); }
   if(e.key==='Meta'||e.key==='Control') tryShowTip();
 });
 document.addEventListener('keyup',e=>{
