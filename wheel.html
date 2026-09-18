@@ -1,0 +1,3496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wheel</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='4.5' fill='%231a1712'/%3E%3Ccircle cx='12' cy='12' r='7.5' fill='none' stroke='%23d4a94e' stroke-width='1.6'/%3E%3Ccircle cx='12' cy='12' r='2' fill='%23d4a94e'/%3E%3Cg stroke='%23d4a94e' stroke-width='1.1'%3E%3Cline x1='12' y1='4.5' x2='12' y2='19.5'/%3E%3Cline x1='4.5' y1='12' x2='19.5' y2='12'/%3E%3Cline x1='6.7' y1='6.7' x2='17.3' y2='17.3'/%3E%3Cline x1='17.3' y1='6.7' x2='6.7' y2='17.3'/%3E%3C/g%3E%3C/svg%3E">
+<style>
+:root{
+  /* card-back brown */
+  --bg0:#150e06; --bg1:#0b0703;
+  --panel:#1b1309; --panel2:#26211840; --line:#372a15; --line2:#4c3a1d;
+  --ink:#e9dcbc; --ink-soft:#a89877; --ink-dim:#6f6450;
+  --gold:#d4a94e; --gold-hi:#f0cf85; --ember:#ff9a3c;
+  --danger:#c05237; --ok:#7da05a;
+  --felt:#131b0e; --felt2:#0c110a;
+  /* glowing WUBRG accents */
+  --W:#f2ecc8; --U:#58a6e8; --B:#a98fd0; --R:#e2604a; --G:#62b06c; --C:#9b9488; --M:#c9a45c;
+  --crd-ratio:88/63;
+}
+@keyframes wubrgGlow{
+  0%,100%{box-shadow:0 0 10px rgba(242,236,200,.28); border-color:rgba(242,236,200,.65);}
+  20%{box-shadow:0 0 10px rgba(88,166,232,.34); border-color:rgba(88,166,232,.65);}
+  40%{box-shadow:0 0 10px rgba(169,143,208,.34); border-color:rgba(169,143,208,.65);}
+  60%{box-shadow:0 0 10px rgba(226,96,74,.34); border-color:rgba(226,96,74,.65);}
+  80%{box-shadow:0 0 10px rgba(98,176,108,.34); border-color:rgba(98,176,108,.65);}
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+img{-webkit-user-drag:none; user-drag:none; user-select:none;}
+html,body{height:100%;}
+body{
+  font-family:Georgia,'Times New Roman',serif;
+  color:var(--ink);
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='512' height='512'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.875' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='512' height='512' filter='url(%23g)' opacity='0.35'/%3E%3C/svg%3E"),
+    radial-gradient(ellipse at 50% -20%, rgba(255,190,110,.05), transparent 55%),
+    radial-gradient(ellipse at 50% 130%, rgba(0,0,0,.6), transparent 65%),
+    linear-gradient(180deg, var(--bg0) 0%, var(--bg1) 100%);
+  background-blend-mode:overlay,normal,normal,normal;
+  overflow:hidden; user-select:none;
+  -webkit-font-smoothing:antialiased;
+}
+.scr{display:none; height:100vh; flex-direction:column; overflow:hidden;}
+.scr.on{display:flex;}
+h1,h2,h3{font-weight:normal;}
+.rule{height:1px; background:linear-gradient(90deg, transparent, var(--line2), transparent); margin:10px 0;}
+small, .dim{color:var(--ink-soft);}
+.dimmer{color:var(--ink-dim);}
+
+/* ---------- shared controls ---------- */
+.btn{
+  font-family:inherit; font-size:14px; letter-spacing:1.5px; text-transform:uppercase;
+  color:var(--ink); background:linear-gradient(180deg,#281d0e,#1e150a);
+  border:1px solid var(--line2); border-radius:3px; padding:8px 18px; cursor:pointer;
+  transition:border-color .15s, color .15s, background .15s;
+}
+.btn:hover:not(:disabled){border-color:var(--gold); color:var(--gold-hi);}
+.btn:disabled{opacity:.35; cursor:default;}
+.btn.gold{border-color:var(--gold); color:var(--gold-hi); background:linear-gradient(180deg,#3a2c12,#271e0d); animation:wubrgGlow 16s linear infinite;}
+.btn.gold:disabled{animation:none; box-shadow:none;}
+.btn.gold:hover:not(:disabled){background:linear-gradient(180deg,#46351a,#2f2410);}
+.btn.ghost{background:transparent; border-color:var(--line);}
+.btn.danger{border-color:#6e3a2b; color:#d98a70;}
+.btn.danger:hover:not(:disabled){border-color:var(--danger);}
+.btn.sm{font-size:11px; padding:4px 10px; letter-spacing:1px;}
+.btn.xs{font-size:10px; padding:2px 7px; letter-spacing:.5px;}
+input[type=text],input[type=number],textarea,select{
+  font-family:inherit; font-size:15px; color:var(--ink);
+  background:#130e07; border:1px solid var(--line); border-radius:3px; padding:7px 10px;
+  outline:none;
+}
+input:focus,textarea:focus,select:focus{border-color:var(--gold);}
+input[type=number]{width:64px;}
+textarea{resize:vertical; line-height:1.4;}
+label.cfg{display:flex; align-items:center; gap:8px; font-size:13px; color:var(--ink-soft);}
+.chip{
+  display:inline-block; font-size:11px; letter-spacing:1px; text-transform:uppercase;
+  border:1px solid var(--line2); border-radius:11px; padding:2px 10px; color:var(--ink-soft);
+}
+.chip.gold{border-color:var(--gold); color:var(--gold);}
+.chip.on{border-color:var(--ok); color:var(--ok);}
+.tabs{display:flex; gap:2px;}
+.tabs .tab{
+  flex:1; text-align:center; font-size:12px; letter-spacing:1.5px; text-transform:uppercase;
+  padding:7px 4px; cursor:pointer; color:var(--ink-dim);
+  border:1px solid var(--line); border-bottom-color:var(--line2); background:#150f08;
+}
+.tabs .tab.on{color:var(--gold); border-color:var(--line2); border-bottom-color:transparent; background:var(--panel);}
+.pip{display:inline-block; width:11px; height:11px; border-radius:50%; vertical-align:-1px; border:1px solid rgba(0,0,0,.5);}
+.pip.W{background:var(--W); box-shadow:0 0 7px var(--W);}
+.pip.U{background:var(--U); box-shadow:0 0 7px var(--U);}
+.pip.B{background:var(--B); box-shadow:0 0 7px var(--B);}
+.pip.R{background:var(--R); box-shadow:0 0 7px var(--R);}
+.pip.G{background:var(--G); box-shadow:0 0 7px var(--G);}
+.pip.C{background:var(--C);}
+.pipct{font-size:11px; color:var(--ink-soft); margin-right:7px; white-space:nowrap;}
+
+/* ---------- title / home ---------- */
+#scr-home{align-items:center; justify-content:center; gap:0;}
+.wheelmark{width:74px; height:74px; margin-bottom:18px; opacity:.9;}
+#homeTitle{
+  font-size:44px; letter-spacing:16px; text-transform:uppercase; text-indent:16px;
+  background:linear-gradient(100deg,var(--W) 0%,var(--U) 22%,var(--B) 44%,var(--R) 66%,var(--G) 88%,var(--W) 100%);
+  background-size:220% 100%; -webkit-background-clip:text; background-clip:text; color:transparent;
+  animation:sheen 12s linear infinite;
+  filter:drop-shadow(0 0 16px rgba(140,150,220,.25));
+}
+.brand{
+  background:linear-gradient(90deg,var(--W),var(--U),var(--B),var(--R),var(--G));
+  -webkit-background-clip:text; background-clip:text; color:transparent !important;
+}
+@keyframes sheen{0%{background-position:0% 0;}100%{background-position:200% 0;}}
+#homeSub{font-size:13px; letter-spacing:3px; text-transform:uppercase; color:var(--ink-dim); margin:6px 0 34px;}
+#homeBox{display:flex; flex-direction:column; gap:14px; width:320px;}
+#homeBox input{text-align:center; font-size:17px; letter-spacing:1px;}
+#homeRow{display:flex; gap:10px;}
+#homeRow .btn{flex:1;}
+#joinRow{display:flex; gap:10px;}
+#joinCode{flex:1; text-transform:uppercase; letter-spacing:5px;}
+#homeMsg{min-height:20px; text-align:center; font-size:13px; color:var(--ember);}
+#rejoinChip{display:none; text-align:center; cursor:pointer;}
+#rejoinChip:hover{color:var(--gold);}
+
+/* ---------- top bars ---------- */
+.topbar{
+  display:flex; align-items:center; gap:16px; padding:10px 20px;
+  border-bottom:1px solid var(--line); background:rgba(0,0,0,.25); flex:none;
+}
+.topbar .brand{font-size:16px; letter-spacing:5px; text-transform:uppercase; color:var(--gold); cursor:default;}
+.topbar .sp{flex:1;}
+.codechip{font-size:14px; letter-spacing:4px; color:var(--gold-hi); border:1px dashed var(--line2); padding:3px 12px; border-radius:3px; cursor:pointer; animation:wubrgGlow 16s linear infinite;}
+.codechip:hover{border-color:var(--gold);}
+
+/* ---------- lobby ---------- */
+#lobWrap{flex:1; display:flex; gap:18px; padding:18px 20px; overflow:auto; justify-content:center;}
+.panel{background:var(--panel); border:1px solid var(--line); border-radius:4px; padding:16px;}
+.panel h3{font-size:12px; letter-spacing:2.5px; text-transform:uppercase; color:var(--ink-dim); margin-bottom:12px;}
+#lobRosterP{width:290px; flex:none; display:flex; flex-direction:column;}
+#lobRoster{display:flex; flex-direction:column; gap:6px; flex:1;}
+.seatrow{
+  display:flex; align-items:center; gap:9px; padding:7px 10px;
+  background:#150f08; border:1px solid var(--line); border-radius:3px; font-size:15px;
+}
+.seatrow .dot{width:9px; height:9px; border-radius:50%; background:var(--ink-dim); flex:none;}
+.seatrow .dot.rdy{background:var(--ok);}
+.seatrow .dot.dc{background:var(--danger);}
+.seatrow .who{flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.seatrow .tag{font-size:10px; letter-spacing:1px; color:var(--ink-dim); text-transform:uppercase;}
+.seatrow.me{border-color:var(--line2);}
+.seatrow .crown{color:var(--gold); font-size:13px;}
+#lobCfgP{width:520px; flex:none;}
+.cfgrow{display:flex; align-items:center; gap:12px; margin:10px 0; flex-wrap:wrap;}
+.cfgrow .lbl{width:110px; flex:none; font-size:12px; letter-spacing:1.5px; text-transform:uppercase; color:var(--ink-dim);}
+#srcBody{border:1px solid var(--line2); border-top:none; background:var(--panel); padding:14px; margin-bottom:6px;}
+.packslots{display:flex; gap:8px; margin-top:8px;}
+.packslots select{flex:1; min-width:0; font-size:13px;}
+#cubeTxt{width:100%; height:110px; font-size:12px;}
+#cubeStat{font-size:12px; min-height:16px; margin-top:5px;}
+.mirror{pointer-events:none; opacity:.75;}
+#lobBtns{display:flex; gap:10px; margin-top:14px; align-items:center;}
+#lobMsg{font-size:13px; color:var(--ember); min-height:18px; margin-top:8px;}
+#setStat{font-size:12px; min-height:16px;}
+
+/* ---------- cards ---------- */
+.crd{position:relative; border-radius:4.2%/3%; cursor:pointer; transition:transform .08s;}
+.crd img{width:100%; display:block; border-radius:inherit; background:#1d160c;}
+.crd .ph{ /* placeholder while image loads / generic token */
+  width:100%; aspect-ratio:63/88; border-radius:inherit; background:#1d160c;
+  border:1px solid var(--line2); display:flex; flex-direction:column; align-items:center;
+  justify-content:center; gap:6px; padding:8px; text-align:center; font-size:12px; color:var(--ink-soft);
+}
+.crd.sel{outline:2px solid var(--gold); outline-offset:2px; transform:translateY(-4px);}
+.crd:hover{transform:translateY(-3px);}
+.crd.sel:hover{transform:translateY(-4px);}
+#dPack{
+  flex:1; overflow-y:auto; padding:16px 20px 8px;
+  display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:12px; align-content:start;
+}
+#dPack .crd{max-width:200px;}
+#dWait{flex:1; display:none; flex-direction:column; align-items:center; justify-content:center; gap:14px; color:var(--ink-dim);}
+#dWait .big{font-size:20px; letter-spacing:3px; text-transform:uppercase;}
+
+/* hover preview */
+#hoverCard{
+  display:none; position:fixed; z-index:170; width:280px; pointer-events:none;
+  filter:drop-shadow(0 8px 24px rgba(0,0,0,.7));
+}
+#hoverCard img{width:100%; border-radius:4.2%/3%;}
+#hoverCard .otext{
+  margin-top:6px; background:rgba(12,9,5,.96); border:1px solid var(--line2); border-radius:4px;
+  padding:10px 12px; font-size:13px; line-height:1.45; color:var(--ink); white-space:pre-wrap;
+}
+#hoverCard .otext .tl{color:var(--ink-soft); font-size:12px; margin-bottom:5px;}
+
+/* ---------- draft ---------- */
+#dHdr{display:flex; align-items:center; gap:18px; padding:9px 20px; border-bottom:1px solid var(--line); background:rgba(0,0,0,.25); flex:none;}
+#dHdr .stat{font-size:14px; letter-spacing:1px;}
+#dHdr .stat b{color:var(--gold-hi); font-weight:normal;}
+#dTimerWrap{display:flex; align-items:center; gap:8px;}
+#dTimer{font-size:17px; color:var(--gold-hi); min-width:44px; text-align:right; font-variant-numeric:tabular-nums;}
+#dTimer.low{color:var(--danger);}
+#dMain{flex:1; display:flex; min-height:0;}
+#dCenter{flex:1; display:flex; flex-direction:column; min-width:0;}
+#dConfirmRow{flex:none; display:flex; justify-content:center; padding:6px 0 12px;}
+#dConfirm{min-width:220px;}
+#dRail{
+  width:250px; flex:none; border-left:1px solid var(--line); background:rgba(0,0,0,.2);
+  display:flex; flex-direction:column; min-height:0;
+}
+.railsec{border-bottom:1px solid var(--line); padding:10px 12px; overflow-y:auto;}
+.railsec h4{font-size:10px; letter-spacing:2px; text-transform:uppercase; color:var(--ink-dim); margin-bottom:8px;}
+#dSeats{flex:none; max-height:34%;}
+.dseat{display:flex; align-items:center; gap:7px; font-size:13px; padding:3px 0; color:var(--ink-soft);}
+.dseat.me{color:var(--ink);}
+.dseat .st{width:8px; height:8px; border-radius:50%; background:var(--ink-dim); flex:none;}
+.dseat .st.pick{background:var(--gold); box-shadow:0 0 6px var(--gold);}
+.dseat .st.dc{background:var(--danger);}
+.dseat .nm{flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.dseat .q{font-size:11px; color:var(--ink-dim); font-variant-numeric:tabular-nums;}
+.dseat .arrow{color:var(--ink-dim); font-size:11px;}
+#dPicksSec{flex:1; min-height:0;}
+#dPicks{font-size:12px; line-height:1.7; color:var(--ink-soft);}
+#dPicks .pk b{color:var(--ink); font-weight:normal;}
+.chatsec{flex:none; height:170px; display:flex; flex-direction:column; padding:10px 12px 8px;}
+.chatlog{flex:1; overflow-y:auto; font-size:12px; line-height:1.5; color:var(--ink-soft); margin-bottom:6px;}
+.chatlog .who{color:var(--gold);}
+.chatlog .sys{color:var(--ink-dim); font-style:italic;}
+.chatin{width:100%; font-size:12px; padding:5px 8px;}
+
+/* pool tray */
+#dTray{flex:none; border-top:1px solid var(--line2); background:linear-gradient(180deg,#181106,#120c05);}
+#dTrayBar{display:flex; align-items:center; gap:14px; padding:7px 16px; cursor:pointer;}
+#dTrayBar:hover #dTrayLbl{color:var(--gold);}
+#dTrayLbl{font-size:12px; letter-spacing:2px; text-transform:uppercase; color:var(--ink-soft);}
+#dTrayPips{display:flex; align-items:center;}
+#dCurve{display:flex; align-items:flex-end; gap:2px; height:18px;}
+#dCurve i{width:7px; background:var(--gold); opacity:.75; display:block; min-height:1px;}
+#dTraySort{margin-left:auto;}
+#dTrayStrip{display:flex; gap:5px; overflow-x:auto; padding:0 16px 10px; min-height:74px;}
+#dTrayStrip .mini{flex:none; width:48px; border-radius:4px; cursor:pointer; transition:transform .1s;}
+#dTrayStrip .mini:hover{transform:translateY(-4px);}
+#dTrayStrip .mini img{width:100%; border-radius:4px; display:block; background:#1d160c;}
+#dTrayStrip .mini.new{animation:pulse .8s ease;}
+@keyframes pulse{0%{transform:scale(1.35) translateY(-8px); filter:brightness(1.6);}100%{transform:scale(1);}}
+#dTrayGrid{
+  display:none; max-height:46vh; overflow-y:auto; padding:4px 16px 14px;
+}
+#dTray.open #dTrayGrid{display:block;}
+#dTray.open #dTrayStrip{display:none;}
+.poolgroup{margin-bottom:10px;}
+.poolgroup h5{font-size:10px; letter-spacing:2px; text-transform:uppercase; color:var(--ink-dim); margin:6px 0 6px;}
+.poolgrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(105px,1fr)); gap:8px;}
+
+/* ---------- deckbuild ---------- */
+#bMain{flex:1; display:flex; min-height:0;}
+#bPoolWrap,#bDeckWrap{flex:1; display:flex; flex-direction:column; min-width:0;}
+#bPoolWrap{border-right:1px solid var(--line);}
+.bhead{flex:none; display:flex; align-items:center; gap:12px; padding:8px 14px; border-bottom:1px solid var(--line); font-size:12px; letter-spacing:2px; text-transform:uppercase; color:var(--ink-dim);}
+.bhead .ct{color:var(--gold-hi); letter-spacing:0;}
+.bhead .ct.bad{color:var(--danger);}
+#bPool,#bDeck{flex:1; overflow-y:auto; padding:12px 14px;}
+.bcols{display:flex; gap:8px; align-items:flex-start;}
+.bcol{flex:1 1 0; min-width:70px; max-width:150px;}
+.bandlbl{font-size:10px; letter-spacing:2.5px; text-transform:uppercase; color:var(--ink-dim);
+  margin:12px 0 7px; border-bottom:1px solid var(--line); padding-bottom:3px;}
+.bandlbl:first-child{margin-top:0;}
+.bcol h6{font-size:10px; text-align:center; color:var(--ink-dim); margin-bottom:4px; font-weight:normal;}
+.bcol .crd{margin-bottom:-118%;}
+.bcol .crd:last-child{margin-bottom:0;}
+.bcol .crd:hover{z-index:5;}
+#bLands{flex:none; display:flex; gap:14px; align-items:center; padding:8px 14px; border-top:1px solid var(--line); flex-wrap:wrap;}
+.landctl{display:flex; align-items:center; gap:5px; font-size:13px;}
+.landctl .b{cursor:pointer; border:1px solid var(--line2); border-radius:3px; width:20px; height:20px; line-height:18px; text-align:center; font-size:13px; color:var(--ink-soft);}
+.landctl .b:hover{border-color:var(--gold); color:var(--gold);}
+.landctl .n{min-width:18px; text-align:center; font-variant-numeric:tabular-nums;}
+#bFoot{flex:none; display:flex; align-items:center; gap:12px; padding:9px 16px; border-top:1px solid var(--line); background:rgba(0,0,0,.25);}
+#bStats{display:flex; gap:14px; align-items:center; font-size:13px; color:var(--ink-soft);}
+#bRoster{display:flex; gap:6px; margin-left:auto; align-items:center;}
+#bRoster .chip{font-size:10px;}
+
+/* recap + generic modal */
+#modal{
+  display:none; position:fixed; inset:0; z-index:100; background:rgba(8,6,4,.8);
+  align-items:center; justify-content:center;
+}
+#modal.on{display:flex;}
+#modalBox{
+  background:var(--panel); border:1px solid var(--line2); border-radius:5px;
+  max-width:min(1020px,94vw); max-height:88vh; overflow-y:auto; padding:20px 24px; position:relative;
+}
+#modalBox h3{font-size:13px; letter-spacing:2.5px; text-transform:uppercase; color:var(--gold); margin-bottom:14px;}
+#modalX{position:absolute; top:10px; right:14px; cursor:pointer; color:var(--ink-dim); font-size:20px; line-height:1;}
+#modalX:hover{color:var(--gold);}
+.samplegrid{display:grid; grid-template-columns:repeat(5,124px); gap:9px;}
+.recaptabs{display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px;}
+
+/* ---------- bridge ---------- */
+#scr-bridge .panel{width:560px; margin:40px auto;}
+.pairrow{display:flex; align-items:center; gap:12px; padding:9px 12px; background:#150f08; border:1px solid var(--line); border-radius:3px; margin-bottom:8px; font-size:15px;}
+.pairrow .vs{color:var(--ink-dim); font-size:11px; letter-spacing:2px;}
+.pairrow select{font-size:13px; padding:4px 8px;}
+
+/* ---------- table ---------- */
+#scr-table{background:radial-gradient(ellipse at 50% 50%, var(--felt) 0%, var(--felt2) 78%, #10180f 100%);}
+#tTop{display:flex; align-items:center; gap:14px; padding:5px 16px; border-bottom:1px solid rgba(0,0,0,.4); background:rgba(0,0,0,.3); flex:none; font-size:13px;}
+.statline{display:flex; align-items:center; gap:12px;}
+.statline .nm{font-size:14px; color:var(--gold-hi); letter-spacing:1px;}
+.statline .lv{font-size:17px; color:var(--ink); font-variant-numeric:tabular-nums;}
+.statline .zc{color:var(--ink-soft); font-size:12px; font-variant-numeric:tabular-nums;}
+#tScore{margin-left:auto; display:flex; gap:5px; align-items:center; font-size:12px; color:var(--ink-soft); letter-spacing:1px;}
+#tScore .g{width:10px; height:10px; border-radius:50%; border:1px solid var(--line2);}
+#tScore .g.w{background:var(--gold);}
+#tMain{flex:1; display:flex; min-height:0;}
+#tField{flex:1; display:flex; flex-direction:column; min-width:0; position:relative;}
+.bffield{flex:1; position:relative; min-height:0;}
+#tMid{flex:none; height:2px;
+  background:linear-gradient(90deg,transparent 4%,rgba(88,166,232,.4),rgba(169,143,208,.45),rgba(226,96,74,.4),transparent 96%);}
+.tc{ /* table card */
+  position:absolute; width:var(--tcw,86px);
+  transition:left .24s cubic-bezier(.2,.7,.3,1), top .24s cubic-bezier(.2,.7,.3,1), transform .22s ease;
+  filter:drop-shadow(0 3px 6px rgba(0,0,0,.55)); border-radius:5px;
+}
+.tc.enterbf{animation:enterbf .3s ease;}
+.tc.widget{width:30px;}
+.wbox{
+  width:30px; height:30px; display:flex; align-items:center; justify-content:center;
+  background:linear-gradient(180deg,#2c2110,#110c05); border:1px solid var(--line2);
+  color:var(--gold-hi); user-select:none;
+}
+.wbox b{font-size:13px; font-weight:normal; line-height:1;}
+.wbox.chip{border-radius:50%; border-color:var(--line2); background:#181106;}
+.tc.widget.rolling{animation:diceroll .5s ease;}
+@keyframes diceroll{
+  0%{transform:rotate(0deg) scale(1);}
+  30%{transform:rotate(170deg) scale(1.3);}
+  60%{transform:rotate(305deg) scale(.88);}
+  100%{transform:rotate(360deg) scale(1);}
+}
+@keyframes enterbf{from{opacity:0; filter:brightness(2.2) drop-shadow(0 3px 6px rgba(0,0,0,.55));}}
+#tHand .crd.dealt{animation:dealt .3s ease;}
+@keyframes dealt{from{opacity:0; transform:translateY(28px) scale(.85);}}
+.tc img{width:100%; display:block; border-radius:5px; background:#1d160c; pointer-events:none;}
+.tc.tapped{transform:rotate(90deg);}
+.tc.fd .back{width:100%; aspect-ratio:63/88; border-radius:5px;
+  background:repeating-linear-gradient(45deg,#33270f 0 6px,#241b0c 6px 12px); border:1px solid var(--line2);}
+.tc .cbadges{position:absolute; top:2px; left:2px; display:flex; flex-direction:column; gap:2px; pointer-events:none;}
+.cbadge{font-size:10px; background:rgba(10,8,5,.88); border:1px solid var(--gold); color:var(--gold-hi); border-radius:9px; padding:0 5px; line-height:15px; white-space:nowrap;}
+.cbadge.note{border-color:var(--line2); color:var(--ink-soft); max-width:80px; overflow:hidden; text-overflow:ellipsis;}
+.tc.opphl:hover{outline:1px solid rgba(212,169,78,.5); outline-offset:1px;}
+#tHandWrap{flex:none; display:flex; align-items:flex-end; gap:10px; padding:6px 14px 10px; background:rgba(0,0,0,.35); border-top:1px solid rgba(0,0,0,.4); min-height:128px;}
+#tHand{flex:1; display:flex; gap:6px; overflow-x:auto; align-items:flex-end; min-height:112px;}
+#tHand .crd{flex:none; width:78px;}
+#tHand .crd:hover{transform:translateY(-10px);}
+#tHand .crd.sel{transform:translateY(-10px);}
+#tBtns{flex:none; display:flex; flex-direction:column; gap:5px;}
+#tBtnsRow{display:flex; gap:5px;}
+#tZonesBar{flex:none; display:flex; flex-direction:column; gap:6px; align-items:center; padding:0 4px;}
+.zpile{
+  width:58px; height:80px; border:1px dashed var(--line2); border-radius:5px; cursor:pointer;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
+  font-size:10px; letter-spacing:1px; color:var(--ink-soft); text-transform:uppercase; position:relative;
+  background:rgba(0,0,0,.25);
+}
+.zpile:hover{border-color:var(--gold); color:var(--gold);}
+.zpile .n{font-size:15px; color:var(--ink); font-variant-numeric:tabular-nums;}
+.zpile img{position:absolute; inset:0; width:100%; height:100%; object-fit:cover; border-radius:5px; opacity:.85;}
+.zpile .ovl{position:relative; z-index:2; background:rgba(10,8,5,.75); border-radius:3px; padding:1px 5px;}
+#tLifeBox{display:flex; flex-direction:column; align-items:center; gap:2px; padding:4px 0;}
+#tLife{font-size:26px; color:var(--gold-hi); font-variant-numeric:tabular-nums; cursor:pointer;}
+#tLifeBtns{display:flex; gap:4px;}
+#tRail{width:252px; flex:none; border-left:1px solid rgba(0,0,0,.4); background:rgba(0,0,0,.32); display:flex; flex-direction:column; min-height:0;}
+#tLogSec{flex:1; min-height:0; display:flex; flex-direction:column; padding:10px 12px 6px;}
+#tLog{flex:1; overflow-y:auto; font-size:12px; line-height:1.55; color:var(--ink-soft);}
+#tLog .ln{padding:1px 0;}
+#tLog .ln.flash{animation:logflash 1.2s ease;}
+#tLog .ln b{color:var(--ink); font-weight:normal;}
+#tLog .ln .t{color:var(--ink-dim); font-size:10px; margin-right:5px;}
+@keyframes logflash{0%{background:rgba(212,169,78,.28);}100%{background:transparent;}}
+#tTurn{flex:none; text-align:center; font-size:11px; letter-spacing:2px; text-transform:uppercase; color:var(--ink-dim); padding:6px; border-bottom:1px solid rgba(255,255,255,.05);}
+#tTurn.mine{color:var(--gold);}
+
+/* context menu */
+#cmenu{
+  display:none; position:fixed; z-index:120; background:#171006; border:1px solid var(--line2);
+  border-radius:4px; min-width:170px; padding:4px 0; box-shadow:0 8px 22px rgba(0,0,0,.6); font-size:13px;
+}
+#cmenu .mi{padding:6px 14px; cursor:pointer; color:var(--ink); display:flex; justify-content:space-between; gap:14px;}
+#cmenu .mi:hover{background:#292013; color:var(--gold-hi);}
+#cmenu .mi .k{color:var(--ink-dim); font-size:11px;}
+#cmenu .sep{height:1px; background:var(--line); margin:4px 0;}
+#cmenu .mi.sub input{width:44px; font-size:12px; padding:2px 5px;}
+
+/* overlays: scry/search/token/side */
+.tovl{
+  display:none; position:fixed; inset:0; z-index:110; background:rgba(8,6,4,.82);
+  align-items:center; justify-content:center;
+}
+.tovl.on{display:flex;}
+.tovlBox{background:var(--panel); border:1px solid var(--line2); border-radius:5px; padding:18px 22px; max-width:92vw; max-height:86vh; display:flex; flex-direction:column;}
+.tovlBox h3{font-size:12px; letter-spacing:2.5px; text-transform:uppercase; color:var(--gold); margin-bottom:12px;}
+.scryrow{display:flex; gap:10px; min-height:150px; align-items:flex-start; flex-wrap:wrap; padding:8px; border:1px dashed var(--line); border-radius:4px; margin-bottom:10px;}
+.scryrow .zl{width:70px; font-size:10px; letter-spacing:1.5px; text-transform:uppercase; color:var(--ink-dim); align-self:center;}
+.scryrow .crd{width:100px;}
+.ovlgrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(110px,1fr)); gap:8px; overflow-y:auto; padding:4px; min-width:560px;}
+.ovlbtns{display:flex; gap:10px; margin-top:12px; justify-content:flex-end; align-items:center;}
+
+/* dice / toast */
+#toast{
+  position:fixed; left:50%; bottom:26px; transform:translateX(-50%); z-index:130;
+  background:rgba(12,9,5,.95); border:1px solid var(--gold); color:var(--gold-hi);
+  padding:9px 22px; border-radius:4px; font-size:14px; letter-spacing:.5px; display:none;
+  box-shadow:0 6px 18px rgba(0,0,0,.5);
+}
+#turnBanner{
+  position:fixed; left:0; right:0; top:33%; z-index:95; pointer-events:none; text-align:center;
+  font-size:36px; letter-spacing:12px; text-transform:uppercase; color:var(--gold-hi);
+  padding:24px 0;
+  background:linear-gradient(90deg, transparent, rgba(8,5,2,.9) 16%, rgba(8,5,2,.9) 84%, transparent);
+  box-shadow:0 1px 0 rgba(212,169,78,.3), 0 -1px 0 rgba(212,169,78,.3);
+  text-shadow:0 2px 22px rgba(0,0,0,.95), 0 0 30px rgba(212,169,78,.25);
+  opacity:0; transform:scale(.94); transition:opacity .18s ease, transform .18s ease;
+}
+#turnBanner.on{opacity:1; transform:scale(1);}
+#turnBanner.theirs{color:var(--ink-soft); text-shadow:0 2px 22px rgba(0,0,0,.95);}
+
+/* summary */
+#scr-summary .panel{width:520px; margin:60px auto; text-align:center;}
+#sumGrid{margin:18px 0; font-size:16px; line-height:2;}
+
+/* responsive draft */
+@media (max-width: 760px){
+  #dRail{display:none;}
+  #dPack{grid-template-columns:repeat(auto-fill,minmax(104px,1fr)); gap:8px; padding:10px;}
+  #homeTitle{font-size:32px; letter-spacing:10px;}
+  #lobWrap{flex-direction:column; align-items:center;}
+  #lobCfgP{width:min(520px,94vw);}
+}
+::-webkit-scrollbar{width:9px; height:9px;}
+::-webkit-scrollbar-thumb{background:#3a3426; border-radius:5px;}
+::-webkit-scrollbar-track{background:transparent;}
+</style>
+</head>
+<body>
+
+<!-- ============ HOME ============ -->
+<div id="scr-home" class="scr on">
+  <svg class="wheelmark" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="#d4a94e" stroke-width="1"/><circle cx="12" cy="12" r="1.7" fill="#d4a94e"/><g stroke="#d4a94e" stroke-width=".7" opacity=".85"><line x1="12" y1="3" x2="12" y2="21"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="5.6" y1="5.6" x2="18.4" y2="18.4"/><line x1="18.4" y1="5.6" x2="5.6" y2="18.4"/></g></svg>
+  <h1 id="homeTitle">Wheel</h1>
+  <div id="homeSub">draft &middot; build &middot; battle</div>
+  <div id="homeBox">
+    <input id="nameIn" type="text" maxlength="18" placeholder="your name" autocomplete="off">
+    <div id="homeRow">
+      <button class="btn gold" id="hostDraftBtn">Host a draft</button>
+      <button class="btn" id="hostTableBtn">Host a table</button>
+    </div>
+    <div id="joinRow">
+      <input id="joinCode" type="text" maxlength="6" placeholder="code" autocomplete="off">
+      <button class="btn" id="joinBtn">Join</button>
+    </div>
+    <div id="rejoinChip" class="chip"></div>
+    <div id="homeMsg"></div>
+  </div>
+</div>
+
+<!-- ============ LOBBY ============ -->
+<div id="scr-lobby" class="scr">
+  <div class="topbar">
+    <span class="brand">Wheel</span>
+    <span class="chip" id="lobMode">draft night</span>
+    <span class="sp"></span>
+    <span class="dim" style="font-size:12px;">lobby code</span>
+    <span class="codechip" id="lobCode" title="click to copy">&mdash;</span>
+    <button class="btn sm ghost" id="leaveBtn">Leave</button>
+  </div>
+  <div id="lobWrap">
+    <div class="panel" id="lobRosterP">
+      <h3>Seats</h3>
+      <div id="lobRoster"></div>
+      <div class="rule"></div>
+      <div style="display:flex; gap:8px;">
+        <button class="btn sm" id="readyBtn">Ready</button>
+        <button class="btn sm ghost" id="shuffleSeatsBtn" style="display:none;">Shuffle seats</button>
+      </div>
+    </div>
+    <div class="panel" id="lobCfgP">
+      <h3 id="cfgTitle">Pool &amp; format</h3>
+      <div id="cfgDraft">
+        <div class="tabs" id="srcTabs">
+          <div class="tab on" data-src="set">Official sets</div>
+          <div class="tab" data-src="cube">Cube</div>
+          <div class="tab" data-src="tmpl">Rarity template</div>
+        </div>
+        <div id="srcBody">
+          <div id="srcSet">
+            <div class="cfgrow"><span class="lbl">Set search</span>
+              <input id="setSearch" type="text" placeholder="name or code, e.g. Foundations" style="flex:1;">
+            </div>
+            <div id="setStat" class="dim"></div>
+            <label class="cfg" style="margin-top:6px;"><input type="checkbox" id="sameSet" checked> same set for all packs</label>
+            <div class="packslots" id="packSlots"></div>
+          </div>
+          <div id="srcCube" style="display:none;">
+            <textarea id="cubeTxt" placeholder="1 Lightning Bolt&#10;1 Counterspell&#10;… one card per line, optional leading count"></textarea>
+            <div style="display:flex; gap:10px; align-items:center; margin-top:6px;">
+              <button class="btn sm" id="cubeCheckBtn">Validate list</button>
+              <span id="cubeStat" class="dim"></span>
+            </div>
+          </div>
+          <div id="srcTmpl" style="display:none;">
+            <div class="cfgrow"><span class="lbl">Sets (union)</span>
+              <input id="tmplSets" type="text" placeholder="codes, comma separated: fdn, dsk" style="flex:1;">
+            </div>
+            <div class="cfgrow"><span class="lbl">Slots</span>
+              <span class="dim" style="font-size:13px;">10 commons &middot; 3 uncommons &middot; 1 rare (1 in 7 mythic) &middot; 1 wildcard</span>
+            </div>
+            <div id="tmplStat" class="dim" style="font-size:12px; min-height:16px;"></div>
+          </div>
+        </div>
+        <div class="cfgrow"><span class="lbl">Pod size</span>
+          <select id="podSize"><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option selected>7</option><option>8</option></select>
+          <label class="cfg"><input type="checkbox" id="botsFill" checked> fill empty seats with bots</label>
+        </div>
+        <div class="cfgrow"><span class="lbl">Packs each</span>
+          <select id="packsEach"><option>2</option><option selected>3</option><option>4</option></select>
+          <span class="lbl" style="width:auto;">Timer</span>
+          <select id="timerSel">
+            <option value="off">off</option>
+            <option value="leisure" selected>leisure &middot; 90s</option>
+            <option value="comp">competitive &middot; MTR</option>
+            <option value="c60">custom &middot; 60s</option>
+            <option value="c30">custom &middot; 30s</option>
+          </select>
+        </div>
+        <div class="cfgrow"><span class="lbl">After draft</span>
+          <select id="destSel">
+            <option value="tables" selected>deckbuild &rarr; tables</option>
+            <option value="export">deckbuild &rarr; export only</option>
+          </select>
+          <span class="lbl" style="width:auto;">Matches</span>
+          <select id="boSel"><option value="1">best of 1</option><option value="3" selected>best of 3</option></select>
+        </div>
+        <label class="cfg"><input type="checkbox" id="livePicks"> live public picks (default hidden until recap)</label>
+      </div>
+      <div id="cfgTable" style="display:none;">
+        <div class="dim" style="font-size:13px; margin-bottom:8px;">Each player pastes a decklist. Basics welcome. Host starts when both decks resolve.</div>
+        <textarea id="deckTxt" style="width:100%; height:140px; font-size:12px;" placeholder="17 Island&#10;3 Counterspell&#10;&hellip; plain lists or Arena exports (2 Burglar Rat (FDN) 170) both work"></textarea>
+        <div style="display:flex; gap:10px; align-items:center; margin-top:6px;">
+          <button class="btn sm" id="deckSubmitBtn">Submit deck</button>
+          <span id="deckStat" class="dim"></span>
+        </div>
+      </div>
+      <div id="lobBtns">
+        <button class="btn gold" id="startBtn" style="display:none;">Start draft</button>
+        <button class="btn sm ghost" id="sampleBtn" style="display:none;">Crack a sample pack</button>
+        <span class="sp" style="flex:1;"></span>
+      </div>
+      <div id="lobMsg"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ DRAFT ============ -->
+<div id="scr-draft" class="scr">
+  <div id="dHdr">
+    <span class="brand" style="font-size:13px; letter-spacing:4px; color:var(--gold);">Wheel</span>
+    <span class="stat">Pack <b id="dPackNum">1</b> &middot; Pick <b id="dPickNum">1</b></span>
+    <span class="stat dim" id="dDir">passing left</span>
+    <span class="sp" style="flex:1;"></span>
+    <span class="stat dim" id="dQueue"></span>
+    <div id="dTimerWrap"><span id="dTimer"></span></div>
+    <button class="btn xs ghost" id="dHostMenuBtn" style="display:none;">Host</button>
+  </div>
+  <div id="dMain">
+    <div id="dCenter">
+      <div id="dPack"></div>
+      <div id="dWait">
+        <div class="big">Waiting for a pack</div>
+        <div class="dim" id="dWaitSub">review your pool below</div>
+      </div>
+      <div id="dConfirmRow"><button class="btn gold" id="dConfirm" disabled>Confirm pick</button></div>
+    </div>
+    <div id="dRail">
+      <div class="railsec" id="dSeats"><h4>Table</h4><div id="dSeatList"></div></div>
+      <div class="railsec" id="dPicksSec"><h4>My picks</h4><div id="dPicks"></div></div>
+      <div class="chatsec"><div class="chatlog" id="dChatLog"></div><input class="chatin" id="dChatIn" type="text" placeholder="table talk&hellip;" maxlength="200"></div>
+    </div>
+  </div>
+  <div id="dTray">
+    <div id="dTrayBar">
+      <span id="dTrayLbl">Pool (0) &#9650;</span>
+      <span id="dTrayPips"></span>
+      <span id="dCurve"></span>
+      <select id="dTraySort" class="btn xs" style="text-transform:none;" onclick="event.stopPropagation()">
+        <option value="color">by color</option><option value="cmc">by cost</option><option value="type">by type</option>
+      </select>
+    </div>
+    <div id="dTrayStrip"></div>
+    <div id="dTrayGrid"></div>
+  </div>
+</div>
+
+<!-- ============ DECKBUILD ============ -->
+<div id="scr-build" class="scr">
+  <div class="topbar">
+    <span class="brand">Wheel</span>
+    <span class="chip">deckbuild</span>
+    <span class="sp"></span>
+    <button class="btn sm ghost" id="bRecapBtn">Draft recap</button>
+    <button class="btn sm ghost" id="bExportBtn">Export deck</button>
+  </div>
+  <div id="bMain">
+    <div id="bPoolWrap">
+      <div class="bhead">Pool <span class="ct" id="bPoolCt">0</span>
+        <span class="sp" style="flex:1;"></span>
+        <input id="bFilter" type="text" placeholder="filter&hellip;" style="font-size:12px; padding:3px 8px; width:130px; text-transform:none; letter-spacing:0;">
+      </div>
+      <div id="bPool"></div>
+    </div>
+    <div id="bDeckWrap">
+      <div class="bhead">Deck <span class="ct" id="bDeckCt">0</span><span class="dim" style="letter-spacing:0;">/ 40 min</span></div>
+      <div id="bDeck"></div>
+      <div id="bLands"></div>
+    </div>
+  </div>
+  <div id="bFoot">
+    <button class="btn gold" id="bReadyBtn">Ready</button>
+    <div id="bStats"></div>
+    <div id="bRoster"></div>
+  </div>
+</div>
+
+<!-- ============ BRIDGE ============ -->
+<div id="scr-bridge" class="scr">
+  <div class="topbar"><span class="brand">Wheel</span><span class="chip">pairings</span><span class="sp"></span></div>
+  <div class="panel">
+    <h3>Pairings</h3>
+    <div id="brPairs"></div>
+    <div id="brBtns" style="display:flex; gap:10px; margin-top:14px;">
+      <button class="btn sm" id="brShuffleBtn" style="display:none;">Shuffle pairings</button>
+      <button class="btn gold" id="brStartBtn" style="display:none;">Start matches</button>
+    </div>
+    <div class="dim" id="brMsg" style="margin-top:10px; font-size:13px;"></div>
+  </div>
+</div>
+
+<!-- ============ TABLE ============ -->
+<div id="scr-table" class="scr">
+  <div id="tTop">
+    <div class="statline" id="tOppLine">
+      <span class="nm" id="tOppName">&mdash;</span>
+      <span class="b btn xs ghost" id="tOppMinus">&minus;</span>
+      <span class="lv" id="tOppLife" title="click to set" style="cursor:pointer;">20</span>
+      <span class="b btn xs ghost" id="tOppPlus">+</span>
+      <span class="zc" id="tOppCounts"></span>
+    </div>
+    <span class="sp" style="flex:1;"></span>
+    <span class="dim" id="tGameLbl"></span>
+    <div id="tScore"></div>
+    <button class="btn xs ghost" id="tSpecSel" style="display:none;">table 1</button>
+    <button class="btn xs danger" id="tConcedeBtn">Concede</button>
+  </div>
+  <div id="tMain">
+    <div id="tField">
+      <div class="bffield" data-half="opp" id="tOppField"></div>
+      <div id="tMid"></div>
+      <div class="bffield mine" data-half="my" id="tMyField"></div>
+    </div>
+    <div id="tZonesBar">
+      <div id="tLifeBox">
+        <div id="tLife" title="click to set">20</div>
+        <div id="tLifeBtns">
+          <span class="b btn xs ghost" data-d="-1">&minus;</span>
+          <span class="b btn xs ghost" data-d="1">+</span>
+        </div>
+        <div class="dim" id="tSubLife" style="font-size:10px;"></div>
+      </div>
+      <div class="zpile" id="tLib"><span class="ovl">Library</span><span class="n ovl" id="tLibN">0</span></div>
+      <div class="zpile" id="tGY"><span class="ovl">Grave</span><span class="n ovl" id="tGYN">0</span></div>
+      <div class="zpile" id="tEX"><span class="ovl">Exile</span><span class="n ovl" id="tEXN">0</span></div>
+    </div>
+    <div id="tRail">
+      <div id="tTurn">&mdash;</div>
+      <div id="tLogSec"><h4 class="dim" style="font-size:10px; letter-spacing:2px; text-transform:uppercase; margin-bottom:6px;">Log</h4><div id="tLog"></div></div>
+      <div class="chatsec"><div class="chatlog" id="tChatLog"></div><input class="chatin" id="tChatIn" type="text" placeholder="say&hellip;" maxlength="200"></div>
+    </div>
+  </div>
+  <div id="tHandWrap">
+    <div id="tHand"></div>
+    <div id="tBtns">
+      <div id="tBtnsRow">
+        <button class="btn sm" id="tDrawBtn" title="hotkey: D">Draw &middot; <b style="font-weight:normal; color:var(--gold);">D</b></button>
+        <button class="btn sm" id="tUntapBtn" title="hotkey: U">Untap &middot; <b style="font-weight:normal; color:var(--gold);">U</b></button>
+        <button class="btn sm" id="tTurnBtn" title="hotkey: N">Take turn &middot; N</button>
+      </div>
+      <div id="tBtnsRow2" style="display:flex; gap:5px;">
+        <button class="btn xs ghost" id="tTokenBtn">Token</button>
+        <button class="btn xs ghost" id="tD6Btn">d6</button>
+        <button class="btn xs ghost" id="tD20Btn">d20</button>
+        <button class="btn xs ghost" id="tCoinBtn">Coin</button>
+        <button class="btn xs ghost" id="tMoreBtn">More</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ SUMMARY ============ -->
+<div id="scr-summary" class="scr">
+  <div class="topbar"><span class="brand">Wheel</span><span class="chip">night summary</span><span class="sp"></span></div>
+  <div class="panel">
+    <h3>Results</h3>
+    <div id="sumGrid"></div>
+    <div style="display:flex; gap:10px; justify-content:center;">
+      <button class="btn sm ghost" id="sumRecapBtn">Draft recap</button>
+      <button class="btn gold" id="sumLobbyBtn" style="display:none;">Back to lobby</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ shared overlays ============ -->
+<div id="hoverCard"></div>
+<div id="modal"><div id="modalBox"><span id="modalX">&times;</span><h3 id="modalTitle"></h3><div id="modalBody"></div></div></div>
+<div id="cmenu"></div>
+<div class="tovl" id="scryOv"><div class="tovlBox">
+  <h3 id="scryTitle">Scry</h3>
+  <div class="scryrow" id="scryTop"><span class="zl">Top<br><small class="dimmer">left = drawn first</small></span></div>
+  <div class="scryrow" id="scryBottom"><span class="zl">Bottom</span></div>
+  <div class="scryrow" id="scryGY" style="display:none;"><span class="zl">Graveyard</span></div>
+  <div class="ovlbtns"><span class="dim" style="font-size:12px; margin-right:auto;">click a card to cycle zones &middot; drag order matters on top</span><button class="btn gold" id="scryDone">Done</button></div>
+</div></div>
+<div class="tovl" id="gridOv"><div class="tovlBox">
+  <h3 id="gridTitle">Cards</h3>
+  <div class="ovlgrid" id="gridBody"></div>
+  <div class="ovlbtns" id="gridBtns"></div>
+</div></div>
+<div class="tovl" id="tokenOv"><div class="tovlBox">
+  <h3>Create token</h3>
+  <div style="display:flex; gap:8px; margin-bottom:10px;">
+    <input id="tokSearch" type="text" placeholder="search tokens, e.g. Soldier" style="flex:1;">
+    <button class="btn sm" id="tokGoBtn">Search</button>
+  </div>
+  <div class="ovlgrid" id="tokResults" style="min-height:120px;"></div>
+  <div class="rule"></div>
+  <div style="display:flex; gap:8px; align-items:center;">
+    <span class="dim" style="font-size:12px;">or generic:</span>
+    <input id="tokName" type="text" placeholder="name" style="width:140px;">
+    <input id="tokPT" type="text" placeholder="1/1" style="width:56px;">
+    <button class="btn sm" id="tokMakeBtn">Create</button>
+  </div>
+  <div class="ovlbtns"><button class="btn ghost sm" id="tokCancel">Close</button></div>
+</div></div>
+<div id="toast"></div>
+<div id="turnBanner"></div>
+
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script>
+'use strict';
+/*ENGINE-START*/
+// ---------------- rng + utils (pure, node-safe) ----------------
+function mulberry32(seed){
+  let a = seed >>> 0;
+  return function(){
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function shuffled(arr, rng){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){ const j = Math.floor(rng()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
+  return a;
+}
+function weightedIndex(weights, rng){
+  let tot = 0; for(const w of weights) tot += w;
+  let r = rng()*tot;
+  for(let i=0;i<weights.length;i++){ r -= weights[i]; if(r<0) return i; }
+  return weights.length-1;
+}
+
+// ---------------- card shaping ----------------
+function cardFromScry(c){
+  const f = (c.card_faces && c.card_faces.length) ? c.card_faces[0] : c;
+  const iu = c.image_uris || (c.card_faces && c.card_faces[0] && c.card_faces[0].image_uris) || {};
+  return {
+    sid: c.id, name: c.name,
+    cost: f.mana_cost || '',
+    type: c.type_line || f.type_line || '',
+    text: c.card_faces ? c.card_faces.map(x=>x.oracle_text||'').filter(Boolean).join('\n—\n') : (c.oracle_text||''),
+    r: c.rarity,
+    colors: (c.colors && c.colors.length) ? c.colors : (f.colors || []),
+    cmc: (typeof c.cmc === 'number') ? c.cmc : 0,
+    img: iu.normal || iu.large || iu.small || '',
+    imgL: iu.large || iu.normal || '',
+    pt: (f.power != null && f.toughness != null) ? (f.power + '/' + f.toughness) : null
+  };
+}
+function isLand(c){ return /\bLand\b/.test(c.type||''); }
+function parseDeckList(text){
+  const out = [];
+  for(let ln of String(text).split('\n')){
+    ln = ln.trim();
+    // Arena/Moxfield export headers
+    if(!ln || /^(sideboard|deck|maindeck|main|about|commander|companion)$/i.test(ln) || /^name\s/i.test(ln)) continue;
+    const m = ln.match(/^(\d+)x?\s+(.+)$/);
+    let n = 1, name = ln;
+    if(m){ n = Math.min(99, parseInt(m[1],10)||1); name = m[2].trim(); }
+    // Arena printing suffix: "Name (SET) 123", optional foil marker
+    let set = null, num = null;
+    const am = name.match(/^(.*?)\s+\(([A-Za-z0-9]{2,6})\)(?:\s+([\w★-]+))?\s*(?:\*F\*)?$/);
+    if(am){ name = am[1].trim(); set = am[2].toLowerCase(); num = am[3] || null; }
+    if(name) out.push({ n, name, set, num });
+  }
+  return out;
+}
+
+// ---------------- color weights + bot ----------------
+function colorWeights(pool){
+  const w = {W:0,U:0,B:0,R:0,G:0};
+  for(const c of pool){
+    if(isLand(c)) continue;
+    const cols = c.colors || [];
+    for(const x of cols) if(w[x]!=null) w[x] += 1/cols.length;
+  }
+  return w;
+}
+function topColors(w, n){
+  return Object.keys(w).sort((a,b)=>w[b]-w[a]).slice(0, n||2).filter(k=>w[k]>0);
+}
+const RARITY_VAL = { mythic:5, rare:4.6, special:4.2, bonus:4.2, uncommon:3.1, common:2.1 };
+function botChoose(pool, pack, rng){
+  const w = colorWeights(pool), tops = topColors(w, 2);
+  const commit = Math.min(1, pool.filter(c=>!isLand(c)).length / 16);
+  let best = null, bs = -1e9;
+  for(const c of pack){
+    let s = (RARITY_VAL[c.r] || 2.5) + rng()*0.6;
+    if(isLand(c)) s -= 0.7;
+    const cols = c.colors || [];
+    if(cols.length && tops.length){
+      const on = cols.filter(x=>tops.includes(x)).length;
+      if(on === cols.length) s += 1.7*commit;
+      else if(on > 0) s += 0.3*commit;
+      else s -= 1.9*commit;
+    } else if(!cols.length && !isLand(c)) s += 0.2;
+    s -= Math.max(0, (c.cmc||0) - 5) * 0.15;
+    if(s > bs){ bs = s; best = c; }
+  }
+  return best;
+}
+
+// ---------------- pack generation ----------------
+let INSTANCE_N = 1;
+function instanceOf(proto){ return Object.assign({}, proto, { id: 'k' + (INSTANCE_N++) }); }
+
+function buildTemplatePacks(protos, nPacks, rng){
+  const buckets = { common:[], uncommon:[], rare:[], mythic:[] };
+  for(const c of protos){
+    if(/Basic Land/.test(c.type)) continue;
+    (buckets[c.r] || buckets.rare).push(c);
+  }
+  if(!buckets.rare.length) buckets.rare = buckets.mythic.slice();
+  const packs = [];
+  for(let p=0;p<nPacks;p++){
+    const used = new Set(), pack = [];
+    const draw = (bucket)=>{
+      let pool = buckets[bucket];
+      if(!pool || !pool.length) pool = protos.filter(c=>!/Basic Land/.test(c.type));
+      for(let tries=0; tries<80; tries++){
+        const c = pool[Math.floor(rng()*pool.length)];
+        if(c && !used.has(c.sid)){ used.add(c.sid); pack.push(instanceOf(c)); return; }
+      }
+      const c = pool[Math.floor(rng()*pool.length)];
+      if(c) pack.push(instanceOf(c));
+    };
+    const rareBucket = (buckets.mythic.length && rng() < 1/7.4) ? 'mythic' : 'rare';
+    draw(rareBucket);
+    for(let i=0;i<3;i++) draw('uncommon');
+    for(let i=0;i<10;i++) draw('common');
+    const any = ['common','common','uncommon','uncommon','rare'][Math.floor(rng()*5)];
+    draw(any); // wildcard slot
+    packs.push(pack);
+  }
+  return packs;
+}
+
+// mtgjson booster config walker. booster = data.booster[key]; byUuid maps mtgjson uuid -> proto
+function buildBoosterPack(booster, byUuid, rng){
+  const variants = booster.boosters || [];
+  if(!variants.length) return null;
+  const vi = weightedIndex(variants.map(v=>v.weight||1), rng);
+  const contents = variants[vi].contents || {};
+  const pack = [], used = new Set();
+  for(const sheetName of Object.keys(contents)){
+    const count = contents[sheetName];
+    const sheet = (booster.sheets||{})[sheetName];
+    if(!sheet || !sheet.cards) continue;
+    const uuids = Object.keys(sheet.cards);
+    const weights = uuids.map(u=>sheet.cards[u]);
+    for(let i=0;i<count;i++){
+      let placed = false;
+      for(let tries=0; tries<60 && !placed; tries++){
+        const u = uuids[weightedIndex(weights, rng)];
+        if(used.has(u)) continue;
+        const proto = byUuid[u];
+        if(!proto) { used.add(u); continue; } // printing we couldn't resolve; skip it
+        used.add(u); pack.push(instanceOf(proto)); placed = true;
+      }
+    }
+  }
+  return pack.length ? pack : null;
+}
+function pickBoosterKey(boosterObj){
+  if(!boosterObj) return null;
+  for(const k of ['play','draft','default']) if(boosterObj[k]) return k;
+  const ks = Object.keys(boosterObj);
+  return ks.length ? ks[0] : null;
+}
+
+function buildCubePacks(protos, nPacks, perPack, rng){
+  const deck = shuffled(protos, rng);
+  if(deck.length < nPacks*perPack) return null;
+  const packs = [];
+  for(let p=0;p<nPacks;p++) packs.push(deck.slice(p*perPack, (p+1)*perPack).map(instanceOf));
+  return packs;
+}
+
+// ---------------- draft engine ----------------
+// rounds: rounds[r] = array of nSeats packs (arrays of card instances)
+function makeDraft(nSeats, rounds){
+  return {
+    n: nSeats, rounds, packNum: 0, dir: 1, finished: false,
+    seats: Array.from({length:nSeats}, ()=>({ queue:[], pool:[], picks:[], roundPicks:0 }))
+  };
+}
+function draftOpenRound(D){
+  D.packNum++;
+  D.dir = (D.packNum % 2 === 1) ? 1 : -1; // odd packs pass left
+  const packs = D.rounds[D.packNum - 1];
+  D.seats.forEach((s,i)=>{ s.queue.push(packs[i]); s.roundPicks = 0; });
+}
+function draftPick(D, si, cardId){
+  const s = D.seats[si];
+  const pack = s.queue[0];
+  if(!pack) return null;
+  const ix = pack.findIndex(c=>c.id===cardId);
+  if(ix < 0) return null;
+  const card = pack.splice(ix,1)[0];
+  s.pool.push(card); s.roundPicks++;
+  s.picks.push({ p: D.packNum, n: s.roundPicks, card });
+  s.queue.shift();
+  let passedTo = -1;
+  if(pack.length){ passedTo = (si + D.dir + D.n) % D.n; D.seats[passedTo].queue.push(pack); }
+  if(D.seats.every(x=>x.queue.length===0)){
+    if(D.packNum >= D.rounds.length) D.finished = true;
+    else draftOpenRound(D);
+  }
+  return { card, passedTo };
+}
+
+// ---------------- deck helpers ----------------
+function curveOf(cards){
+  const b = [0,0,0,0,0,0,0,0];
+  for(const c of cards){ if(isLand(c)) continue; b[Math.min(7, Math.round(c.cmc||0))]++; }
+  return b;
+}
+function pipCounts(cards){
+  const p = {W:0,U:0,B:0,R:0,G:0};
+  for(const c of cards){
+    const cost = c.cost || '';
+    for(const k of Object.keys(p)){
+      const m = cost.match(new RegExp('\\{[^}]*'+k+'[^}]*\\}','g'));
+      if(m) p[k] += m.length;
+    }
+  }
+  return p;
+}
+function suggestLands(deckCards){
+  const nonland = deckCards.filter(c=>!isLand(c));
+  const landTarget = Math.max(14, Math.min(19, 40 - nonland.length));
+  const pips = pipCounts(nonland);
+  const tot = Object.values(pips).reduce((a,b)=>a+b,0) || 1;
+  const out = {W:0,U:0,B:0,R:0,G:0};
+  let assigned = 0;
+  const keys = Object.keys(out).filter(k=>pips[k]>0).sort((a,b)=>pips[b]-pips[a]);
+  for(const k of keys){ out[k] = Math.floor(landTarget * pips[k]/tot); assigned += out[k]; }
+  let i = 0;
+  while(assigned < landTarget && keys.length){ out[keys[i%keys.length]]++; assigned++; i++; }
+  if(!keys.length) out.W = landTarget;
+  return out;
+}
+
+// ---------------- table engine ----------------
+function makeTable(tid, players, bo){
+  return {
+    tid, bo: bo||1, game: 1, turnNum: 0, turnSeat: -1, between: false, over: false,
+    score: players.map(()=>0),
+    pending: players.map(()=>null),
+    seats: players.map(p=>({
+      lobbySeat: p.seat, name: p.name, deck: p.deck.slice(),
+      life: 20, poison: 0, energy: 0, mull: 0,
+      lib: [], hand: [], bf: [], gy: [], ex: []
+    })),
+    cards: {}, nid: 1
+  };
+}
+function tZoneList(T, c){ return T.seats[c.seat][c.zone]; }
+function tRemoveFromZone(T, c){
+  const l = tZoneList(T, c); const i = l.indexOf(c.id); if(i>=0) l.splice(i,1);
+}
+function tMove(T, id, zone, pos, seatOverride){
+  const c = T.cards[id]; if(!c) return null;
+  tRemoveFromZone(T, c);
+  if(c.zone === 'bf'){ // leaving battlefield: detach hangers-on
+    for(const k in T.cards) if(T.cards[k].att === id) T.cards[k].att = null;
+    c.att = null; c.tapped = false; c.fd = false; c.ctrs = {}; c.note = '';
+  }
+  if(c.tok && zone !== 'bf'){ delete T.cards[id]; return c; } // tokens cease to exist
+  if(seatOverride != null) c.seat = seatOverride;
+  else if(zone !== 'bf' && c.own != null) c.seat = c.own;
+  c.zone = zone;
+  const l = tZoneList(T, c);
+  if(zone === 'lib' && pos === 'top') l.unshift(id);
+  else if(zone === 'lib' && typeof pos === 'number') l.splice(pos, 0, id);
+  else l.push(id);
+  return c;
+}
+function tSpawn(T, proto, seat, zone, extra){
+  const id = 't' + (T.nid++);
+  T.cards[id] = Object.assign({}, proto, {
+    id, seat, own: seat, zone, row: 0, slot: 0, tapped: false, fd: false,
+    ctrs: {}, note: '', att: null, tok: false
+  }, extra || {});
+  T.seats[seat][zone].push(id);
+  return T.cards[id];
+}
+function tStartGame(T, rng){
+  T.turnNum = 0; T.turnSeat = -1; T.between = false;
+  T.cards = {}; T.nid = 1;
+  T.seats.forEach((s, si)=>{
+    s.lib=[]; s.hand=[]; s.bf=[]; s.gy=[]; s.ex=[];
+    s.life=20; s.poison=0; s.energy=0; s.mull=0;
+    for(const proto of s.deck) tSpawn(T, proto, si, 'lib');
+    s.lib = shuffled(s.lib, rng);
+    for(let k=0;k<7;k++){ if(s.lib.length) tMove(T, s.lib[0], 'hand'); }
+  });
+}
+function tPubName(T, c){
+  if(!c) return 'a card';
+  if(c.zone === 'bf') return c.fd ? 'a face-down card' : c.name;
+  if(c.zone === 'gy' || c.zone === 'ex') return c.name;
+  return 'a card';
+}
+// applies action a from seat si. returns log string or null. mutates T.
+function tableApply(T, si, a, rng){
+  const s = T.seats[si]; if(!s) return null;
+  const nm = s.name;
+  const C = id => T.cards[id];
+  switch(a.t){
+    case 'draw': {
+      const n = Math.max(1, Math.min(20, a.n||1));
+      let got = 0;
+      for(let i=0;i<n && s.lib.length;i++){ tMove(T, s.lib[0], 'hand'); got++; }
+      return nm + (got===1 ? ' draws a card' : ' draws ' + got + ' cards');
+    }
+    case 'shuffle': s.lib = shuffled(s.lib, rng); return nm + ' shuffles their library';
+    case 'mull': {
+      while(s.hand.length) tMove(T, s.hand[0], 'lib');
+      s.lib = shuffled(s.lib, rng); s.mull++;
+      for(let k=0;k<7 && s.lib.length;k++) tMove(T, s.lib[0], 'hand');
+      return nm + ' takes a mulligan (' + s.mull + ')';
+    }
+    case 'keep': return nm + ' keeps their hand' + (s.mull ? ' (bottoming ' + s.mull + ')' : '');
+    case 'bottom': {
+      let n = 0;
+      for(const id of (a.ids||[])){ const c=C(id); if(c && c.zone==='hand' && c.seat===si){ tMove(T, id, 'lib'); n++; } }
+      return n ? nm + ' puts ' + n + ' card' + (n>1?'s':'') + ' on the bottom of their library' : null;
+    }
+    case 'play': {
+      const c = C(a.id); if(!c || c.zone!=='hand' || c.seat!==si) return null;
+      tMove(T, a.id, 'bf');
+      c.row = a.row|0; c.slot = a.slot|0; c.fd = !!a.fd;
+      return nm + (c.fd ? ' plays a card face down' : ' plays ' + c.name);
+    }
+    case 'bfmove': {
+      const c = C(a.id); if(!c || c.zone!=='bf' || c.seat!==si) return null;
+      c.att = null; // dragging an attached thing away detaches it
+      c.row = a.row|0; c.slot = a.slot|0;
+      const l = T.seats[si].bf; const i = l.indexOf(a.id);
+      if(i >= 0){ l.splice(i,1); l.push(a.id); } // moved card comes to the top of any stack
+      return null;
+    }
+    case 'move': {
+      const c = C(a.id); if(!c) return null;
+      const from = c.zone, wasFd = c.fd, name0 = tPubName(T, c);
+      const to = a.to;
+      if(to==='hand'){ tMove(T, a.id, 'hand');
+        if(from==='lib') return nm + ' puts a card from their library into their hand';
+        return nm + ' returns ' + name0 + ' to their hand'; }
+      if(to==='gy'){ tMove(T, a.id, 'gy'); const c2=C(a.id);
+        const shown = c2 ? c2.name : name0;
+        if(from==='hand') return nm + ' discards ' + shown;
+        return nm + ' puts ' + shown + ' into the graveyard'; }
+      if(to==='ex'){ tMove(T, a.id, 'ex'); const c2=C(a.id);
+        return nm + ' exiles ' + (c2 ? c2.name : name0); }
+      if(to==='bf'){
+        tMove(T, a.id, 'bf'); const c2=C(a.id); if(!c2) return null;
+        c2.row = a.row|0; c2.slot = a.slot|0;
+        return nm + ' puts ' + c2.name + ' onto the battlefield'; }
+      if(to==='libtop' || to==='libbottom'){
+        const nm2 = (from==='hand'||wasFd) ? 'a card' : name0;
+        tMove(T, a.id, 'lib', to==='libtop' ? 'top' : 'bottom');
+        return nm + ' puts ' + nm2 + ' on ' + (to==='libtop'?'top':'the bottom') + ' of their library'; }
+      return null;
+    }
+    case 'tap': {
+      const c = C(a.id); if(!c || c.zone!=='bf') return null;
+      c.tapped = !!a.v;
+      return nm + (c.tapped?' taps ':' untaps ') + (c.fd ? 'a face-down card' : c.name);
+    }
+    case 'untapAll': {
+      let n=0; for(const id of s.bf){ const c=C(id); if(c && c.tapped){ c.tapped=false; n++; } }
+      return n ? nm + ' untaps' : null;
+    }
+    case 'counter': {
+      const c = C(a.id); if(!c || c.zone!=='bf') return null;
+      const k = String(a.k||'+1/+1').slice(0,20);
+      c.ctrs[k] = (c.ctrs[k]||0) + (a.d|0);
+      const gone = c.ctrs[k] <= 0; if(gone) delete c.ctrs[k];
+      return nm + (a.d>0 ? ' adds a ' + k + ' counter to ' : ' removes a ' + k + ' counter from ') + tPubName(T,c);
+    }
+    case 'note': { const c=C(a.id); if(!c) return null; c.note = String(a.x||'').slice(0,40); return null; }
+    case 'face': {
+      const c = C(a.id); if(!c || c.zone!=='bf') return null;
+      c.fd = !!a.v;
+      return nm + (c.fd ? ' turns a card face down' : ' turns ' + c.name + ' face up');
+    }
+    case 'reveal': {
+      const c = C(a.id); if(!c || c.zone!=='hand' || c.seat!==si) return null;
+      return { s: nm + ' reveals ' + c.name + ' from their hand', img: c.img };
+    }
+    case 'revealHand': {
+      const names = s.hand.map(id=>C(id).name).join(', ') || 'nothing';
+      return nm + ' reveals their hand: ' + names;
+    }
+    case 'token': {
+      const proto = a.proto || {};
+      const c = tSpawn(T, {
+        sid: proto.sid||'', name: String(proto.name||'Token').slice(0,40), cost:'',
+        type: proto.type||'Token', text: proto.text||'', r:'token', colors: proto.colors||[],
+        cmc:0, img: proto.img||'', imgL: proto.imgL||proto.img||'', pt: proto.pt||null
+      }, si, 'bf', { tok:true, row:a.row|0, slot:a.slot|0 });
+      return nm + ' creates a ' + c.name + ' token';
+    }
+    case 'dupe': {
+      const c = C(a.id); if(!c || c.zone!=='bf') return null;
+      tSpawn(T, { sid:c.sid, name:c.name, cost:c.cost, type:c.type, text:c.text, r:c.r,
+        colors:c.colors, cmc:c.cmc, img:c.img, imgL:c.imgL, pt:c.pt },
+        si, 'bf', { tok:true, row:c.row, slot:Math.min(47, c.slot+2) });
+      return nm + ' creates a copy of ' + c.name;
+    }
+    case 'life': {
+      const k = (a.k==='poison'||a.k==='energy') ? a.k : 'life';
+      const who = (a.who != null && T.seats[a.who]) ? (a.who|0) : si;
+      const tgt = T.seats[who];
+      tgt[k] += (a.d|0);
+      const d = a.d|0;
+      if(who !== si) return nm + ' sets ' + tgt.name + '’s ' + k + ' to ' + tgt[k];
+      if(k==='life') return nm + (d>0? ' gains ':' loses ') + Math.abs(d) + ' life (' + tgt.life + ')';
+      return nm + (d>0?' gets ':' removes ') + Math.abs(d) + ' ' + k + ' (' + tgt[k] + ')';
+    }
+    case 'setlife': {
+      const who = (a.who != null && T.seats[a.who]) ? (a.who|0) : si;
+      const tgt = T.seats[who];
+      tgt.life = a.v|0;
+      return nm + (who !== si ? ' sets ' + tgt.name + '’s life to ' : ' sets life to ') + tgt.life;
+    }
+    case 'turn': {
+      // press when you hold the turn = pass it; otherwise claim it
+      const holder = (T.turnSeat === si) ? (si + 1) % T.seats.length : si;
+      T.turnNum++; T.turnSeat = holder;
+      return '— turn ' + T.turnNum + ': ' + T.seats[holder].name + ' —';
+    }
+    case 'roll': { const sides=a.sides||6; const r=1+Math.floor(rng()*sides); return nm + ' rolls a d' + sides + ': ' + r; }
+    case 'dice': { // physical die on the table
+      const sides = a.sides||6, val = 1+Math.floor(rng()*sides);
+      tSpawn(T, { sid:'', name:'d'+sides, cost:'', type:'Die', text:'', r:'token', colors:[], cmc:0, img:'', imgL:'', pt:null },
+        si, 'bf', { tok:true, wtype:'die', sides, val, rn:1, row:a.row|0, slot:a.slot|0 });
+      return nm + ' rolls a d' + sides + ' onto the table: ' + val;
+    }
+    case 'rollWidget': {
+      const c = C(a.id); if(!c || c.wtype!=='die') return null;
+      c.val = 1+Math.floor(rng()*(c.sides||6));
+      c.rn = (c.rn|0) + 1; // roll nonce: only true rolls animate, not set-value
+      return nm + ' rolls the d' + (c.sides||6) + ': ' + c.val;
+    }
+    case 'chip': { // physical counter on the table
+      tSpawn(T, { sid:'', name:'counter', cost:'', type:'Counter', text:'', r:'token', colors:[], cmc:0, img:'', imgL:'', pt:null },
+        si, 'bf', { tok:true, wtype:'chip', val:(a.v!=null?a.v|0:1), row:a.row|0, slot:a.slot|0 });
+      return nm + ' places a counter on the table';
+    }
+    case 'chipSet': { // set/step any widget's value (dice double as counters)
+      const c = C(a.id); if(!c || !c.wtype) return null;
+      if(a.v != null) c.val = a.v|0; else c.val = (c.val|0) + (a.d|0);
+      return null;
+    }
+    case 'widgetRemove': {
+      const c = C(a.id); if(!c || !c.wtype) return null;
+      tRemoveFromZone(T, c); delete T.cards[a.id];
+      return null;
+    }
+    case 'coin': { return nm + ' flips a coin: ' + (rng()<0.5?'heads':'tails'); }
+    case 'randHand': {
+      if(!s.hand.length) return null;
+      const c = C(s.hand[Math.floor(rng()*s.hand.length)]);
+      return { s: nm + ' reveals a card at random: ' + c.name, img: c.img };
+    }
+    case 'mill': {
+      const n = Math.max(1, Math.min(20, a.n||1)); const names=[];
+      for(let i=0;i<n && s.lib.length;i++){ const id=s.lib[0]; names.push(C(id).name); tMove(T,id,'gy'); }
+      return names.length ? nm + ' mills ' + names.length + ': ' + names.join(', ') : null;
+    }
+    case 'scryResolve': {
+      const pend = T.pending[si]; if(!pend) return null;
+      const set = new Set(pend.ids);
+      const ok = ids => (ids||[]).every(id=>set.has(id));
+      if(!ok(a.top)||!ok(a.bottom)||!ok(a.gy)) return null;
+      s.lib = s.lib.filter(id=>!set.has(id));
+      const top=a.top||[], bot=a.bottom||[], gy=a.gy||[];
+      s.lib = top.concat(s.lib);
+      for(const id of bot) s.lib.push(id);
+      for(const id of gy){ const c=C(id); if(c){ const i=s.lib.indexOf(id); if(i>=0)s.lib.splice(i,1); c.zone='gy'; s.gy.push(id); } }
+      T.pending[si] = null;
+      const verb = pend.surveil ? 'surveils' : (pend.peek ? 'looked at the top of their library' : 'scries');
+      if(pend.peek) return nm + ' ' + verb;
+      const bits=[]; if(top.length)bits.push(top.length+' on top'); if(bot.length)bits.push(bot.length+' to the bottom'); if(gy.length)bits.push(gy.length+' to the graveyard');
+      return nm + ' ' + verb + ': ' + (bits.join(', ')||'none');
+    }
+    case 'searchResolve': {
+      const pend = T.pending[si]; if(!pend || !pend.search) return null;
+      let n=0;
+      for(const id of (a.ids||[])){ const c=C(id); if(c && c.zone==='lib' && c.seat===si){ tMove(T,id, a.to==='bf'?'bf':'hand'); n++; } }
+      T.pending[si]=null;
+      return nm + ' takes ' + n + ' card' + (n===1?'':'s') + ' from their library';
+    }
+    case 'attach': {
+      const c=C(a.id), h=C(a.to);
+      if(!c||!h||c.zone!=='bf'||h.zone!=='bf'||a.id===a.to||h.wtype) return null;
+      c.att = a.to;
+      if(c.wtype) return nm + ' sets a ' + c.name + ' on ' + tPubName(T,h);
+      return nm + ' attaches ' + tPubName(T,c) + ' to ' + tPubName(T,h);
+    }
+    case 'detach': { const c=C(a.id); if(!c) return null; c.att=null; return null; }
+    case 'give': {
+      const c=C(a.id); if(!c||c.zone!=='bf'||c.seat!==si) return null;
+      const other = (si+1) % T.seats.length;
+      tRemoveFromZone(T,c); c.seat=other; c.row = c.row; T.seats[other].bf.push(c.id);
+      return nm + ' gives control of ' + tPubName(T,c) + ' to ' + T.seats[other].name;
+    }
+    case 'endGame': {
+      const w = a.winner|0; if(w<0||w>=T.seats.length||T.between||T.over) return null;
+      T.score[w]++;
+      const need = Math.floor(T.bo/2)+1;
+      if(T.score[w] >= need) T.over = true; else T.between = true;
+      return T.seats[w].name + ' wins game ' + T.game + (T.over ? ' — and the match' : '');
+    }
+    case 'nextGame': {
+      if(!T.between) return null;
+      T.game++; tStartGame(T, rng);
+      return '— game ' + T.game + ' —';
+    }
+  }
+  return null;
+}
+function tPub(c, full){
+  const o = { id:c.id, sid:c.sid, name:c.name, cost:c.cost, type:c.type, r:c.r,
+    colors:c.colors, cmc:c.cmc, img:c.img, imgL:c.imgL, pt:c.pt, tok:!!c.tok };
+  if(c.wtype){ o.wtype = c.wtype; o.val = c.val; o.sides = c.sides; o.rn = c.rn; }
+  if(full) o.text = c.text;
+  return o;
+}
+function tPubBF(c, forOwner){
+  if(c.fd && !forOwner){
+    return { id:c.id, fd:true, row:c.row, slot:c.slot, tapped:c.tapped, att:c.att, ctrs:c.ctrs, note:c.note };
+  }
+  const o = tPub(c, true);
+  o.fd = c.fd; o.row=c.row; o.slot=c.slot; o.tapped=c.tapped; o.att=c.att; o.ctrs=c.ctrs; o.note=c.note;
+  return o;
+}
+// forSi: seat index at this table, or -1 spectator
+function sanitizeTable(T, forSi){
+  return {
+    tid: T.tid, bo: T.bo, game: T.game, score: T.score.slice(),
+    turnNum: T.turnNum, turnSeat: T.turnSeat, between: T.between, over: T.over,
+    seats: T.seats.map((s,si)=>({
+      name: s.name, lobbySeat: s.lobbySeat, life: s.life, poison: s.poison, energy: s.energy, mull: s.mull,
+      libN: s.lib.length, handN: s.hand.length,
+      hand: si===forSi ? s.hand.map(id=>tPub(T.cards[id], true)) : null,
+      bf: s.bf.map(id=>tPubBF(T.cards[id], si===forSi)),
+      gy: s.gy.map(id=>tPub(T.cards[id], true)),
+      ex: s.ex.map(id=>tPub(T.cards[id], true))
+    }))
+  };
+}
+if(typeof module !== 'undefined' && module.exports){
+  module.exports = { mulberry32, shuffled, weightedIndex, cardFromScry, isLand, parseDeckList,
+    colorWeights, topColors, botChoose, buildTemplatePacks, buildBoosterPack, pickBoosterKey,
+    buildCubePacks, makeDraft, draftOpenRound, draftPick, curveOf, pipCounts, suggestLands,
+    makeTable, tStartGame, tMove, tableApply, sanitizeTable };
+}
+/*ENGINE-END*/
+// ================= DATA LAYER (browser only) =================
+const SCRY = 'https://api.scryfall.com';
+async function jget(url){
+  const r = await fetch(url);
+  if(!r.ok) throw new Error('fetch ' + r.status + ' ' + url);
+  return r.json();
+}
+const idb = {
+  db: null,
+  open(){
+    if(this.db) return Promise.resolve(this.db);
+    return new Promise((res, rej)=>{
+      const rq = indexedDB.open('wheel', 1);
+      rq.onupgradeneeded = ()=>rq.result.createObjectStore('kv');
+      rq.onsuccess = ()=>{ this.db = rq.result; res(this.db); };
+      rq.onerror = ()=>rej(rq.error);
+    });
+  },
+  async get(k){
+    try{
+      const db = await this.open();
+      return await new Promise((res)=>{
+        const rq = db.transaction('kv').objectStore('kv').get(k);
+        rq.onsuccess = ()=>res(rq.result); rq.onerror = ()=>res(undefined);
+      });
+    }catch(e){ return undefined; }
+  },
+  async put(k, v){
+    try{
+      const db = await this.open();
+      return await new Promise((res)=>{
+        const rq = db.transaction('kv','readwrite').objectStore('kv').put(v, k);
+        rq.onsuccess = ()=>res(true); rq.onerror = ()=>res(false);
+      });
+    }catch(e){ return false; }
+  }
+};
+const DATA = { sets: null, setCache: {}, boosterCache: {}, basics: null };
+async function fetchSetList(){
+  if(DATA.sets) return DATA.sets;
+  const cached = await idb.get('sets');
+  if(cached && Date.now() - cached.at < 86400e3){ DATA.sets = cached.v; return cached.v; }
+  const j = await jget(SCRY + '/sets');
+  const keep = ['core','expansion','masters','draft_innovation','remaster','cube','funny','commander'];
+  const v = j.data
+    .filter(s=>keep.includes(s.set_type) && s.card_count >= 100 && !s.digital)
+    .map(s=>({ code: s.code, name: s.name, released: s.released_at || '', ct: s.card_count }));
+  DATA.sets = v; idb.put('sets', { at: Date.now(), v });
+  return v;
+}
+// full printings of a set, shaped to protos; cached forever
+async function fetchSetCards(code){
+  code = code.toLowerCase();
+  if(DATA.setCache[code]) return DATA.setCache[code];
+  const cached = await idb.get('set:' + code);
+  if(cached){ DATA.setCache[code] = cached; return cached; }
+  let url = SCRY + '/cards/search?q=' + encodeURIComponent('e:' + code) + '&unique=prints&include_variations=true';
+  const protos = [];
+  while(url){
+    const j = await jget(url);
+    for(const c of j.data){ const p = cardFromScry(c); if(p.img) protos.push(p); }
+    url = j.has_more ? j.next_page : null;
+    if(url) await new Promise(r=>setTimeout(r, 110));
+  }
+  if(!protos.length) throw new Error('set ' + code + ' has no cards');
+  DATA.setCache[code] = protos; idb.put('set:' + code, protos);
+  return protos;
+}
+// mtgjson booster config, trimmed to {booster, uuidToSid}; cached forever
+async function fetchBoosterCfg(code){
+  code = code.toLowerCase();
+  if(DATA.boosterCache[code] !== undefined) return DATA.boosterCache[code];
+  const cached = await idb.get('booster:' + code);
+  if(cached !== undefined){ DATA.boosterCache[code] = cached; return cached; }
+  let out = null;
+  try{
+    const j = await jget('https://mtgjson.com/api/v5/' + code.toUpperCase() + '.json');
+    const d = j.data || {};
+    if(d.booster){
+      const uuidToSid = {};
+      for(const c of (d.cards||[])){
+        if(c.identifiers && c.identifiers.scryfallId) uuidToSid[c.uuid] = c.identifiers.scryfallId;
+      }
+      out = { booster: d.booster, uuidToSid };
+    }
+  }catch(e){ out = null; }
+  DATA.boosterCache[code] = out; idb.put('booster:' + code, out);
+  return out;
+}
+// resolve a decklist/cube via /cards/collection (chunks of 75).
+// entries may carry {set, num} (Arena exports) for exact-printing lookup;
+// those that miss are retried once by plain name.
+async function resolveNames(entries, noRetry){
+  const protos = [], missing = [], retry = [];
+  const identKey = id => id.name ? 'n:' + id.name.toLowerCase()
+    : 's:' + (id.set||'') + '/' + (id.collector_number||'');
+  for(let i=0; i<entries.length; i+=75){
+    const chunk = entries.slice(i, i+75);
+    const idents = chunk.map(e=>(e.set && e.num)
+      ? { set: e.set, collector_number: String(e.num) }
+      : { name: e.name });
+    const r = await fetch(SCRY + '/cards/collection', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ identifiers: idents })
+    });
+    if(!r.ok) throw new Error('collection ' + r.status);
+    const j = await r.json();
+    const notFound = new Set((j.not_found||[]).map(identKey));
+    let di = 0;
+    for(let k=0; k<chunk.length; k++){
+      const e = chunk[k];
+      if(notFound.has(identKey(idents[k]))){
+        if(idents[k].set && !noRetry) retry.push({ n: e.n, name: e.name });
+        else missing.push(e.name);
+        continue;
+      }
+      const c = (j.data||[])[di++];
+      if(!c){ missing.push(e.name); continue; }
+      const p = cardFromScry(c);
+      for(let q=0; q<e.n; q++) protos.push(p);
+    }
+    if(i+75 < entries.length) await new Promise(r2=>setTimeout(r2, 120));
+  }
+  if(retry.length){
+    const again = await resolveNames(retry, true);
+    protos.push(...again.protos); missing.push(...again.missing);
+  }
+  return { protos, missing };
+}
+const BASIC_NAMES = ['Plains','Island','Swamp','Mountain','Forest'];
+async function fetchBasics(preferPool){
+  const out = {};
+  for(const n of BASIC_NAMES){
+    const hit = preferPool && preferPool.find(c=>c.name===n && /Basic Land/.test(c.type));
+    if(hit){ out[n] = hit; }
+  }
+  if(Object.keys(out).length < 5){
+    let cached = DATA.basics || await idb.get('basics');
+    if(!cached){
+      cached = {};
+      for(const n of BASIC_NAMES){
+        try{ const j = await jget(SCRY + '/cards/named?exact=' + encodeURIComponent(n)); cached[n] = cardFromScry(j); }
+        catch(e){ cached[n] = { sid:'basic-'+n, name:n, cost:'', type:'Basic Land — '+n, text:'', r:'common', colors:[], cmc:0, img:'', imgL:'', pt:null }; }
+        await new Promise(r=>setTimeout(r, 110));
+      }
+      idb.put('basics', cached);
+    }
+    DATA.basics = cached;
+    for(const n of BASIC_NAMES) if(!out[n]) out[n] = cached[n];
+  }
+  return out;
+}
+async function searchTokens(q){
+  try{
+    const j = await jget(SCRY + '/cards/search?q=' + encodeURIComponent('t:token ' + q) + '&include_extras=true&unique=cards');
+    return j.data.slice(0, 12).map(cardFromScry);
+  }catch(e){ return []; }
+}
+
+// ================= NET LAYER =================
+const net = { mode: null, peer: null, conns: new Map(), hostConn: null, code: '', open: false };
+function peerOpts(){
+  const ice = [
+    { urls: ['stun:stun.l.google.com:19302', 'stun:global.stun.twilio.com:3478'] },
+    { urls: ['turn:us-0.turn.peerjs.com:3478', 'turn:eu-0.turn.peerjs.com:3478',
+             'turn:us-0.turn.peerjs.com:3478?transport=tcp', 'turn:eu-0.turn.peerjs.com:3478?transport=tcp'],
+      username: 'peerjs', credential: 'peerjsp' }
+  ];
+  return { host: '0.peerjs.com', port: 443, secure: true, config: { iceServers: ice, sdpSemantics: 'unified-plan' } };
+}
+function makeCode(){
+  const AB = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+  let s = ''; for(let i=0;i<5;i++) s += AB[Math.floor(Math.random()*AB.length)];
+  return s;
+}
+// guest (or host-as-player) -> host
+function gsend(m){
+  if(net.mode === 'host'){ setTimeout(()=>hostRecv(0, m), 0); }
+  else if(net.hostConn && net.hostConn.open){ try{ net.hostConn.send(m); }catch(e){} }
+}
+// host -> one seat
+function hsend(seat, m){
+  const p = H.players[seat];
+  if(!p || p.bot) return;
+  if(seat === 0){ setTimeout(()=>clientRecv(m), 0); return; }
+  if(p.conn && p.conn.open){ try{ p.conn.send(m); }catch(e){} }
+}
+// host -> all humans
+function hall(m){
+  for(const p of H.players) if(!p.bot) hsend(p.seat, m);
+}
+function hostOpenPeer(){
+  if(typeof Peer === 'undefined'){ lobMsg('offline mode — no peer server; solo only'); return; }
+  try{
+    net.peer = new Peer('whl-' + net.code, peerOpts());
+    net.peer.on('open', ()=>{ net.open = true; ui.lobCode.textContent = net.code; });
+    net.peer.on('error', (e)=>{ if(!net.open) lobMsg('peer server unreachable — solo drafting still works'); });
+    net.peer.on('connection', (conn)=>{
+      conn.on('data', (m)=>hostRecvConn(conn, m));
+      conn.on('close', ()=>hostDropConn(conn));
+      conn.on('error', ()=>hostDropConn(conn));
+    });
+  }catch(e){ lobMsg('peer init failed — solo drafting still works'); }
+}
+function guestJoin(code, onFail){
+  net.mode = 'guest'; net.code = code;
+  try{
+    net.peer = new Peer(peerOpts());
+  }catch(e){ onFail('peer init failed'); return; }
+  net.peer.on('error', (e)=>{
+    if(e.type === 'peer-unavailable') onFail('no lobby answers to ' + code);
+  });
+  net.peer.on('open', ()=>{
+    const conn = net.peer.connect('whl-' + code, { reliable: true });
+    net.hostConn = conn;
+    let opened = false;
+    conn.on('open', ()=>{
+      opened = true;
+      const tokKey = 'wheel-token-' + code;
+      let tok = localStorage.getItem(tokKey);
+      if(!tok){ tok = Math.random().toString(36).slice(2, 10); localStorage.setItem(tokKey, tok); }
+      localStorage.setItem('wheel-last', code);
+      conn.send({ t: 'hello', name: A.name, token: tok });
+    });
+    conn.on('data', (m)=>clientRecv(m));
+    conn.on('close', ()=>{ if(opened) toast('connection to host lost'); });
+    setTimeout(()=>{ if(!opened) onFail('could not reach lobby ' + code); }, 9000);
+  });
+}
+// ================= HOST CONTROLLER =================
+const BOT_NAMES = ['Karn','Tezz','Elspeth','Ajani','Vraska','Ral','Kiora','Sorin','Nissa','Chandra','Jace','Liliana'];
+const H = {
+  on: false, phase: 'lobby',
+  cfg: { mode:'draft', src:'set', sets:['fdn','fdn','fdn'], setName:'Foundations', sameSet:true,
+         cubeText:'', cubeProtos:null, tmplSets:'fdn', podSize:7, packsEach:3,
+         timer:'leisure', dest:'tables', bo:3, livePicks:false },
+  players: [], rng: null, draft: null, perPack: 15,
+  sel: {}, dl: {}, botAt: {}, paused: false, pausedAt: 0, tick: null,
+  decks: {}, recap: null, pairs: null, tables: [], results: [], viewTid: {}, starting: false
+};
+function hostInit(mode){
+  net.mode = 'host'; H.on = true; H.phase = 'lobby';
+  A.seat = 0;
+  H.cfg.mode = mode;
+  if(mode === 'table') H.cfg.podSize = 2;
+  H.players = [{ seat: 0, name: A.name, token: 'host', conn: null, bot: false, ready: true, connected: true }];
+  H.decks = {}; H.tables = []; H.results = []; H.draft = null; H.recap = null; H.pairs = null;
+  net.code = makeCode();
+  localStorage.setItem('wheel-last', net.code);
+  hostOpenPeer();
+  broadcastLobby();
+}
+function lobbySnapshot(){
+  return {
+    mode: H.cfg.mode, phase: H.phase,
+    players: H.players.map(p=>({ seat: p.seat, name: p.name, bot: p.bot, ready: p.ready,
+      connected: p.connected, host: p.seat === 0, hasDeck: !!(H.decks[p.seat] && H.decks[p.seat].protos) })),
+    cfg: {
+      src: H.cfg.src, sets: H.cfg.sets, setName: H.cfg.setName, sameSet: H.cfg.sameSet,
+      podSize: H.cfg.podSize, packsEach: H.cfg.packsEach, timer: H.cfg.timer,
+      dest: H.cfg.dest, bo: H.cfg.bo, livePicks: H.cfg.livePicks, tmplSets: H.cfg.tmplSets,
+      cubeCount: H.cfg.cubeProtos ? H.cfg.cubeProtos.length : 0
+    }
+  };
+}
+function broadcastLobby(){ hall({ t: 'lobby', l: lobbySnapshot() }); }
+function hostRecvConn(conn, m){
+  if(m && m.t === 'hello'){
+    const reclaim = H.players.find(p=>!p.bot && p.token === m.token && p.seat !== 0);
+    if(reclaim){
+      reclaim.conn = conn; reclaim.connected = true; reclaim.dcAt = 0;
+      reclaim.name = String(m.name||reclaim.name).slice(0,18) || reclaim.name;
+      conn._seat = reclaim.seat;
+      conn.send({ t: 'welcome', seat: reclaim.seat, code: net.code });
+      hostResync(reclaim.seat);
+      broadcastLobby(); pushDraftStatus();
+      return;
+    }
+    if(H.phase !== 'lobby'){ conn.send({ t: 'deny', why: 'night already in progress' }); return; }
+    const humans = H.players.filter(p=>!p.bot).length;
+    if(humans >= H.cfg.podSize){ conn.send({ t: 'deny', why: 'lobby is full' }); return; }
+    const seat = H.players.length;
+    H.players.push({ seat, name: String(m.name||'guest').slice(0,18) || 'guest', token: m.token,
+      conn, bot: false, ready: false, connected: true });
+    conn._seat = seat;
+    conn.send({ t: 'welcome', seat, code: net.code });
+    broadcastLobby();
+    hall({ t: 'chat', from: '', x: (m.name||'guest') + ' joined', sys: true });
+    return;
+  }
+  if(conn._seat != null) hostRecv(conn._seat, m);
+}
+function hostDropConn(conn){
+  if(conn._seat == null) return;
+  const p = H.players[conn._seat];
+  if(!p || p.conn !== conn) return;
+  p.connected = false; p.conn = null; p.dcAt = Date.now();
+  broadcastLobby(); pushDraftStatus();
+  hall({ t: 'chat', from: '', x: p.name + ' disconnected', sys: true });
+}
+function hostResync(seat){
+  hsend(seat, { t: 'lobby', l: lobbySnapshot() });
+  if(H.phase === 'draft'){
+    hsend(seat, { t: 'phase', p: 'draft' });
+    const s = H.draft.seats[seat];
+    if(s) hsend(seat, { t: 'poolSync', pool: s.pool, picks: s.picks });
+    pushPackTo(seat); pushDraftStatus();
+  } else if(H.phase === 'build' || H.phase === 'bridge'){
+    const s = H.draft && H.draft.seats[seat];
+    if(s) hsend(seat, { t: 'poolSync', pool: s.pool, picks: s.picks });
+    if(H.recap) hsend(seat, { t: 'recap', seats: H.recap });
+    hsend(seat, { t: 'phase', p: H.phase === 'bridge' ? 'bridge' : 'build', dest: H.cfg.dest });
+    if(H.phase === 'bridge') pushBridge();
+  } else if(H.phase === 'table'){
+    const t = tableOf(seat);
+    if(t){ hsend(seat, { t: 'phase', p: 'table', tid: t.T.tid, ts: t.si }); hsend(seat, { t: 'table', tid: t.T.tid, snap: sanitizeTable(t.T, t.si) }); }
+    else if(H.tables.length){ const tid = H.viewTid[seat] || H.tables[0].tid;
+      hsend(seat, { t: 'phase', p: 'table', tid, ts: -1 });
+      const T = H.tables.find(x=>x.tid===tid) || H.tables[0];
+      hsend(seat, { t: 'table', tid: T.tid, snap: sanitizeTable(T, -1) }); }
+  }
+}
+function hostRecv(seat, m){
+  if(!m || typeof m !== 'object') return;
+  const p = H.players[seat]; if(!p) return;
+  switch(m.t){
+    case 'ready': p.ready = !!m.v; broadcastLobby(); break;
+    case 'chat': hall({ t: 'chat', from: p.name, x: String(m.x||'').slice(0,200) }); break;
+    case 'sel': H.sel[seat] = m.id; break;
+    case 'pick': if(H.phase === 'draft' && !H.paused) hostPick(seat, m.id, false); break;
+    case 'deck': hostDeck(seat, m); break;
+    case 'act': hostAct(seat, m.a || {}); break;
+    case 'importDeck': hostImportDeck(seat, String(m.x||'')); break;
+  }
+}
+// ---------- draft orchestration ----------
+function secondsFor(pack){
+  const t = H.cfg.timer;
+  if(t === 'off') return 0;
+  if(t === 'leisure') return 90;
+  if(t === 'c60') return 60;
+  if(t === 'c30') return 30;
+  const left = pack.length; // competitive, MTR-flavored
+  const tbl = { 15:40, 14:40, 13:40, 12:40, 11:35, 10:30, 9:25, 8:25, 7:20, 6:20, 5:15, 4:10, 3:10, 2:10, 1:5 };
+  return tbl[Math.min(15, left)] || 40;
+}
+async function buildRounds(){
+  const cfg = H.cfg, n = cfg.podSize, rng = H.rng;
+  if(cfg.src === 'cube'){
+    if(!cfg.cubeProtos || !cfg.cubeProtos.length) throw new Error('validate a cube list first');
+    const per = 15;
+    const need = n * cfg.packsEach * per;
+    if(cfg.cubeProtos.length < need) throw new Error('cube too small: need ' + need + ' cards, have ' + cfg.cubeProtos.length);
+    const packs = buildCubePacks(cfg.cubeProtos, n * cfg.packsEach, per, rng);
+    H.perPack = per;
+    const rounds = [];
+    for(let r=0;r<cfg.packsEach;r++) rounds.push(packs.slice(r*n, (r+1)*n));
+    return rounds;
+  }
+  if(cfg.src === 'tmpl'){
+    const codes = cfg.tmplSets.split(/[\s,]+/).map(s=>s.trim().toLowerCase()).filter(Boolean);
+    if(!codes.length) throw new Error('enter at least one set code');
+    let protos = [];
+    const seen = new Set();
+    for(const c of codes){
+      hall({ t: 'toast', s: 'fetching ' + c.toUpperCase() + '…' });
+      for(const p of await fetchSetCards(c)) if(!seen.has(p.name)){ seen.add(p.name); protos.push(p); }
+    }
+    H.perPack = 15;
+    const rounds = [];
+    for(let r=0;r<cfg.packsEach;r++) rounds.push(buildTemplatePacks(protos, n, rng));
+    return rounds;
+  }
+  // official sets
+  const rounds = [];
+  for(let r=0;r<cfg.packsEach;r++){
+    const code = (cfg.sameSet ? cfg.sets[0] : (cfg.sets[r] || cfg.sets[0])).toLowerCase();
+    hall({ t: 'toast', s: 'building pack ' + (r+1) + ' — ' + code.toUpperCase() + '…' });
+    const protos = await fetchSetCards(code);
+    const bySid = {}; for(const p of protos) bySid[p.sid] = p;
+    const bcfgRaw = await fetchBoosterCfg(code);
+    let booster = null, byUuid = null;
+    if(bcfgRaw){
+      const key = pickBoosterKey(bcfgRaw.booster);
+      if(key){ booster = bcfgRaw.booster[key]; byUuid = {};
+        for(const u in bcfgRaw.uuidToSid){ const pr = bySid[bcfgRaw.uuidToSid[u]]; if(pr) byUuid[u] = pr; } }
+    }
+    const packs = [];
+    const seen = new Set(); const dedup = protos.filter(p=>{ if(seen.has(p.name)||/Basic Land/.test(p.type)) return false; seen.add(p.name); return true; });
+    for(let s=0;s<n;s++){
+      let pk = booster ? buildBoosterPack(booster, byUuid, rng) : null;
+      if(!pk || pk.length < 8) pk = buildTemplatePacks(dedup, 1, rng)[0];
+      packs.push(pk);
+    }
+    rounds.push(packs);
+  }
+  H.perPack = Math.max(...rounds[0].map(p=>p.length));
+  return rounds;
+}
+async function hostStartDraft(){
+  if(H.starting || H.phase !== 'lobby') return;
+  const humans = H.players.filter(p=>!p.bot);
+  if(!H.cfg.botsFill && humans.length < 2){ lobMsg('need 2+ players (or enable bots)'); return; }
+  H.starting = true; lobMsg('');
+  try{
+    H.cfg.podSize = Math.max(H.cfg.podSize, humans.length);
+    H.rng = mulberry32((Date.now() & 0xffffff) ^ Math.floor(Math.random()*1e9));
+    // fill with bots
+    H.players = H.players.filter(p=>!p.bot);
+    let bi = 0;
+    while(H.players.length < H.cfg.podSize){
+      H.players.push({ seat: H.players.length, name: BOT_NAMES[bi++ % BOT_NAMES.length] + ' (bot)',
+        token: 'bot'+bi, conn: null, bot: true, ready: true, connected: true });
+    }
+    const rounds = await buildRounds();
+    H.draft = makeDraft(H.players.length, rounds);
+    draftOpenRound(H.draft);
+    H.phase = 'draft'; H.sel = {}; H.dl = {}; H.botAt = {}; H.paused = false;
+    hall({ t: 'phase', p: 'draft' });
+    hall({ t: 'chat', from: '', x: 'the draft begins — pack 1', sys: true });
+    pushAllPacks(); pushDraftStatus();
+    if(H.tick) clearInterval(H.tick);
+    H.tick = setInterval(hostTick, 300);
+  }catch(e){
+    lobMsg(String(e.message || e));
+    hall({ t: 'toast', s: 'draft start failed: ' + String(e.message||e) });
+  }
+  H.starting = false;
+}
+function pushPackTo(seat){
+  const D = H.draft; if(!D) return;
+  const s = D.seats[seat]; const p = H.players[seat];
+  if(!s || !p || p.bot) return;
+  const pack = s.queue[0] || null;
+  hsend(seat, {
+    t: 'pack',
+    cards: pack, packNum: D.packNum, dir: D.dir,
+    pickNum: pack ? (H.perPack - pack.length + 1) : 0,
+    queued: Math.max(0, s.queue.length - 1),
+    deadline: (pack && H.cfg.timer !== 'off') ? (H.dl[seat] ? H.dl[seat].at : 0) : 0
+  });
+}
+function pushAllPacks(){ for(const p of H.players) if(!p.bot) pushPackTo(p.seat); }
+function pushDraftStatus(){
+  const D = H.draft; if(!D || H.phase !== 'draft') return;
+  hall({ t: 'dstat', packNum: D.packNum, dir: D.dir,
+    seats: D.seats.map((s,i)=>({ name: H.players[i].name, bot: H.players[i].bot,
+      dc: !H.players[i].connected && !H.players[i].bot,
+      picking: s.queue.length > 0, q: s.queue.length, picks: s.pool.length })) });
+}
+function hostPick(seat, cardId, auto){
+  const D = H.draft; if(!D || D.finished) return;
+  const res = draftPick(D, seat, cardId);
+  if(!res) return;
+  H.sel[seat] = null; delete H.dl[seat];
+  const p = H.players[seat];
+  if(!p.bot) hsend(seat, { t: 'picked', card: res.card, auto: !!auto });
+  if(H.cfg.livePicks) hall({ t: 'chat', from: '', x: p.name + ' takes ' + res.card.name, sys: true });
+  if(D.finished){ hostEndDraft(); return; }
+  pushAllPacks(); pushDraftStatus();
+}
+function hostTick(){
+  if(H.phase !== 'draft' || H.paused || !H.draft) return;
+  const D = H.draft, now = Date.now();
+  for(const p of H.players){
+    const s = D.seats[p.seat];
+    if(!s || !s.queue.length) { delete H.botAt[p.seat]; delete H.dl[p.seat]; continue; }
+    const pack = s.queue[0];
+    const actAsBot = p.bot || (!p.connected && p.dcAt && now - p.dcAt > 60000);
+    if(actAsBot){
+      if(!H.botAt[p.seat] || H.botAt[p.seat].pack !== pack)
+        H.botAt[p.seat] = { pack, at: now + 500 + H.rng()*1100 };
+      if(now >= H.botAt[p.seat].at){
+        delete H.botAt[p.seat];
+        const c = botChoose(s.pool, pack, H.rng);
+        if(c) hostPick(p.seat, c.id, true);
+      }
+      continue;
+    }
+    if(H.cfg.timer === 'off') continue;
+    if(!H.dl[p.seat] || H.dl[p.seat].pack !== pack){
+      H.dl[p.seat] = { pack, at: now + secondsFor(pack)*1000 };
+      hsend(p.seat, { t: 'timer', at: H.dl[p.seat].at });
+    } else if(now > H.dl[p.seat].at){
+      const selId = H.sel[p.seat];
+      const c = (selId && pack.find(x=>x.id===selId)) || botChoose(s.pool, pack, H.rng);
+      if(c) hostPick(p.seat, c.id, true);
+    }
+  }
+}
+function hostEndDraft(){
+  if(H.tick){ clearInterval(H.tick); H.tick = null; }
+  H.phase = 'build';
+  H.recap = H.draft.seats.map((s,i)=>({ name: H.players[i].name, bot: H.players[i].bot, picks: s.picks }));
+  hall({ t: 'recap', seats: H.recap });
+  hall({ t: 'phase', p: 'build', dest: H.cfg.dest });
+  hall({ t: 'chat', from: '', x: 'draft complete — build your deck', sys: true });
+}
+// host draft menu
+function hostPause(v){
+  if(H.phase !== 'draft') return;
+  if(v && !H.paused){ H.paused = true; H.pausedAt = Date.now(); hall({ t:'toast', s:'draft paused by host' }); hall({t:'timer', at:0}); }
+  else if(!v && H.paused){
+    const dt = Date.now() - H.pausedAt; H.paused = false;
+    for(const k in H.dl){ H.dl[k].at += dt; hsend(+k, { t:'timer', at: H.dl[k].at }); }
+    for(const k in H.botAt) H.botAt[k].at += dt;
+    hall({ t:'toast', s:'draft resumed' });
+  }
+}
+function hostPlus30(){
+  for(const k in H.dl){ H.dl[k].at += 30000; hsend(+k, { t:'timer', at: H.dl[k].at }); }
+  hall({ t: 'toast', s: 'host added 30s' });
+}
+function hostBotify(seat, v){
+  const p = H.players[seat]; if(!p || p.seat === 0) return;
+  if(v){ p.connected = false; p.dcAt = 1; hall({ t:'toast', s: p.name + ' is now piloted by a bot' }); }
+  else { p.dcAt = 0; p.connected = !!p.conn; hall({ t:'toast', s: p.name + ' resumes control' }); }
+  pushDraftStatus();
+}
+function hostAbort(){
+  if(H.tick){ clearInterval(H.tick); H.tick = null; }
+  H.phase = 'lobby'; H.draft = null; H.decks = {}; H.tables = []; H.results = []; H.pairs = null;
+  H.players = H.players.filter(p=>!p.bot);
+  for(const p of H.players) if(p.seat !== 0) p.ready = false;
+  hall({ t: 'phase', p: 'lobby' });
+  broadcastLobby();
+  hall({ t: 'toast', s: 'back to the lobby' });
+}
+// ---------- deckbuild / bridge ----------
+function hostDeck(seat, m){
+  if(H.phase !== 'build' && H.phase !== 'bridge') return;
+  const s = H.draft && H.draft.seats[seat]; if(!s) return;
+  const byId = {}; for(const c of s.pool) byId[c.id] = c;
+  const main = (m.main||[]).map(id=>byId[id]).filter(Boolean);
+  H.decks[seat] = { main, lands: m.lands || {}, ready: !!m.ready };
+  const humans = H.players.filter(p=>!p.bot);
+  const allReady = humans.every(p=>H.decks[p.seat] && H.decks[p.seat].ready);
+  hall({ t: 'buildstat', ready: humans.map(p=>({ name: p.name, ready: !!(H.decks[p.seat]&&H.decks[p.seat].ready) })) });
+  if(allReady && H.phase === 'build'){
+    if(H.cfg.dest === 'export'){ hall({ t: 'toast', s: 'all decks locked — export away' }); return; }
+    hostToBridge();
+  }
+}
+function hostToBridge(){
+  H.phase = 'bridge';
+  const humans = H.players.filter(p=>!p.bot && H.decks[p.seat]);
+  const order = shuffled(humans.map(p=>p.seat), H.rng || Math.random.bind(Math));
+  H.pairs = [];
+  for(let i=0; i+1<order.length; i+=2) H.pairs.push([order[i], order[i+1]]);
+  if(order.length === 1) H.pairs.push([order[0], -1]); // goldfish
+  H.odd = (order.length > 1 && order.length % 2 === 1) ? order[order.length-1] : null;
+  hall({ t: 'phase', p: 'bridge' });
+  pushBridge();
+}
+function pushBridge(){
+  hall({ t: 'bridge',
+    pairs: (H.pairs||[]).map(pr=>pr.map(s=>s === -1 ? 'Goldfish' : H.players[s].name)),
+    odd: H.odd != null ? H.players[H.odd].name : null,
+    bo: H.cfg.bo });
+}
+async function buildDeckProtos(seat){
+  const d = H.decks[seat];
+  const pool = H.draft ? H.draft.seats[seat].pool : [];
+  const basics = await fetchBasics(pool.length ? (await fetchSetCards(H.cfg.sets[0]).catch(()=>null)) : null);
+  const protos = d.main.map(c=>{ const p = Object.assign({}, c); delete p.id; return p; });
+  for(const nmk of BASIC_NAMES){
+    const key = { Plains:'W', Island:'U', Swamp:'B', Mountain:'R', Forest:'G' }[nmk];
+    const n = (d.lands && d.lands[key]) || 0;
+    for(let i=0;i<n;i++) protos.push(basics[nmk]);
+  }
+  return protos;
+}
+async function hostStartMatches(){
+  if(H.phase !== 'bridge' || !H.pairs || !H.pairs.length) return;
+  H.tables = []; H.results = []; H.viewTid = {};
+  let tid = 0;
+  for(const [sa, sb] of H.pairs){
+    const pa = { seat: sa, name: H.players[sa].name, deck: await buildDeckProtos(sa) };
+    const pb = sb === -1
+      ? { seat: -9, name: 'Goldfish', deck: [] }
+      : { seat: sb, name: H.players[sb].name, deck: await buildDeckProtos(sb) };
+    const T = makeTable('table-' + (++tid), [pa, pb], H.cfg.bo);
+    tStartGame(T, H.rng);
+    H.tables.push(T);
+    H.results.push({ tid: T.tid, names: [pa.name, pb.name], score: [0,0], over: false });
+  }
+  H.phase = 'table';
+  for(const p of H.players.filter(x=>!x.bot)){
+    const t = tableOf(p.seat);
+    if(t) hsend(p.seat, { t: 'phase', p: 'table', tid: t.T.tid, ts: t.si });
+    else { H.viewTid[p.seat] = H.tables[0].tid; hsend(p.seat, { t: 'phase', p: 'table', tid: H.tables[0].tid, ts: -1 }); }
+  }
+  for(const T of H.tables) sendSnaps(T);
+  for(const T of H.tables) tlog(T, '— game 1 — ' + T.seats[0].name + ' vs ' + T.seats[1].name);
+}
+function tableOf(seat){
+  for(const T of H.tables){
+    const si = T.seats.findIndex(s=>s.lobbySeat === seat);
+    if(si >= 0) return { T, si };
+  }
+  return null;
+}
+function sendSnaps(T){
+  for(const p of H.players.filter(x=>!x.bot)){
+    const si = T.seats.findIndex(s=>s.lobbySeat === p.seat);
+    if(si >= 0) hsend(p.seat, { t: 'table', tid: T.tid, snap: sanitizeTable(T, si) });
+    else if(H.viewTid[p.seat] === T.tid) hsend(p.seat, { t: 'table', tid: T.tid, snap: sanitizeTable(T, -1) });
+  }
+}
+function tlog(T, entry){
+  const e = typeof entry === 'string' ? { s: entry } : entry;
+  for(const p of H.players.filter(x=>!x.bot)){
+    const si = T.seats.findIndex(s=>s.lobbySeat === p.seat);
+    if(si >= 0 || H.viewTid[p.seat] === T.tid) hsend(p.seat, { t: 'log', ctx: 'table', tid: T.tid, e });
+  }
+}
+function hostAct(seat, a){
+  if(H.phase !== 'table') return;
+  const rel = tableOf(seat);
+  if(!rel){
+    if(a.t === 'view'){ // spectator switching tables
+      const T = H.tables.find(x=>x.tid === a.tid);
+      if(T){ H.viewTid[seat] = T.tid; hsend(seat, { t: 'table', tid: T.tid, snap: sanitizeTable(T, -1) }); }
+    }
+    return;
+  }
+  const { T, si } = rel;
+  const s = T.seats[si], nm = s.name;
+  if(a.t === 'scry'){
+    const n = Math.max(1, Math.min(10, a.n|0));
+    const ids = s.lib.slice(0, n);
+    if(!ids.length){ hsend(seat, { t: 'toast', s: 'library is empty' }); return; }
+    T.pending[si] = { ids, surveil: !!a.surveil, peek: !!a.peek };
+    hsend(seat, { t: 'priv', k: 'scry', cards: ids.map(id=>tPub(T.cards[id], true)), surveil: !!a.surveil, peek: !!a.peek });
+    tlog(T, nm + ' looks at the top ' + ids.length + ' card' + (ids.length>1?'s':'') + ' of their library');
+    return;
+  }
+  if(a.t === 'search'){
+    T.pending[si] = { ids: s.lib.slice(), search: true };
+    hsend(seat, { t: 'priv', k: 'search', cards: s.lib.map(id=>tPub(T.cards[id], true)) });
+    tlog(T, nm + ' is searching their library');
+    return;
+  }
+  if(a.t === 'searchResolve' && (!a.ids || !a.ids.length)){
+    T.pending[si] = null;
+    tableApply(T, si, { t: 'shuffle' }, H.rng);
+    tlog(T, nm + ' puts their library back and shuffles');
+    sendSnaps(T);
+    return;
+  }
+  if(a.t === 'tokq'){
+    searchTokens(String(a.q||'').slice(0,40)).then(protos=>hsend(seat, { t: 'priv', k: 'tok', protos }));
+    return;
+  }
+  if(a.t === 'deckSwap'){
+    const sPool = H.draft && H.draft.seats[seat];
+    if(!sPool){ hsend(seat, { t: 'toast', s: 'sideboarding is only available for drafted decks' }); return; }
+    const byId = {}; for(const c of sPool.pool) byId[c.id] = c;
+    const main = (a.main||[]).map(id=>byId[id]).filter(Boolean);
+    H.decks[seat] = { main, lands: a.lands || {}, ready: true };
+    buildDeckProtos(seat).then(protos=>{
+      if(protos.length >= 40){ s.deck = protos; tlog(T, nm + ' adjusts their deck (' + protos.length + ' cards)'); sendSnaps(T); }
+      else hsend(seat, { t: 'toast', s: 'deck must be 40+ cards' });
+    });
+    return;
+  }
+  if(a.t === 'concede'){
+    const w = (si + 1) % T.seats.length;
+    const log = tableApply(T, si, { t: 'endGame', winner: w }, H.rng);
+    if(log) afterTableAct(T, si, { t: 'endGame' }, nm + ' concedes — ' + log);
+    return;
+  }
+  const res = tableApply(T, si, a, H.rng);
+  afterTableAct(T, si, a, res);
+}
+function afterTableAct(T, si, a, res){
+  if(res){
+    tlog(T, typeof res === 'string' ? { s: res } : res);
+  }
+  sendSnaps(T);
+  if(a.t === 'endGame' || a.t === 'concede'){
+    const R = H.results.find(r=>r.tid === T.tid);
+    if(R){ R.score = T.score.slice(); R.over = T.over; }
+    if(T.over && H.results.every(r=>r.over)){
+      setTimeout(()=>{
+        H.phase = 'summary';
+        hall({ t: 'phase', p: 'summary', results: H.results });
+      }, 1800);
+    }
+  }
+}
+// ---------- table-only deck import ----------
+async function hostImportDeck(seat, text){
+  try{
+    const entries = parseDeckList(text);
+    if(!entries.length){ hsend(seat, { t: 'priv', k: 'deckres', msg: 'empty list' }); return; }
+    const { protos, missing } = await resolveNames(entries);
+    H.decks[seat] = { protos, ready: true };
+    hsend(seat, { t: 'priv', k: 'deckres',
+      msg: protos.length + ' cards resolved' + (missing.length ? ' — missing: ' + missing.join(', ') : ' — ready') });
+    broadcastLobby();
+  }catch(e){
+    hsend(seat, { t: 'priv', k: 'deckres', msg: 'import failed: ' + String(e.message||e) });
+  }
+}
+function hostStartTableNight(){
+  const withDecks = H.players.filter(p=>!p.bot && H.decks[p.seat] && H.decks[p.seat].protos);
+  if(withDecks.length < 1){ lobMsg('need at least one submitted deck'); return; }
+  H.rng = mulberry32((Date.now() & 0xffffff) ^ Math.floor(Math.random()*1e9));
+  const pa = { seat: withDecks[0].seat, name: withDecks[0].name, deck: H.decks[withDecks[0].seat].protos };
+  const pb = withDecks[1]
+    ? { seat: withDecks[1].seat, name: withDecks[1].name, deck: H.decks[withDecks[1].seat].protos }
+    : { seat: -9, name: 'Goldfish', deck: [] };
+  const T = makeTable('table-1', [pa, pb], H.cfg.bo);
+  tStartGame(T, H.rng);
+  H.tables = [T];
+  H.results = [{ tid: T.tid, names: [pa.name, pb.name], score: [0,0], over: false }];
+  H.phase = 'table'; H.viewTid = {};
+  for(const p of H.players.filter(x=>!x.bot)){
+    const t = tableOf(p.seat);
+    if(t) hsend(p.seat, { t: 'phase', p: 'table', tid: T.tid, ts: t.si });
+    else { H.viewTid[p.seat] = T.tid; hsend(p.seat, { t: 'phase', p: 'table', tid: T.tid, ts: -1 }); }
+  }
+  sendSnaps(T);
+  tlog(T, '— game 1 — ' + pa.name + ' vs ' + pb.name);
+}
+function hostEndNight(){ hostAbort(); }
+// ================= CLIENT =================
+const $ = id => document.getElementById(id);
+const ui = { lobCode: document.getElementById('lobCode') };
+function lobMsg(s){ $('lobMsg').textContent = s || ''; }
+const A = {
+  name: '', seat: -1, isHost: false, mode: 'draft', lobby: null,
+  pool: [], picks: [], packMsg: null, sel: null, pending: false, deadline: 0,
+  recap: null, deckIds: new Set(), lands: { W:0,U:0,B:0,R:0,G:0 }, dest: 'tables', buildReady: false,
+  tid: null, ts: -1, snap: null, kept: false, keptGame: 0, bottomMode: false, bottomSel: new Set(),
+  handSel: null, results: null
+};
+function showScr(name){
+  document.querySelectorAll('.scr').forEach(el=>el.classList.remove('on'));
+  $('scr-' + name).classList.add('on');
+  A.screen = name;
+}
+let toastTimer = null;
+function toast(s){
+  const el = $('toast'); el.textContent = s; el.style.display = 'block';
+  clearTimeout(toastTimer); toastTimer = setTimeout(()=>{ el.style.display = 'none'; }, 2400);
+}
+// ---------- hover preview ----------
+const hov = $('hoverCard');
+function showHover(card, x, y){
+  if(!card || (!card.imgL && !card.img && !card.name)) return;
+  let inner = '';
+  if(card.imgL || card.img) inner += '<img src="' + (card.imgL||card.img) + '" alt="">';
+  const tl = (card.type||'') + (card.pt ? ' — ' + card.pt : '');
+  if(card.text || tl) inner += '<div class="otext"><div class="tl">' + esc(card.name) + ' · ' + esc(tl) + '</div>' + esc(card.text||'') + '</div>';
+  hov.innerHTML = inner;
+  hov.style.display = 'block';
+  positionHover(x, y);
+}
+function positionHover(x, y){
+  const w = 280, margin = 14;
+  let left = x + 24; if(left + w > innerWidth - margin) left = x - w - 24;
+  hov.style.left = Math.max(4, left) + 'px';
+  hov.style.top = '0px';
+  const h = hov.offsetHeight;
+  let top = Math.min(Math.max(8, y - h/3), innerHeight - h - 8);
+  hov.style.top = Math.max(6, top) + 'px';
+}
+function hideHover(){ hov.style.display = 'none'; }
+function attachHover(el, card){
+  el.addEventListener('mouseenter', e=>showHover(card, e.clientX, e.clientY));
+  el.addEventListener('mousemove', e=>positionHover(e.clientX, e.clientY));
+  el.addEventListener('mouseleave', hideHover);
+}
+function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function crdEl(card, cls){
+  const d = document.createElement('div');
+  d.className = 'crd' + (cls ? ' ' + cls : '');
+  if(card.img) d.innerHTML = '<img loading="lazy" src="' + card.img + '" alt="">';
+  else d.innerHTML = '<div class="ph"><b>' + esc(card.name) + '</b><span>' + esc(card.type||'') + (card.pt ? ' · ' + esc(card.pt) : '') + '</span></div>';
+  attachHover(d, card);
+  return d;
+}
+// ---------- modal + context menu ----------
+function openModal(title, build){
+  $('modalTitle').textContent = title;
+  const body = $('modalBody'); body.innerHTML = '';
+  build(body);
+  $('modal').classList.add('on');
+}
+function closeModal(){ $('modal').classList.remove('on'); }
+$('modalX').onclick = closeModal;
+$('modal').addEventListener('click', e=>{ if(e.target === $('modal')) closeModal(); });
+// in-app confirm / input (no browser dialogs)
+function askConfirm(msg, yesLabel, fn){
+  openModal(msg, body=>{
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex; gap:10px; justify-content:flex-end; min-width:280px; margin-top:4px;';
+    const y = document.createElement('button'); y.className = 'btn sm gold'; y.textContent = yesLabel || 'Confirm';
+    y.onclick = ()=>{ closeModal(); fn(); };
+    const c = document.createElement('button'); c.className = 'btn sm ghost'; c.textContent = 'Cancel';
+    c.onclick = closeModal;
+    row.appendChild(y); row.appendChild(c); body.appendChild(row);
+    setTimeout(()=>y.focus(), 30);
+  });
+}
+function askInput(title, def, type, fn){
+  openModal(title, body=>{
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex; gap:10px; min-width:300px;';
+    const inp = document.createElement('input');
+    inp.type = type; inp.value = def == null ? '' : def; inp.style.flex = '1';
+    const ok = document.createElement('button'); ok.className = 'btn sm gold'; ok.textContent = 'OK';
+    const go = ()=>{ const v = inp.value; closeModal(); fn(v); };
+    ok.onclick = go;
+    inp.addEventListener('keydown', e=>{
+      e.stopPropagation();
+      if(e.key === 'Enter') go();
+      if(e.key === 'Escape') closeModal();
+    });
+    row.appendChild(inp); row.appendChild(ok); body.appendChild(row);
+    setTimeout(()=>{ inp.focus(); inp.select(); }, 30);
+  });
+}
+const askNum = (t, d, fn)=>askInput(t, d, 'number', v=>{ const n = Math.floor(+v); if(n >= 1) fn(n); });
+const askText = (t, d, fn)=>askInput(t, d, 'text', fn);
+const cm = $('cmenu');
+function openMenu(x, y, items){
+  cm.innerHTML = '';
+  for(const it of items){
+    if(it.sep){ const s = document.createElement('div'); s.className = 'sep'; cm.appendChild(s); continue; }
+    const d = document.createElement('div');
+    d.className = 'mi';
+    d.innerHTML = '<span>' + esc(it.label) + '</span>' + (it.k ? '<span class="k">' + esc(it.k) + '</span>' : '');
+    d.onclick = (e)=>{ e.stopPropagation(); closeMenu(); it.fn && it.fn(); };
+    cm.appendChild(d);
+  }
+  cm.style.display = 'block';
+  cm.style.left = '0px'; cm.style.top = '0px';
+  const r = cm.getBoundingClientRect();
+  cm.style.left = Math.min(x, innerWidth - r.width - 6) + 'px';
+  cm.style.top = Math.min(y, innerHeight - r.height - 6) + 'px';
+}
+function closeMenu(){ cm.style.display = 'none'; }
+document.addEventListener('pointerdown', e=>{ if(!cm.contains(e.target)) closeMenu(); });
+// ---------- client message pump ----------
+function clientRecv(m){
+  if(!m || typeof m !== 'object') return;
+  switch(m.t){
+    case 'welcome': A.seat = m.seat; if(m.code) ui.lobCode.textContent = m.code; showScr('lobby'); break;
+    case 'deny': showScr('home'); $('homeMsg').textContent = m.why; break;
+    case 'lobby': A.lobby = m.l; A.mode = m.l.mode; renderLobby(); break;
+    case 'phase': onPhase(m); break;
+    case 'pack': {
+      // same pack re-broadcast (someone else picked): update counters, keep selection
+      const sig = m.cards ? m.cards.map(c=>c.id).join(',') : '';
+      const oldSig = (A.packMsg && A.packMsg.cards) ? A.packMsg.cards.map(c=>c.id).join(',') : null;
+      if(m.deadline) A.deadline = m.deadline;
+      if(sig && sig === oldSig){
+        A.packMsg.queued = m.queued;
+        $('dQueue').textContent = m.queued > 0 ? m.queued + ' pack' + (m.queued>1?'s':'') + ' waiting' : '';
+        break;
+      }
+      A.packMsg = m; A.sel = null; A.pending = false;
+      if(m.cards) $('dTray').classList.remove('open');
+      renderPack(); break;
+    }
+    case 'picked':
+      A.pool.push(m.card);
+      A.picks.push({ p: A.packMsg ? A.packMsg.packNum : 0, n: A.packMsg ? A.packMsg.pickNum : A.picks.length+1, card: m.card });
+      A.pending = false; A.sel = null; A.packMsg = { cards: null, packNum: A.packMsg?A.packMsg.packNum:1 };
+      if(m.auto) toast('time — auto-picked ' + m.card.name);
+      renderPack(); renderTray(true); renderPicksList(); break;
+    case 'poolSync': A.pool = m.pool || []; A.picks = m.picks || []; renderTray(false); renderPicksList(); break;
+    case 'dstat': renderSeats(m); break;
+    case 'timer': A.deadline = m.at || 0; break;
+    case 'recap': A.recap = m.seats; break;
+    case 'buildstat': renderBuildRoster(m.ready); break;
+    case 'bridge': renderBridge(m); break;
+    case 'chat': appendChat(m); break;
+    case 'log': if(m.ctx === 'table') appendTLog(m.e); break;
+    case 'table': if(m.tid === A.tid){ A.snap = m.snap; renderTable(); } break;
+    case 'priv': onPriv(m); break;
+    case 'toast': toast(m.s); break;
+  }
+}
+function onPhase(m){
+  switch(m.p){
+    case 'lobby':
+      A.pool = []; A.picks = []; A.recap = null; A.snap = null; A.deckIds = new Set(); A.buildReady = false;
+      showScr('lobby'); break;
+    case 'draft':
+      A.pool = []; A.picks = []; A.packMsg = null; A.sel = null; A.deadline = 0;
+      renderTray(false); renderPicksList(); renderPack();
+      $('dHostMenuBtn').style.display = A.isHost ? '' : 'none';
+      showScr('draft'); break;
+    case 'build':
+      A.dest = m.dest || 'tables';
+      initBuild(); showScr('build'); break;
+    case 'bridge': showScr('bridge'); renderBridgeButtons(); break;
+    case 'table':
+      A.tid = m.tid; A.ts = m.ts; A.snap = null;
+      A.kept = false; A.keptGame = 0; A.bottomMode = false; A.bottomSel = new Set(); A.handSel = null;
+      $('tLog').innerHTML = ''; $('tChatLog').innerHTML = '';
+      $('tSpecSel').style.display = A.ts === -1 ? '' : 'none';
+      showScr('table'); break;
+    case 'summary': A.results = m.results; renderSummary(); showScr('summary'); break;
+  }
+}
+function onPriv(m){
+  if(m.k === 'scry') openScry(m);
+  else if(m.k === 'search') openSearch(m.cards);
+  else if(m.k === 'tok') renderTokResults(m.protos);
+  else if(m.k === 'deckres') $('deckStat').textContent = m.msg;
+}
+function appendChat(m){
+  const line = m.sys
+    ? '<div class="sys">' + esc(m.x) + '</div>'
+    : '<div><span class="who">' + esc(m.from) + ':</span> ' + esc(m.x) + '</div>';
+  for(const id of ['dChatLog','tChatLog']){
+    const el = $(id); el.insertAdjacentHTML('beforeend', line); el.scrollTop = el.scrollHeight;
+  }
+}
+// ---------- home ----------
+$('nameIn').value = localStorage.getItem('wheel-name') || '';
+function grabName(){
+  const n = $('nameIn').value.trim();
+  if(!n){ $('homeMsg').textContent = 'enter a name first'; return null; }
+  localStorage.setItem('wheel-name', n);
+  A.name = n; return n;
+}
+$('hostDraftBtn').onclick = ()=>{ if(!grabName()) return; A.isHost = true; hostInit('draft'); showScr('lobby'); };
+$('hostTableBtn').onclick = ()=>{ if(!grabName()) return; A.isHost = true; hostInit('table'); showScr('lobby'); };
+$('joinBtn').onclick = joinGo;
+$('joinCode').addEventListener('keydown', e=>{ if(e.key === 'Enter') joinGo(); });
+function joinGo(){
+  if(!grabName()) return;
+  const code = $('joinCode').value.trim().toUpperCase();
+  if(code.length < 4){ $('homeMsg').textContent = 'enter the 5-letter lobby code'; return; }
+  $('homeMsg').textContent = 'connecting…';
+  A.isHost = false;
+  guestJoin(code, why=>{ $('homeMsg').textContent = why; });
+}
+(function rejoinChip(){
+  const last = localStorage.getItem('wheel-last');
+  if(last && localStorage.getItem('wheel-token-' + last)){
+    const el = $('rejoinChip');
+    el.style.display = 'inline-block';
+    el.textContent = 'rejoin ' + last;
+    el.onclick = ()=>{ $('joinCode').value = last; joinGo(); };
+  }
+})();
+// ---------- lobby ----------
+function renderLobby(){
+  const l = A.lobby; if(!l) return;
+  $('lobMode').textContent = l.mode === 'table' ? 'table only' : 'draft night';
+  $('cfgDraft').style.display = l.mode === 'draft' ? '' : 'none';
+  $('cfgTable').style.display = l.mode === 'table' ? '' : 'none';
+  if(A.isHost) ui.lobCode.textContent = net.open ? net.code : '…';
+  // roster
+  const r = $('lobRoster'); r.innerHTML = '';
+  for(const p of l.players){
+    const d = document.createElement('div');
+    d.className = 'seatrow' + (p.seat === A.seat ? ' me' : '');
+    d.innerHTML =
+      '<span class="dot' + (p.connected ? (p.ready ? ' rdy' : '') : ' dc') + '"></span>' +
+      '<span class="who">' + esc(p.name) + (p.seat === A.seat ? ' <span class="tag">you</span>' : '') + '</span>' +
+      (l.mode === 'table' && p.hasDeck ? '<span class="tag">deck in</span>' : '') +
+      (p.host ? '<span class="crown">&#9812;</span>' : '');
+    if(A.isHost && !p.host){
+      const x = document.createElement('button');
+      x.className = 'btn xs ghost'; x.textContent = 'kick';
+      x.onclick = ()=>{ hostKick(p.seat); };
+      d.appendChild(x);
+    }
+    r.appendChild(d);
+  }
+  const openSeats = (l.cfg ? l.cfg.podSize : 8) - l.players.length;
+  for(let i=0;i<Math.max(0, Math.min(openSeats, 8));i++){
+    const d = document.createElement('div');
+    d.className = 'seatrow'; d.style.opacity = '.4';
+    d.innerHTML = '<span class="dot"></span><span class="who dimmer">open seat</span>';
+    r.appendChild(d);
+  }
+  // controls
+  $('readyBtn').style.display = A.isHost ? 'none' : '';
+  const me = l.players.find(p=>p.seat === A.seat);
+  $('readyBtn').textContent = me && me.ready ? 'Unready' : 'Ready';
+  $('startBtn').style.display = A.isHost ? '' : 'none';
+  $('startBtn').textContent = l.mode === 'table' ? 'Start table' : 'Start draft';
+  $('sampleBtn').style.display = (A.isHost && l.mode === 'draft') ? '' : 'none';
+  // config mirror for guests (draft config only — table-mode deck import stays interactive)
+  $('cfgDraft').classList.toggle('mirror', !A.isHost);
+  if(!A.isHost && l.cfg) reflectCfg(l.cfg);
+}
+function reflectCfg(c){
+  document.querySelectorAll('#srcTabs .tab').forEach(t=>t.classList.toggle('on', t.dataset.src === c.src));
+  showSrcBody(c.src);
+  $('setStat').textContent = c.src === 'set' ? (c.setName || c.sets[0]) : '';
+  $('sameSet').checked = !!c.sameSet;
+  renderPackSlots(c.sets, c.sameSet);
+  $('tmplSets').value = c.tmplSets || '';
+  if(c.src === 'cube') $('cubeStat').textContent = c.cubeCount ? c.cubeCount + ' cards loaded' : 'host is loading a cube…';
+  $('podSize').value = c.podSize; $('packsEach').value = c.packsEach;
+  $('timerSel').value = c.timer; $('destSel').value = c.dest; $('boSel').value = c.bo;
+  $('livePicks').checked = !!c.livePicks;
+}
+function showSrcBody(src){
+  $('srcSet').style.display = src === 'set' ? '' : 'none';
+  $('srcCube').style.display = src === 'cube' ? '' : 'none';
+  $('srcTmpl').style.display = src === 'tmpl' ? '' : 'none';
+}
+function renderPackSlots(sets, same){
+  const el = $('packSlots'); el.innerHTML = '';
+  el.style.display = same ? 'none' : '';
+  if(same) return;
+  for(let i=0;i<3;i++){
+    const inp = document.createElement('input');
+    inp.type = 'text'; inp.value = (sets[i] || sets[0] || '').toUpperCase();
+    inp.placeholder = 'pack ' + (i+1); inp.maxLength = 6; inp.style.flex = '1'; inp.style.textTransform = 'uppercase';
+    inp.disabled = !A.isHost;
+    inp.addEventListener('change', ()=>{ if(A.isHost){ H.cfg.sets[i] = inp.value.trim().toLowerCase(); broadcastLobby(); } });
+    el.appendChild(inp);
+  }
+}
+function syncCfgFromUI(){
+  if(!A.isHost) return;
+  H.cfg.sameSet = $('sameSet').checked;
+  H.cfg.podSize = parseInt($('podSize').value, 10);
+  H.cfg.packsEach = parseInt($('packsEach').value, 10);
+  H.cfg.timer = $('timerSel').value;
+  H.cfg.dest = $('destSel').value;
+  H.cfg.bo = parseInt($('boSel').value, 10);
+  H.cfg.livePicks = $('livePicks').checked;
+  H.cfg.botsFill = $('botsFill').checked;
+  H.cfg.tmplSets = $('tmplSets').value;
+  broadcastLobby();
+}
+for(const id of ['sameSet','podSize','packsEach','timerSel','destSel','boSel','livePicks','botsFill','tmplSets'])
+  $(id).addEventListener('change', syncCfgFromUI);
+document.querySelectorAll('#srcTabs .tab').forEach(t=>{
+  t.addEventListener('click', ()=>{
+    if(!A.isHost) return;
+    H.cfg.src = t.dataset.src;
+    document.querySelectorAll('#srcTabs .tab').forEach(x=>x.classList.toggle('on', x === t));
+    showSrcBody(H.cfg.src);
+    broadcastLobby();
+  });
+});
+// set search (host)
+let setTimerId = null;
+$('setSearch').addEventListener('input', ()=>{
+  if(!A.isHost) return;
+  clearTimeout(setTimerId);
+  setTimerId = setTimeout(async ()=>{
+    const q = $('setSearch').value.trim().toLowerCase();
+    if(q.length < 2){ $('setStat').innerHTML = ''; return; }
+    try{
+      const sets = await fetchSetList();
+      const hits = sets.filter(s=>s.code.startsWith(q) || s.name.toLowerCase().includes(q)).slice(0, 6);
+      const el = $('setStat'); el.innerHTML = '';
+      if(!hits.length){ el.textContent = 'no sets match'; return; }
+      for(const s of hits){
+        const c = document.createElement('span');
+        c.className = 'chip'; c.style.cursor = 'pointer'; c.style.marginRight = '6px';
+        c.textContent = s.name + ' · ' + s.code.toUpperCase();
+        c.onclick = ()=>{
+          H.cfg.sets = [s.code, s.code, s.code]; H.cfg.setName = s.name;
+          el.innerHTML = '<span class="chip gold">' + esc(s.name) + ' · ' + s.code.toUpperCase() + '</span>';
+          renderPackSlots(H.cfg.sets, H.cfg.sameSet);
+          broadcastLobby();
+        };
+        el.appendChild(c);
+      }
+    }catch(e){ $('setStat').textContent = 'set search failed'; }
+  }, 300);
+});
+$('cubeCheckBtn').onclick = async ()=>{
+  if(!A.isHost) return;
+  const entries = parseDeckList($('cubeTxt').value);
+  if(!entries.length){ $('cubeStat').textContent = 'paste a list first'; return; }
+  $('cubeStat').textContent = 'resolving ' + entries.length + ' lines…';
+  try{
+    const { protos, missing } = await resolveNames(entries);
+    H.cfg.cubeProtos = protos;
+    $('cubeStat').innerHTML = protos.length + ' cards ready' +
+      (missing.length ? ' — <span style="color:var(--danger)">missing: ' + esc(missing.slice(0,8).join(', ')) + (missing.length>8?'…':'') + '</span>' : '');
+    broadcastLobby();
+  }catch(e){ $('cubeStat').textContent = 'resolve failed: ' + e.message; }
+};
+$('sampleBtn').onclick = async ()=>{
+  if(!A.isHost) return;
+  $('sampleBtn').disabled = true; lobMsg('cracking…');
+  try{
+    syncCfgFromUI();
+    const rng = mulberry32(Math.floor(Math.random()*1e9));
+    const save = { rng: H.rng, pp: H.perPack }; H.rng = rng;
+    const rounds = await buildRounds();
+    H.rng = save.rng;
+    const pack = rounds[0][0];
+    lobMsg('');
+    openModal('Sample pack — ' + pack.length + ' cards', body=>{
+      const g = document.createElement('div'); g.className = 'samplegrid';
+      for(const c of pack) g.appendChild(crdEl(c));
+      body.appendChild(g);
+    });
+  }catch(e){ lobMsg(String(e.message || e)); }
+  $('sampleBtn').disabled = false;
+};
+$('startBtn').onclick = ()=>{
+  if(!A.isHost) return;
+  syncCfgFromUI();
+  if(A.mode === 'table' || H.cfg.mode === 'table') hostStartTableNight();
+  else hostStartDraft();
+};
+$('readyBtn').onclick = ()=>{
+  const me = A.lobby && A.lobby.players.find(p=>p.seat === A.seat);
+  gsend({ t: 'ready', v: !(me && me.ready) });
+};
+$('leaveBtn').onclick = ()=>location.reload();
+ui.lobCode.onclick = ()=>{
+  if(navigator.clipboard && net.code) navigator.clipboard.writeText(net.code).then(()=>toast('code copied'));
+};
+$('deckSubmitBtn').onclick = ()=>{
+  $('deckStat').textContent = 'resolving…';
+  gsend({ t: 'importDeck', x: $('deckTxt').value });
+};
+function hostKick(seat){
+  const p = H.players[seat]; if(!p) return;
+  if(p.conn){ try{ p.conn.close(); }catch(e){} }
+  H.players.splice(seat, 1);
+  H.players.forEach((x,i)=>{ x.seat = i; if(x.conn) x.conn._seat = i; });
+  broadcastLobby();
+  hall({ t: 'chat', from: '', x: p.name + ' was removed', sys: true });
+}
+// ---------- draft screen ----------
+function renderPack(){
+  const m = A.packMsg;
+  const grid = $('dPack'), wait = $('dWait');
+  if(!m || !m.cards){
+    grid.style.display = 'none'; wait.style.display = 'flex';
+    $('dConfirm').disabled = true;
+    if(A.pool.length) $('dTray').classList.add('open'), renderTray(false);
+    return;
+  }
+  wait.style.display = 'none'; grid.style.display = 'grid';
+  $('dPackNum').textContent = m.packNum;
+  $('dPickNum').textContent = m.pickNum;
+  $('dDir').textContent = 'passing ' + (m.dir === 1 ? '◀ left' : 'right ▶');
+  $('dQueue').textContent = m.queued > 0 ? m.queued + ' pack' + (m.queued>1?'s':'') + ' waiting' : '';
+  grid.innerHTML = '';
+  for(const c of m.cards){
+    const el = crdEl(c, c.id === A.sel ? 'sel' : '');
+    el.onclick = ()=>{
+      if(A.pending) return;
+      A.sel = (A.sel === c.id) ? null : c.id;
+      gsend({ t: 'sel', id: A.sel });
+      grid.querySelectorAll('.crd').forEach(x=>x.classList.remove('sel'));
+      if(A.sel) el.classList.add('sel');
+      $('dConfirm').disabled = !A.sel;
+    };
+    el.ondblclick = ()=>{ if(!A.pending){ A.pending = true; gsend({ t: 'pick', id: c.id }); } };
+    grid.appendChild(el);
+  }
+  $('dConfirm').disabled = !A.sel;
+}
+$('dConfirm').onclick = ()=>{
+  if(A.sel && !A.pending){ A.pending = true; gsend({ t: 'pick', id: A.sel }); }
+};
+setInterval(()=>{
+  if(A.screen !== 'draft') return;
+  const el = $('dTimer');
+  if(!A.deadline || !A.packMsg || !A.packMsg.cards){ el.textContent = ''; return; }
+  const left = Math.max(0, Math.ceil((A.deadline - Date.now())/1000));
+  el.textContent = left + 's';
+  el.classList.toggle('low', left <= 10);
+}, 250);
+function renderSeats(m){
+  const el = $('dSeatList'); el.innerHTML = '';
+  const meIdx = A.seat;
+  m.seats.forEach((s, i)=>{
+    const d = document.createElement('div');
+    d.className = 'dseat' + (i === meIdx ? ' me' : '');
+    d.innerHTML =
+      '<span class="st' + (s.dc ? ' dc' : (s.picking ? ' pick' : '')) + '"></span>' +
+      '<span class="nm">' + esc(s.name) + '</span>' +
+      '<span class="q">' + (s.q > 1 ? '▮'.repeat(Math.min(4, s.q-1)) + ' ' : '') + s.picks + '</span>' +
+      '<span class="arrow">' + (m.dir === 1 ? '↓' : '↑') + '</span>';
+    el.appendChild(d);
+  });
+}
+function renderPicksList(){
+  const el = $('dPicks'); el.innerHTML = '';
+  for(let i = A.picks.length - 1; i >= 0; i--){
+    const pk = A.picks[i];
+    const d = document.createElement('div');
+    d.className = 'pk';
+    d.innerHTML = '<span class="dimmer">P' + pk.p + 'p' + pk.n + '</span> <b>' + esc(pk.card.name) + '</b>';
+    attachHover(d, pk.card);
+    el.appendChild(d);
+  }
+}
+const COLOR_ORDER = ['W','U','B','R','G'];
+function renderTray(pulse){
+  const n = A.pool.length;
+  $('dTrayLbl').innerHTML = 'Pool (' + n + ') ' + ($('dTray').classList.contains('open') ? '&#9660;' : '&#9650;');
+  const w = colorWeights(A.pool);
+  $('dTrayPips').innerHTML = COLOR_ORDER.filter(k=>w[k]>0.01)
+    .map(k=>'<span class="pipct"><span class="pip ' + k + '"></span> ' + Math.round(w[k]) + '</span>').join('');
+  const curve = curveOf(A.pool);
+  const mx = Math.max(1, ...curve);
+  $('dCurve').innerHTML = curve.map(v=>'<i style="height:' + Math.max(6, v/mx*100) + '%"></i>').join('');
+  // strip
+  const strip = $('dTrayStrip'); strip.innerHTML = '';
+  A.pool.forEach((c, i)=>{
+    const d = document.createElement('div');
+    d.className = 'mini' + (pulse && i === A.pool.length-1 ? ' new' : '');
+    d.innerHTML = c.img ? '<img loading="lazy" src="' + c.img + '" alt="">' : '<div class="ph" style="font-size:8px;">' + esc(c.name) + '</div>';
+    attachHover(d, c);
+    d.onclick = (e)=>{ e.stopPropagation(); $('dTray').classList.add('open'); renderTray(false); };
+    strip.appendChild(d);
+  });
+  if(!pulse) strip.scrollLeft = strip.scrollWidth;
+  else setTimeout(()=>{ strip.scrollLeft = strip.scrollWidth; }, 30);
+  renderTrayGrid();
+}
+function poolGroups(cards, mode){
+  const g = {};
+  const push = (k, c)=>{ (g[k] = g[k] || []).push(c); };
+  for(const c of cards){
+    if(mode === 'cmc'){ push(isLand(c) ? 'Lands' : 'Cost ' + Math.min(7, Math.round(c.cmc||0)) + (Math.round(c.cmc||0)>=7?'+':''), c); }
+    else if(mode === 'type'){
+      push(isLand(c) ? 'Lands' : /Creature/.test(c.type) ? 'Creatures' : 'Spells', c);
+    } else {
+      const cols = c.colors || [];
+      if(isLand(c)) push('Lands', c);
+      else if(!cols.length) push('Colorless', c);
+      else if(cols.length > 1) push('Multicolor', c);
+      else push({W:'White',U:'Blue',B:'Black',R:'Red',G:'Green'}[cols[0]] || 'Other', c);
+    }
+  }
+  const order = mode === 'color'
+    ? ['White','Blue','Black','Red','Green','Multicolor','Colorless','Lands']
+    : Object.keys(g).sort();
+  return order.filter(k=>g[k]).map(k=>({ k, cards: g[k].slice().sort((a,b)=>(a.cmc||0)-(b.cmc||0) || a.name.localeCompare(b.name)) }));
+}
+function renderTrayGrid(){
+  if(!$('dTray').classList.contains('open')) return;
+  const el = $('dTrayGrid'); el.innerHTML = '';
+  for(const grp of poolGroups(A.pool, $('dTraySort').value)){
+    const d = document.createElement('div'); d.className = 'poolgroup';
+    d.innerHTML = '<h5>' + esc(grp.k) + ' · ' + grp.cards.length + '</h5>';
+    const grid = document.createElement('div'); grid.className = 'poolgrid';
+    for(const c of grp.cards) grid.appendChild(crdEl(c));
+    d.appendChild(grid); el.appendChild(d);
+  }
+}
+$('dTrayBar').onclick = ()=>{ $('dTray').classList.toggle('open'); renderTray(false); };
+$('dTraySort').onchange = renderTrayGrid;
+$('dChatIn').addEventListener('keydown', e=>{
+  if(e.key === 'Enter' && $('dChatIn').value.trim()){
+    gsend({ t: 'chat', x: $('dChatIn').value.trim() }); $('dChatIn').value = '';
+  }
+});
+$('dHostMenuBtn').onclick = (e)=>{
+  const items = [
+    { label: H.paused ? 'Resume draft' : 'Pause draft', fn: ()=>hostPause(!H.paused) },
+    { label: 'Give everyone +30s', fn: hostPlus30 },
+    { sep: true }
+  ];
+  for(const p of H.players){
+    if(p.seat === 0 || p.bot) continue;
+    const botted = !p.connected;
+    items.push({ label: (botted ? 'Return control: ' : 'Hand to bot: ') + p.name,
+      fn: ()=>hostBotify(p.seat, !botted) });
+  }
+  items.push({ sep: true });
+  items.push({ label: 'Abort to lobby', fn: ()=>askConfirm('Abort the draft for everyone?', 'Abort', hostAbort) });
+  openMenu(e.clientX, e.clientY, items);
+};
+// ---------- deckbuild ----------
+function initBuild(){
+  A.deckIds = new Set(); A.buildReady = false;
+  A.lands = { W:0,U:0,B:0,R:0,G:0 };
+  $('bReadyBtn').textContent = 'Ready';
+  $('bFilter').value = '';
+  renderBuild();
+}
+function deckCards(){ return A.pool.filter(c=>A.deckIds.has(c.id)); }
+function renderBuild(){
+  const filter = $('bFilter').value.trim().toLowerCase();
+  const poolCards = A.pool.filter(c=>!A.deckIds.has(c.id) && (!filter || (c.name + ' ' + c.type).toLowerCase().includes(filter)));
+  buildCols($('bPool'), poolCards, c=>{ A.deckIds.add(c.id); unready(); renderBuild(); });
+  const dk = deckCards();
+  buildCols($('bDeck'), dk, c=>{ A.deckIds.delete(c.id); unready(); renderBuild(); });
+  $('bPoolCt').textContent = poolCards.length;
+  const landN = Object.values(A.lands).reduce((a,b)=>a+b,0);
+  const total = dk.length + landN;
+  $('bDeckCt').textContent = total;
+  $('bDeckCt').classList.toggle('bad', total < 40);
+  // land station
+  const bl = $('bLands'); bl.innerHTML = '';
+  const landInfo = [['W','Plains'],['U','Island'],['B','Swamp'],['R','Mountain'],['G','Forest']];
+  for(const [k, nm2] of landInfo){
+    const d = document.createElement('div'); d.className = 'landctl';
+    d.innerHTML = '<span class="pip ' + k + '"></span> ' + nm2 +
+      ' <span class="b" data-k="' + k + '" data-d="-1">&minus;</span><span class="n">' + A.lands[k] + '</span><span class="b" data-k="' + k + '" data-d="1">+</span>';
+    bl.appendChild(d);
+  }
+  bl.querySelectorAll('.b').forEach(b=>{
+    b.onclick = ()=>{ const k = b.dataset.k; A.lands[k] = Math.max(0, A.lands[k] + (+b.dataset.d)); unready(); renderBuild(); };
+  });
+  const sug = document.createElement('button');
+  sug.className = 'btn xs ghost'; sug.textContent = 'Suggest lands';
+  sug.onclick = ()=>{ A.lands = suggestLands(dk); unready(); renderBuild(); };
+  bl.appendChild(sug);
+  // stats
+  const pips = pipCounts(dk);
+  const draftedLands = dk.filter(isLand).length;
+  const creatures = dk.filter(c=>/Creature/.test(c.type) && !isLand(c)).length;
+  const spells = dk.length - creatures - draftedLands;
+  $('bStats').innerHTML =
+    COLOR_ORDER.filter(k=>pips[k]).map(k=>'<span class="pipct"><span class="pip ' + k + '"></span> ' + pips[k] + '</span>').join('') +
+    '<span>' + creatures + ' creatures · ' + spells + ' spells · ' + (landN + draftedLands) + ' lands</span>';
+}
+function buildCols(container, cards, onClick){
+  container.innerHTML = '';
+  const bands = [
+    { lbl: 'Creatures', list: cards.filter(c=>/Creature/.test(c.type) && !isLand(c)) },
+    { lbl: 'Spells & lands', list: cards.filter(c=>!/Creature/.test(c.type) || isLand(c)) }
+  ];
+  for(const band of bands){
+    if(!band.list.length) continue;
+    const lbl = document.createElement('div');
+    lbl.className = 'bandlbl';
+    lbl.textContent = band.lbl + ' · ' + band.list.length;
+    container.appendChild(lbl);
+    const wrap = document.createElement('div'); wrap.className = 'bcols';
+    const cols = {};
+    for(const c of band.list){
+      const k = isLand(c) ? 8 : Math.min(7, Math.round(c.cmc||0));
+      (cols[k] = cols[k] || []).push(c);
+    }
+    for(let k=0;k<=8;k++){
+      if(!cols[k]) continue;
+      const col = document.createElement('div'); col.className = 'bcol';
+      col.innerHTML = '<h6>' + (k === 8 ? 'land' : k + (k===7?'+':'')) + ' · ' + cols[k].length + '</h6>';
+      for(const c of cols[k].sort((a,b)=>a.name.localeCompare(b.name))){
+        const el = crdEl(c);
+        el.onclick = ()=>onClick(c);
+        col.appendChild(el);
+      }
+      wrap.appendChild(col);
+    }
+    container.appendChild(wrap);
+  }
+}
+function unready(){
+  if(A.buildReady){ A.buildReady = false; $('bReadyBtn').textContent = 'Ready'; sendDeck(); }
+}
+function sendDeck(){
+  gsend({ t: 'deck', main: [...A.deckIds], lands: A.lands, ready: A.buildReady });
+}
+$('bReadyBtn').onclick = ()=>{
+  const total = A.deckIds.size + Object.values(A.lands).reduce((a,b)=>a+b,0);
+  if(!A.buildReady && total < 40){ toast('deck needs 40 cards (have ' + total + ')'); return; }
+  A.buildReady = !A.buildReady;
+  $('bReadyBtn').textContent = A.buildReady ? 'Unready' : 'Ready';
+  sendDeck();
+};
+$('bFilter').addEventListener('input', renderBuild);
+function renderBuildRoster(list){
+  const el = $('bRoster'); el.innerHTML = '';
+  for(const p of list){
+    const c = document.createElement('span');
+    c.className = 'chip' + (p.ready ? ' on' : '');
+    c.textContent = p.name;
+    el.appendChild(c);
+  }
+}
+function exportText(){
+  const counts = {};
+  for(const c of deckCards()) counts[c.name] = (counts[c.name]||0) + 1;
+  const landNames = { W:'Plains', U:'Island', B:'Swamp', R:'Mountain', G:'Forest' };
+  for(const k in A.lands) if(A.lands[k]) counts[landNames[k]] = (counts[landNames[k]]||0) + A.lands[k];
+  return Object.keys(counts).map(n=>counts[n] + ' ' + n).join('\n');
+}
+$('bExportBtn').onclick = ()=>{
+  openModal('Export deck', body=>{
+    const ta = document.createElement('textarea');
+    ta.style.cssText = 'width:560px; max-width:80vw; height:300px; font-size:12px;';
+    ta.value = exportText();
+    body.appendChild(ta);
+    const row = document.createElement('div'); row.style.cssText = 'display:flex; gap:10px; margin-top:10px;';
+    const cp = document.createElement('button'); cp.className = 'btn sm gold'; cp.textContent = 'Copy';
+    cp.onclick = ()=>{ ta.select(); navigator.clipboard && navigator.clipboard.writeText(ta.value); toast('copied'); };
+    row.appendChild(cp); body.appendChild(row);
+  });
+};
+function openRecap(){
+  if(!A.recap){ toast('no recap yet'); return; }
+  openModal('Draft recap', body=>{
+    const tabs = document.createElement('div'); tabs.className = 'recaptabs';
+    const grid = document.createElement('div');
+    body.appendChild(tabs); body.appendChild(grid);
+    const show = (i)=>{
+      tabs.querySelectorAll('.chip').forEach((c,j)=>c.classList.toggle('gold', j===i));
+      grid.innerHTML = '';
+      const g = document.createElement('div'); g.className = 'samplegrid';
+      for(const pk of A.recap[i].picks){
+        const el = crdEl(pk.card);
+        const lbl = document.createElement('div');
+        lbl.style.cssText = 'font-size:9px; color:var(--ink-dim); text-align:center;';
+        lbl.textContent = 'P' + pk.p + 'p' + pk.n;
+        const w = document.createElement('div'); w.appendChild(el); w.appendChild(lbl);
+        g.appendChild(w);
+      }
+      grid.appendChild(g);
+    };
+    A.recap.forEach((s,i)=>{
+      const c = document.createElement('span');
+      c.className = 'chip'; c.style.cursor = 'pointer'; c.textContent = s.name;
+      c.onclick = ()=>show(i);
+      tabs.appendChild(c);
+    });
+    show(0);
+  });
+}
+$('bRecapBtn').onclick = openRecap;
+$('sumRecapBtn').onclick = openRecap;
+// ---------- bridge ----------
+function renderBridge(m){
+  const el = $('brPairs'); el.innerHTML = '';
+  for(const pr of m.pairs){
+    const d = document.createElement('div');
+    d.className = 'pairrow';
+    d.innerHTML = '<span>' + esc(pr[0]) + '</span><span class="vs">vs</span><span>' + esc(pr[1]) + '</span>' +
+      '<span class="sp" style="flex:1"></span><span class="tag dim">bo' + m.bo + '</span>';
+    el.appendChild(d);
+  }
+  $('brMsg').textContent = m.odd ? m.odd + ' sits out this round and spectates' : '';
+}
+function renderBridgeButtons(){
+  $('brStartBtn').style.display = A.isHost ? '' : 'none';
+  $('brShuffleBtn').style.display = A.isHost ? '' : 'none';
+  if(!A.isHost) $('brMsg').textContent = 'waiting for the host to start matches…';
+}
+$('brShuffleBtn').onclick = ()=>{ if(A.isHost) hostToBridge(); };
+$('brStartBtn').onclick = ()=>{ if(A.isHost) hostStartMatches(); };
+// ---------- summary ----------
+function renderSummary(){
+  const el = $('sumGrid'); el.innerHTML = '';
+  for(const r of (A.results || [])){
+    const d = document.createElement('div');
+    d.innerHTML = esc(r.names[0]) + ' <b style="color:var(--gold-hi)">' + r.score[0] + ' — ' + r.score[1] + '</b> ' + esc(r.names[1]);
+    el.appendChild(d);
+  }
+  if(!(A.results||[]).length) el.innerHTML = '<span class="dim">no matches were played</span>';
+  $('sumLobbyBtn').style.display = A.isHost ? '' : 'none';
+}
+$('sumLobbyBtn').onclick = ()=>{ if(A.isHost) hostEndNight(); };
+// ================= TABLE UI =================
+function act(a){ if(A.ts < 0 && a.t !== 'view') return; gsend({ t: 'act', a }); }
+function isAttachType(c){ return /\bAura\b|\bEquipment\b|\bFortification\b/.test((c && c.type) || ''); }
+function mySeat(){ return A.ts >= 0 ? A.ts : 0; }
+const TCW = 86, TCH = Math.round(86*88/63);
+const MAXS = 47; // horizontal snap slots (fine grid)
+const MAXY = 11; // vertical snap slots per half
+function renderTable(){
+  const snap = A.snap; if(!snap || A.screen !== 'table') return;
+  if(A.prevGame !== snap.game + '|' + snap.tid){
+    A.prevGame = snap.game + '|' + snap.tid;
+    A.prevBF = {}; A.prevHand = new Set();
+  }
+  const me = mySeat(), opp = 1 - me;
+  const S = snap.seats;
+  // header
+  $('tOppName').textContent = S[opp].name;
+  $('tOppLife').textContent = S[opp].life + (S[opp].poison ? ' ☠' + S[opp].poison : '');
+  $('tOppCounts').innerHTML =
+    'hand ' + S[opp].handN + ' · lib ' + S[opp].libN +
+    ' · <span style="cursor:pointer" id="oppGyLink">gy ' + S[opp].gy.length + '</span>' +
+    ' · <span style="cursor:pointer" id="oppExLink">ex ' + S[opp].ex.length + '</span>';
+  $('oppGyLink').onclick = ()=>openGrid(S[opp].name + ' — graveyard', S[opp].gy, null);
+  $('oppExLink').onclick = ()=>openGrid(S[opp].name + ' — exile', S[opp].ex, null);
+  $('tGameLbl').textContent = 'game ' + snap.game + ' · bo' + snap.bo + (A.ts < 0 ? ' · spectating' : '');
+  const need = Math.floor(snap.bo/2) + 1;
+  let dots = '';
+  for(let i=0;i<need;i++) dots += '<span class="g' + (snap.score[me] > i ? ' w' : '') + '"></span>';
+  dots += '<span style="margin:0 4px;">·</span>';
+  for(let i=0;i<need;i++) dots += '<span class="g' + (snap.score[opp] > i ? ' w' : '') + '"></span>';
+  $('tScore').innerHTML = dots;
+  // turn
+  const tt = $('tTurn');
+  if(snap.turnNum === 0) tt.textContent = 'pre-game';
+  else tt.textContent = 'turn ' + snap.turnNum + ' — ' + S[snap.turnSeat].name;
+  tt.classList.toggle('mine', snap.turnSeat === me && A.ts >= 0);
+  const myTurn = snap.turnSeat === me && A.ts >= 0;
+  if(snap.turnNum !== A.lastTurn){
+    A.lastTurn = snap.turnNum;
+    if(snap.turnNum > 0) showBanner(myTurn ? 'Your turn' : S[snap.turnSeat].name + '’s turn', myTurn);
+  }
+  $('tTurnBtn').innerHTML = (myTurn ? 'Pass turn' : 'Take turn') + ' &middot; <b style="font-weight:normal; color:var(--gold);">N</b>';
+  $('tTurnBtn').classList.toggle('gold', myTurn);
+  // my zone bar
+  $('tLife').textContent = S[me].life;
+  $('tSubLife').textContent = (S[me].poison ? '☠' + S[me].poison + ' ' : '') + (S[me].energy ? '⚡' + S[me].energy : '');
+  $('tLibN').textContent = S[me].libN;
+  $('tGYN').textContent = S[me].gy.length;
+  $('tEXN').textContent = S[me].ex.length;
+  const gyTop = S[me].gy[S[me].gy.length-1];
+  $('tGY').querySelectorAll('img').forEach(x=>x.remove());
+  if(gyTop && gyTop.img){ const im = document.createElement('img'); im.src = gyTop.img; $('tGY').prepend(im); }
+  // battlefield: free 2D snap grid per half, FLIP-style carryover so taps/moves animate
+  $('tMyField').innerHTML = ''; $('tOppField').innerHTML = '';
+  const prevBF = A.prevBF || {}, nextBF = {};
+  for(const side of [me, opp]){
+    const mine = side === me;
+    const fieldEl = $(mine ? 'tMyField' : 'tOppField');
+    const byId = {}, idxOf = {};
+    S[side].bf.forEach((c,i)=>{ byId[c.id] = c; idxOf[c.id] = i; });
+    for(const c of S[side].bf){
+      let row = c.row|0, slotF = c.slot|0, attOff = 0;
+      let z = 5 + (idxOf[c.id]|0)*2;
+      if(c.att && byId[c.att]){
+        row = byId[c.att].row|0;
+        if(c.wtype){ // dice/chips perch on the host card's top-right corner and travel with it
+          slotF = (byId[c.att].slot|0) + 3; attOff = 6;
+          z = 7 + (idxOf[c.att]|0)*2;
+        } else {
+          slotF = (byId[c.att].slot|0) + 1.2;
+          attOff = mine ? 18 : -18;
+          z = 4 + (idxOf[c.att]|0)*2; // just beneath its host
+        }
+      }
+      const el = document.createElement('div');
+      el.className = 'tc' + (c.fd ? ' fd' : '') + (mine ? ' mine' : ' opphl');
+      const leftCss = 'calc(26px + (100% - ' + (TCW + 52) + 'px) * ' + (Math.min(MAXS, Math.max(0, slotF))/MAXS).toFixed(4) + ')';
+      const yFrac = Math.min(MAXY, Math.max(0, row))/MAXY;
+      const frac = mine ? yFrac : (1 - yFrac); // row 0 hugs the midline on both sides
+      const topCss = 'calc(8px + (100% - ' + (TCH + 16) + 'px) * ' + frac.toFixed(4) + (attOff ? ' + ' + attOff + 'px' : '') + ')';
+      const tapped = !!c.tapped;
+      const pv = prevBF[c.id];
+      nextBF[c.id] = { left: leftCss, top: topCss, tapped, row: mine ? 'my' : 'opp', val: c.val, rn: c.rn };
+      if(pv && (pv.left !== leftCss || pv.top !== topCss || pv.tapped !== tapped) && pv.row === nextBF[c.id].row){
+        el.style.left = pv.left; el.style.top = pv.top;
+        el.classList.toggle('tapped', pv.tapped);
+        requestAnimationFrame(()=>requestAnimationFrame(()=>{
+          el.style.left = leftCss; el.style.top = topCss;
+          el.classList.toggle('tapped', tapped);
+        }));
+      } else {
+        el.style.left = leftCss; el.style.top = topCss;
+        el.classList.toggle('tapped', tapped);
+        if(!pv) el.classList.add('enterbf');
+      }
+      el.style.zIndex = z;
+      if(c.wtype){ // physical die / counter chip
+        el.classList.add('widget');
+        if(c.wtype === 'die'){
+          el.innerHTML = dieSVG(c.sides||6, c.val|0);
+          if(!pv || pv.rn !== c.rn){ // tumble + number flicker on true rolls only
+            el.classList.add('rolling');
+            const final = c.val|0, sides = c.sides||6;
+            let k = 0;
+            const iv = setInterval(()=>{
+              const t = el.querySelector('.dv');
+              if(t) t.textContent = 1 + Math.floor(Math.random()*sides);
+              if(++k > 6){
+                clearInterval(iv);
+                const t2 = el.querySelector('.dv');
+                if(t2) t2.textContent = final;
+                el.classList.remove('rolling');
+              }
+            }, 65);
+          }
+        } else {
+          el.innerHTML = '<div class="wbox chip"><b>' + (c.val|0) + '</b></div>';
+        }
+        el._card = c;
+        if(A.ts >= 0){
+          if(mine) el.addEventListener('pointerdown', ev=>{ if(ev.button === 0) beginDrag(ev, c, 'bf', el); });
+          else el.addEventListener('pointerup', ev=>{ if(ev.button === 0) widgetClick(c, ev.shiftKey); });
+          el.addEventListener('contextmenu', ev=>{ ev.preventDefault(); widgetMenu(ev, c); });
+        }
+        fieldEl.appendChild(el);
+        continue;
+      }
+      if(c.fd && !c.name) el.innerHTML = '<div class="back"></div>';
+      else if(c.fd) el.innerHTML = '<div class="back" style="outline:1px solid var(--gold);"></div>';
+      else if(c.img) el.innerHTML = '<img src="' + c.img + '" alt="">';
+      else el.innerHTML = '<div class="ph" style="font-size:11px;"><b>' + esc(c.name||'') + '</b>' + (c.pt ? '<span>' + esc(c.pt) + '</span>' : '') + '</div>';
+      // badges
+      const badges = [];
+      for(const k in (c.ctrs||{})) badges.push('<span class="cbadge">' + esc(k) + (c.ctrs[k]>1 ? ' ×' + c.ctrs[k] : '') + '</span>');
+      if(c.note) badges.push('<span class="cbadge note">' + esc(c.note) + '</span>');
+      if(badges.length) el.insertAdjacentHTML('beforeend', '<div class="cbadges">' + badges.join('') + '</div>');
+      if(!c.fd || c.name) attachHover(el, c);
+      el._card = c;
+      if(mine && A.ts >= 0){
+        el.addEventListener('pointerdown', e=>{ if(e.button === 0) beginDrag(e, c, 'bf', el); });
+        el.addEventListener('contextmenu', e=>{ e.preventDefault(); bfMenu(e, c); });
+      }
+      fieldEl.appendChild(el);
+    }
+  }
+  A.prevBF = nextBF;
+  renderHand();
+  renderMullBar();
+  renderBetween();
+}
+function renderHand(){
+  const snap = A.snap; if(!snap) return;
+  const me = mySeat();
+  const handEl = $('tHand'); handEl.innerHTML = '';
+  if(A.ts < 0){
+    handEl.innerHTML = '<span class="dim" style="align-self:center; font-size:13px;">spectating — hands are hidden</span>';
+    return;
+  }
+  const hand = snap.seats[me].hand || [];
+  const prevHand = A.prevHand || new Set();
+  for(const c of hand){
+    const el = crdEl(c, A.bottomSel.has(c.id) ? 'sel' : '');
+    if(!prevHand.has(c.id)) el.classList.add('dealt');
+    el.addEventListener('pointerdown', e=>{ if(e.button === 0) beginDrag(e, c, 'hand', el); });
+    el.addEventListener('contextmenu', e=>{ e.preventDefault(); handMenu(e, c); });
+    el.ondblclick = ()=>{ if(!A.bottomMode) act({ t: 'play', id: c.id, row: 0, slot: freeSlot(0) }); };
+    handEl.appendChild(el);
+  }
+  A.prevHand = new Set(hand.map(c=>c.id));
+}
+function freeSlot(row){
+  const snap = A.snap, me = mySeat();
+  const taken = (snap.seats[me].bf||[]).filter(c=>(c.row|0) === row && !c.att).map(c=>c.slot|0);
+  for(let s=0;s<=MAXS;s+=6){ if(!taken.some(t=>Math.abs(t-s) < 6)) return s; }
+  return Math.floor(Math.random()*(MAXS-2));
+}
+// ---------- drag ----------
+let drag = null;
+function beginDrag(e, card, from, el){
+  if(A.ts < 0 || A.bottomMode && from === 'hand'){
+    if(A.bottomMode && from === 'hand'){ toggleBottomSel(card); }
+    return;
+  }
+  drag = { card, from, el, sx: e.clientX, sy: e.clientY, started: false, ghost: null };
+}
+document.addEventListener('pointermove', e=>{
+  if(!drag) return;
+  if(!drag.started){
+    if(Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 8) return;
+    drag.started = true;
+    const g = document.createElement('div');
+    g.style.cssText = 'position:fixed; z-index:140; width:' + TCW + 'px; pointer-events:none; opacity:.85; filter:drop-shadow(0 8px 16px rgba(0,0,0,.7));';
+    g.innerHTML = drag.card.wtype === 'die'
+      ? dieSVG(drag.card.sides||6, drag.card.val|0)
+      : drag.card.wtype === 'chip'
+      ? '<div class="wbox chip"><b>' + (drag.card.val|0) + '</b></div>'
+      : drag.card.img ? '<img style="width:100%; border-radius:5px;" src="' + drag.card.img + '">'
+      : '<div class="ph" style="width:' + TCW + 'px; font-size:10px;">' + esc(drag.card.name||'card') + '</div>';
+    if(drag.from === 'bf' && drag.card.tapped) g.style.transform = 'rotate(90deg)';
+    document.body.appendChild(g);
+    drag.ghost = g;
+    hideHover();
+  }
+  drag.ghost.style.left = (e.clientX - TCW/2) + 'px';
+  drag.ghost.style.top = (e.clientY - TCH/2) + 'px';
+});
+document.addEventListener('pointerup', e=>{
+  if(!drag) return;
+  const d = drag; drag = null;
+  if(d.ghost) d.ghost.remove();
+  if(!d.started){
+    // click
+    if(A.attachFrom && d.from === 'bf' && d.card.id !== A.attachFrom){
+      act({ t: 'attach', id: A.attachFrom, to: d.card.id }); A.attachFrom = null; return;
+    }
+    if(d.from === 'bf'){
+      if(d.card.wtype) widgetClick(d.card, e.shiftKey);
+      else act({ t: 'tap', id: d.card.id, v: !d.card.tapped });
+    }
+    return;
+  }
+  const target = document.elementFromPoint(e.clientX, e.clientY);
+  if(!target) return;
+  // auras & equipment attach when dropped onto a permanent; everything else stacks freely
+  const hostEl = target.closest('.tc.mine');
+  if(hostEl && hostEl._card && hostEl._card.id !== d.card.id && !hostEl._card.wtype &&
+     (isAttachType(d.card) || d.card.wtype)){
+    const host = hostEl._card;
+    if(d.from === 'bf') act({ t: 'attach', id: d.card.id, to: host.id });
+    else {
+      act({ t: 'play', id: d.card.id, row: host.row|0, slot: host.slot|0 });
+      setTimeout(()=>act({ t: 'attach', id: d.card.id, to: host.id }), 180);
+    }
+    return;
+  }
+  const fieldEl = target.closest('.bffield');
+  if(fieldEl && fieldEl.dataset.half === 'my'){
+    // free 2D snap — stacking on other cards is fine
+    const r = fieldEl.getBoundingClientRect();
+    const fx = (e.clientX - r.left - TCW/2) / Math.max(1, r.width - TCW);
+    const slot = Math.min(MAXS, Math.max(0, Math.round(fx*MAXS)));
+    const fy = (e.clientY - r.top - TCH/2) / Math.max(1, r.height - TCH);
+    const row = Math.min(MAXY, Math.max(0, Math.round(fy*MAXY)));
+    if(d.from === 'hand') act({ t: 'play', id: d.card.id, row, slot, fd: e.shiftKey });
+    else act({ t: 'bfmove', id: d.card.id, row, slot });
+    return;
+  }
+  if(target.closest('#tGY')){ act({ t: 'move', id: d.card.id, to: 'gy' }); return; }
+  if(target.closest('#tEX')){ act({ t: 'move', id: d.card.id, to: 'ex' }); return; }
+  if(target.closest('#tLib')){
+    openMenu(e.clientX, e.clientY, [
+      { label: 'On top of library', fn: ()=>act({ t: 'move', id: d.card.id, to: 'libtop' }) },
+      { label: 'On the bottom', fn: ()=>act({ t: 'move', id: d.card.id, to: 'libbottom' }) }
+    ]);
+    return;
+  }
+  if(target.closest('#tHandWrap') && d.from === 'bf'){ act({ t: 'move', id: d.card.id, to: 'hand' }); return; }
+});
+// ---------- menus ----------
+const DIE_GRAD = '<defs><linearGradient id="dg" x1="0" y1="0" x2="0" y2="1">' +
+  '<stop offset="0" stop-color="#2c2110"/><stop offset="1" stop-color="#110c05"/></linearGradient></defs>';
+function dieSVG(sides, val){
+  if(sides === 20){
+    return '<svg viewBox="0 0 30 30" width="30" height="30">' + DIE_GRAD +
+      '<polygon points="15,1 27.1,8 27.1,22 15,29 2.9,22 2.9,8" fill="url(#dg)" stroke="var(--gold)" stroke-width="1"/>' +
+      '<polygon points="15,4.4 25.1,20.8 4.9,20.8" fill="none" stroke="rgba(212,169,78,.32)" stroke-width=".8"/>' +
+      '<path d="M15,1 L15,4.4 M2.9,22 L4.9,20.8 M27.1,22 L25.1,20.8 M15,29 L15,20.8 M2.9,8 L4.9,20.8 M27.1,8 L25.1,20.8" ' +
+        'stroke="rgba(212,169,78,.16)" stroke-width=".8" fill="none"/>' +
+      '<text class="dv" x="15" y="18.4" text-anchor="middle" font-size="9.5" fill="var(--gold-hi)" font-family="Georgia,serif">' + val + '</text></svg>';
+  }
+  return '<svg viewBox="0 0 30 30" width="30" height="30">' + DIE_GRAD +
+    '<rect x="1.5" y="1.5" width="27" height="27" rx="2" fill="url(#dg)" stroke="var(--gold)" stroke-width="1"/>' +
+    '<path d="M1.5,1.5 L5,5 M28.5,1.5 L25,5 M1.5,28.5 L5,25 M28.5,28.5 L25,25" stroke="rgba(212,169,78,.18)" stroke-width=".8"/>' +
+    '<text class="dv" x="15" y="19.4" text-anchor="middle" font-size="12" fill="var(--gold-hi)" font-family="Georgia,serif">' + val + '</text></svg>';
+}
+function widgetClick(c, shift){
+  if(c.wtype === 'die') act({ t: 'rollWidget', id: c.id });
+  else act({ t: 'chipSet', id: c.id, d: shift ? -1 : 1 });
+}
+function widgetMenu(e, c){
+  const items = [];
+  if(c.wtype === 'die'){
+    items.push({ label: 'Roll', k: 'click', fn: ()=>act({ t: 'rollWidget', id: c.id }) });
+    items.push({ sep: true });
+  }
+  items.push({ label: '+1', k: c.wtype === 'chip' ? 'click' : '', fn: ()=>act({ t: 'chipSet', id: c.id, d: 1 }) });
+  items.push({ label: '−1', k: c.wtype === 'chip' ? 'shift-click' : '', fn: ()=>act({ t: 'chipSet', id: c.id, d: -1 }) });
+  items.push({ label: 'Set value…', fn: ()=>askInput('Set value', c.val|0, 'number', v=>{ if(v !== '') act({ t: 'chipSet', id: c.id, v: +v }); }) });
+  items.push({ sep: true });
+  items.push({ label: 'Remove', fn: ()=>act({ t: 'widgetRemove', id: c.id }) });
+  openMenu(e.clientX, e.clientY, items);
+}
+function handMenu(e, c){
+  openMenu(e.clientX, e.clientY, [
+    { label: 'Play', fn: ()=>act({ t: 'play', id: c.id, row: 0, slot: freeSlot(0) }) },
+    { label: 'Play face down', fn: ()=>act({ t: 'play', id: c.id, row: 0, slot: freeSlot(0), fd: true }) },
+    { label: 'Reveal', fn: ()=>act({ t: 'reveal', id: c.id }) },
+    { sep: true },
+    { label: 'Discard', fn: ()=>act({ t: 'move', id: c.id, to: 'gy' }) },
+    { label: 'Exile', fn: ()=>act({ t: 'move', id: c.id, to: 'ex' }) },
+    { label: 'Top of library', fn: ()=>act({ t: 'move', id: c.id, to: 'libtop' }) },
+    { label: 'Bottom of library', fn: ()=>act({ t: 'move', id: c.id, to: 'libbottom' }) }
+  ]);
+}
+function bfMenu(e, c){
+  const items = [
+    { label: c.tapped ? 'Untap' : 'Tap', k: 'click', fn: ()=>act({ t: 'tap', id: c.id, v: !c.tapped }) },
+    { label: '+1/+1 counter', fn: ()=>act({ t: 'counter', id: c.id, k: '+1/+1', d: 1 }) },
+    { label: 'Remove +1/+1', fn: ()=>act({ t: 'counter', id: c.id, k: '+1/+1', d: -1 }) },
+    { label: 'Other counter…', fn: ()=>askText('Counter name', 'charge', k=>{ if(k) act({ t: 'counter', id: c.id, k, d: 1 }); }) },
+    { label: 'Note…', fn: ()=>askText('Note on ' + (c.name||'card'), c.note||'', x=>act({ t: 'note', id: c.id, x })) },
+    { sep: true },
+    { label: c.fd ? 'Turn face up' : 'Turn face down', fn: ()=>act({ t: 'face', id: c.id, v: !c.fd }) },
+    { label: 'Duplicate (token)', fn: ()=>act({ t: 'dupe', id: c.id }) },
+    { label: 'Attach to…', fn: ()=>{ A.attachFrom = c.id; toast('click a permanent to attach to (esc cancels)'); } },
+  ];
+  if(c.att) items.push({ label: 'Detach', fn: ()=>act({ t: 'detach', id: c.id }) });
+  items.push({ label: 'Give control', fn: ()=>act({ t: 'give', id: c.id }) });
+  items.push({ sep: true });
+  items.push({ label: 'To hand', fn: ()=>act({ t: 'move', id: c.id, to: 'hand' }) });
+  items.push({ label: 'To graveyard', fn: ()=>act({ t: 'move', id: c.id, to: 'gy' }) });
+  items.push({ label: 'Exile', fn: ()=>act({ t: 'move', id: c.id, to: 'ex' }) });
+  items.push({ label: 'Top of library', fn: ()=>act({ t: 'move', id: c.id, to: 'libtop' }) });
+  items.push({ label: 'Bottom of library', fn: ()=>act({ t: 'move', id: c.id, to: 'libbottom' }) });
+  openMenu(e.clientX, e.clientY, items);
+}
+$('tLib').onclick = (e)=>{
+  if(A.ts < 0) return;
+  openMenu(e.clientX, e.clientY, [
+    { label: 'Draw', k: 'D', fn: ()=>act({ t: 'draw', n: 1 }) },
+    { label: 'Draw N…', fn: ()=>askNum('Draw how many?', 2, n=>act({ t: 'draw', n })) },
+    { sep: true },
+    { label: 'Scry N…', fn: ()=>askNum('Scry how many?', 2, n=>act({ t: 'scry', n })) },
+    { label: 'Surveil N…', fn: ()=>askNum('Surveil how many?', 2, n=>act({ t: 'scry', n, surveil: true })) },
+    { label: 'Look at top N…', fn: ()=>askNum('Look at how many?', 3, n=>act({ t: 'scry', n, peek: true })) },
+    { label: 'Search library', fn: ()=>act({ t: 'search' }) },
+    { sep: true },
+    { label: 'Shuffle', k: 'S', fn: ()=>act({ t: 'shuffle' }) },
+    { label: 'Mill N…', fn: ()=>askNum('Mill how many?', 1, n=>act({ t: 'mill', n })) }
+  ]);
+};
+$('tGY').onclick = ()=>{ if(A.snap && A.ts >= 0) openGrid('Your graveyard', A.snap.seats[mySeat()].gy, zoneMenuItems); };
+$('tEX').onclick = ()=>{ if(A.snap && A.ts >= 0) openGrid('Your exile', A.snap.seats[mySeat()].ex, zoneMenuItems); };
+function zoneMenuItems(c){
+  return [
+    { label: 'To hand', fn: ()=>{ act({ t: 'move', id: c.id, to: 'hand' }); closeModal(); } },
+    { label: 'To battlefield', fn: ()=>{ act({ t: 'move', id: c.id, to: 'bf' }); setTimeout(()=>act({ t: 'bfmove', id: c.id, row: 0, slot: freeSlot(0) }), 150); closeModal(); } },
+    { label: 'Exile', fn: ()=>{ act({ t: 'move', id: c.id, to: 'ex' }); closeModal(); } },
+    { label: 'To graveyard', fn: ()=>{ act({ t: 'move', id: c.id, to: 'gy' }); closeModal(); } },
+    { label: 'Top of library', fn: ()=>{ act({ t: 'move', id: c.id, to: 'libtop' }); closeModal(); } },
+    { label: 'Bottom of library', fn: ()=>{ act({ t: 'move', id: c.id, to: 'libbottom' }); closeModal(); } }
+  ];
+}
+function openGrid(title, cards, menuFn){
+  openModal(title, body=>{
+    if(!cards.length){ body.innerHTML = '<span class="dim">empty</span>'; return; }
+    const g = document.createElement('div'); g.className = 'samplegrid';
+    for(const c of cards){
+      const el = crdEl(c);
+      if(menuFn) el.onclick = (e)=>openMenu(e.clientX, e.clientY, menuFn(c));
+      g.appendChild(el);
+    }
+    body.appendChild(g);
+  });
+}
+// ---------- buttons / life ----------
+$('tDrawBtn').onclick = ()=>act({ t: 'draw', n: 1 });
+$('tUntapBtn').onclick = ()=>act({ t: 'untapAll' });
+$('tTurnBtn').onclick = ()=>act({ t: 'turn' });
+function diceMenu(e, sides){
+  openMenu(e.clientX, e.clientY, [
+    { label: 'Roll d' + sides + ' (log)', fn: ()=>act({ t: 'roll', sides }) },
+    { label: 'Roll d' + sides + ' onto the table', fn: ()=>act({ t: 'dice', sides, row: 6, slot: freeSlot(6) }) }
+  ]);
+}
+$('tD6Btn').onclick = (e)=>diceMenu(e, 6);
+$('tD20Btn').onclick = (e)=>diceMenu(e, 20);
+$('tCoinBtn').onclick = ()=>act({ t: 'coin' });
+$('tConcedeBtn').onclick = ()=>{ if(A.ts >= 0) askConfirm('Concede this game?', 'Concede', ()=>act({ t: 'concede' })); };
+$('tLifeBtns').querySelectorAll('.b').forEach(b=>{
+  b.addEventListener('click', e=>act({ t: 'life', k: 'life', d: (+b.dataset.d) * (e.shiftKey ? 5 : 1) }));
+});
+$('tLife').onclick = ()=>{
+  askInput('Set your life', A.snap ? A.snap.seats[mySeat()].life : 20, 'number',
+    v=>{ if(v !== '') act({ t: 'setlife', v: +v }); });
+};
+$('tOppMinus').onclick = (e)=>{ if(A.ts >= 0) act({ t: 'life', k: 'life', d: -(e.shiftKey?5:1), who: 1 - mySeat() }); };
+$('tOppPlus').onclick = (e)=>{ if(A.ts >= 0) act({ t: 'life', k: 'life', d: (e.shiftKey?5:1), who: 1 - mySeat() }); };
+$('tOppLife').onclick = ()=>{
+  if(A.ts < 0 || !A.snap) return;
+  const opp = 1 - mySeat();
+  askInput('Set ' + A.snap.seats[opp].name + '’s life', A.snap.seats[opp].life, 'number',
+    v=>{ if(v !== '') act({ t: 'setlife', v: +v, who: opp }); });
+};
+$('tMoreBtn').onclick = (e)=>{
+  openMenu(e.clientX, e.clientY, [
+    { label: 'Poison +1', fn: ()=>act({ t: 'life', k: 'poison', d: 1 }) },
+    { label: 'Poison −1', fn: ()=>act({ t: 'life', k: 'poison', d: -1 }) },
+    { label: 'Energy +1', fn: ()=>act({ t: 'life', k: 'energy', d: 1 }) },
+    { label: 'Energy −1', fn: ()=>act({ t: 'life', k: 'energy', d: -1 }) },
+    { sep: true },
+    { label: 'Place counter on table', fn: ()=>act({ t: 'chip', row: 6, slot: freeSlot(6) }) },
+    { sep: true },
+    { label: 'Reveal hand', fn: ()=>act({ t: 'revealHand' }) },
+    { label: 'Reveal random card', fn: ()=>act({ t: 'randHand' }) },
+    { label: 'Mulligan', fn: ()=>askConfirm('Shuffle your hand away and draw 7?', 'Mulligan', ()=>act({ t: 'mull' })) }
+  ]);
+};
+$('tSpecSel').onclick = ()=>{
+  A.specN = ((A.specN||1) % 4) + 1;
+  A.tid = 'table-' + A.specN;
+  $('tSpecSel').textContent = 'table ' + A.specN;
+  gsend({ t: 'act', a: { t: 'view', tid: A.tid } });
+};
+$('tChatIn').addEventListener('keydown', e=>{
+  if(e.key === 'Enter' && $('tChatIn').value.trim()){
+    gsend({ t: 'chat', x: $('tChatIn').value.trim() }); $('tChatIn').value = '';
+  }
+});
+// rapid identical actions coalesce into one line ("draws 2 cards", "loses 6 life (14)")
+let lastLog = null;
+function tryMergeLog(a, b){
+  let ma = a.match(/^(.+) draws (?:a card|(\d+) cards)$/);
+  let mb = b.match(/^(.+) draws (?:a card|(\d+) cards)$/);
+  if(ma && mb && ma[1] === mb[1]){
+    const n = (ma[2] ? +ma[2] : 1) + (mb[2] ? +mb[2] : 1);
+    return ma[1] + ' draws ' + n + ' cards';
+  }
+  ma = a.match(/^(.+) (gains|loses) (\d+) life \((-?\d+)\)$/);
+  mb = b.match(/^(.+) (gains|loses) (\d+) life \((-?\d+)\)$/);
+  if(ma && mb && ma[1] === mb[1] && ma[2] === mb[2]){
+    return ma[1] + ' ' + ma[2] + ' ' + (+ma[3] + +mb[3]) + ' life (' + mb[4] + ')';
+  }
+  ma = a.match(/^(.+) sets (.+)’s life to (-?\d+)$/);
+  mb = b.match(/^(.+) sets (.+)’s life to (-?\d+)$/);
+  if(ma && mb && ma[1] === mb[1] && ma[2] === mb[2]) return b;
+  ma = a.match(/^(.+) rolls the (d\d+): \d+$/);
+  mb = b.match(/^(.+) rolls the (d\d+): \d+$/);
+  if(ma && mb && ma[1] === mb[1] && ma[2] === mb[2]) return b;
+  return null;
+}
+function appendTLog(e){
+  const el = $('tLog');
+  const now = Date.now();
+  if(lastLog && now - lastLog.at < 6000 && !e.img && typeof e.s === 'string'){
+    const merged = tryMergeLog(lastLog.s, e.s);
+    if(merged){
+      lastLog.s = merged; lastLog.at = now;
+      lastLog.tx.textContent = merged;
+      lastLog.el.classList.remove('flash'); void lastLog.el.offsetWidth;
+      lastLog.el.classList.add('flash');
+      el.scrollTop = el.scrollHeight;
+      return;
+    }
+  }
+  const d = document.createElement('div');
+  d.className = 'ln flash';
+  const t = new Date();
+  const ts = document.createElement('span');
+  ts.className = 't';
+  ts.textContent = String(t.getHours()).padStart(2,'0') + ':' + String(t.getMinutes()).padStart(2,'0');
+  const tx = document.createElement('span');
+  tx.textContent = e.s;
+  d.appendChild(ts); d.appendChild(tx);
+  if(e.img) attachHover(d, { imgL: e.img, name: '' });
+  el.appendChild(d);
+  lastLog = { el: d, tx, s: e.s, at: now };
+  while(el.children.length > 300) el.removeChild(el.firstChild);
+  el.scrollTop = el.scrollHeight;
+}
+let bannerTimer = null;
+function showBanner(s, mine){
+  const el = $('turnBanner'); el.textContent = s;
+  el.classList.toggle('theirs', mine === false);
+  el.classList.add('on');
+  clearTimeout(bannerTimer); bannerTimer = setTimeout(()=>el.classList.remove('on'), 1100);
+}
+// ---------- mulligan bar ----------
+function ensureMullBar(){
+  let el = $('tMullBar');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'tMullBar';
+    el.style.cssText = 'position:fixed; left:50%; transform:translateX(-50%); bottom:150px; z-index:80;' +
+      'background:rgba(12,9,5,.95); border:1px solid var(--gold); border-radius:5px; padding:10px 18px;' +
+      'display:none; gap:12px; align-items:center; font-size:14px;';
+    document.body.appendChild(el);
+  }
+  return el;
+}
+function renderMullBar(){
+  const el = ensureMullBar();
+  const snap = A.snap;
+  if(!snap || A.ts < 0 || snap.between || snap.over || snap.turnNum > 0 || A.keptGame === snap.game){
+    el.style.display = 'none'; return;
+  }
+  const me = mySeat(), mull = snap.seats[me].mull;
+  el.style.display = 'flex'; el.innerHTML = '';
+  if(!A.bottomMode){
+    const keep = document.createElement('button'); keep.className = 'btn sm gold';
+    keep.textContent = 'Keep hand';
+    keep.onclick = ()=>{
+      act({ t: 'keep' });
+      if(mull > 0){ A.bottomMode = true; A.bottomSel = new Set(); toast('select ' + mull + ' card' + (mull>1?'s':'') + ' to bottom'); renderMullBar(); renderHand(); }
+      else { A.keptGame = snap.game; renderMullBar(); }
+    };
+    const m2 = document.createElement('button'); m2.className = 'btn sm';
+    m2.textContent = 'Mulligan' + (mull ? ' (' + mull + ')' : '');
+    m2.onclick = ()=>act({ t: 'mull' });
+    el.appendChild(keep); el.appendChild(m2);
+  } else {
+    const span = document.createElement('span');
+    span.innerHTML = 'bottom <b style="color:var(--gold-hi)">' + A.bottomSel.size + ' / ' + mull + '</b> — click cards in hand';
+    const go = document.createElement('button'); go.className = 'btn sm gold';
+    go.textContent = 'Confirm';
+    go.disabled = A.bottomSel.size !== mull;
+    go.onclick = ()=>{
+      act({ t: 'bottom', ids: [...A.bottomSel] });
+      A.bottomMode = false; A.bottomSel = new Set(); A.keptGame = snap.game;
+      renderMullBar();
+    };
+    el.appendChild(span); el.appendChild(go);
+  }
+}
+function toggleBottomSel(card){
+  const snap = A.snap, mull = snap.seats[mySeat()].mull;
+  if(A.bottomSel.has(card.id)) A.bottomSel.delete(card.id);
+  else if(A.bottomSel.size < mull) A.bottomSel.add(card.id);
+  renderHand(); renderMullBar();
+}
+// ---------- between-games / match end ----------
+function renderBetween(){
+  const snap = A.snap; if(!snap) return;
+  if(snap.over && A.shownOver !== snap.game){
+    A.shownOver = snap.game;
+    const me = mySeat(), w = snap.score[0] > snap.score[1] ? 0 : 1;
+    openModal('Match over', body=>{
+      body.innerHTML = '<div style="font-size:20px; margin-bottom:8px;">' + esc(snap.seats[w].name) + ' wins the match ' +
+        '<b style="color:var(--gold-hi)">' + snap.score[w] + '—' + snap.score[1-w] + '</b></div>' +
+        '<div class="dim">the night summary will appear once every table finishes</div>';
+    });
+    return;
+  }
+  if(snap.between && A.shownBetween !== snap.game){
+    A.shownBetween = snap.game;
+    openModal('Game ' + snap.game + ' complete', body=>{
+      body.innerHTML = '<div style="font-size:17px; margin-bottom:14px;">' +
+        esc(snap.seats[0].name) + ' <b style="color:var(--gold-hi)">' + snap.score[0] + ' — ' + snap.score[1] + '</b> ' + esc(snap.seats[1].name) + '</div>';
+      const row = document.createElement('div'); row.style.cssText = 'display:flex; gap:10px;';
+      if(A.ts >= 0){
+        if(A.pool.length){
+          const sb = document.createElement('button'); sb.className = 'btn sm';
+          sb.textContent = 'Sideboard';
+          sb.onclick = ()=>{ closeModal(); A.sideboard = true; $('bReadyBtn').textContent = 'Lock deck & return'; renderBuild(); showScr('build'); };
+          row.appendChild(sb);
+        }
+        const next = document.createElement('button'); next.className = 'btn sm gold';
+        next.textContent = 'Deal game ' + (snap.game + 1);
+        next.onclick = ()=>{ closeModal(); A.kept = false; A.keptGame = 0; act({ t: 'nextGame' }); };
+        row.appendChild(next);
+      }
+      const cl = document.createElement('button'); cl.className = 'btn sm ghost';
+      cl.textContent = 'Close';
+      cl.onclick = closeModal;
+      row.appendChild(cl);
+      body.appendChild(row);
+    });
+  }
+}
+// ---------- scry overlay ----------
+let scryS = null;
+function openScry(m){
+  scryS = { cards: m.cards, surveil: m.surveil, peek: m.peek, zone: {}, order: m.cards.map(c=>c.id) };
+  for(const c of m.cards) scryS.zone[c.id] = 'top';
+  $('scryTitle').textContent = m.peek ? 'Top of library — put back in order' : (m.surveil ? 'Surveil' : 'Scry');
+  $('scryGY').style.display = m.surveil ? 'flex' : 'none';
+  $('scryBottom').style.display = m.peek ? 'none' : 'flex';
+  renderScry();
+  $('scryOv').classList.add('on');
+}
+function renderScry(){
+  const byId = {}; for(const c of scryS.cards) byId[c.id] = c;
+  for(const [rowId, zone] of [['scryTop','top'],['scryBottom','bottom'],['scryGY','gy']]){
+    const row = $(rowId);
+    row.querySelectorAll('.crd').forEach(x=>x.remove());
+    const ids = scryS.order.filter(id=>scryS.zone[id] === zone);
+    ids.forEach((id, i)=>{
+      const c = byId[id];
+      const el = crdEl(c);
+      el.style.position = 'relative';
+      if(zone === 'top' && !scryS.peek){
+        const ctl = document.createElement('div');
+        ctl.style.cssText = 'position:absolute; bottom:2px; left:0; right:0; display:flex; justify-content:space-between; padding:0 4px;';
+        ctl.innerHTML = '<span class="cbadge" style="cursor:pointer;">&#8249;</span><span class="cbadge" style="cursor:pointer;">&#8250;</span>';
+        const [lft, rgt] = ctl.querySelectorAll('span');
+        lft.onclick = (e)=>{ e.stopPropagation(); moveScry(id, -1); };
+        rgt.onclick = (e)=>{ e.stopPropagation(); moveScry(id, 1); };
+        el.appendChild(ctl);
+      }
+      if(!scryS.peek){
+        el.onclick = ()=>{
+          const cyc = scryS.surveil ? ['top','bottom','gy'] : ['top','bottom'];
+          const cur = cyc.indexOf(scryS.zone[id]);
+          scryS.zone[id] = cyc[(cur+1) % cyc.length];
+          renderScry();
+        };
+      }
+      row.appendChild(el);
+    });
+  }
+}
+function moveScry(id, d){
+  const tops = scryS.order.filter(x=>scryS.zone[x] === 'top');
+  const i = tops.indexOf(id), j = i + d;
+  if(j < 0 || j >= tops.length) return;
+  [tops[i], tops[j]] = [tops[j], tops[i]];
+  const rest = scryS.order.filter(x=>scryS.zone[x] !== 'top');
+  scryS.order = tops.concat(rest);
+  renderScry();
+}
+$('scryDone').onclick = ()=>{
+  if(!scryS) return;
+  act({ t: 'scryResolve',
+    top: scryS.order.filter(id=>scryS.zone[id] === 'top'),
+    bottom: scryS.order.filter(id=>scryS.zone[id] === 'bottom'),
+    gy: scryS.order.filter(id=>scryS.zone[id] === 'gy') });
+  scryS = null;
+  $('scryOv').classList.remove('on');
+};
+// ---------- search overlay ----------
+let searchSel = new Set();
+function openSearch(cards){
+  searchSel = new Set();
+  $('gridTitle').textContent = 'Your library — ' + cards.length + ' cards';
+  const body = $('gridBody'); body.innerHTML = '';
+  for(const c of cards.slice().sort((a,b)=>a.name.localeCompare(b.name))){
+    const el = crdEl(c);
+    el.onclick = ()=>{
+      if(searchSel.has(c.id)){ searchSel.delete(c.id); el.classList.remove('sel'); }
+      else { searchSel.add(c.id); el.classList.add('sel'); }
+    };
+    body.appendChild(el);
+  }
+  const btns = $('gridBtns'); btns.innerHTML = '';
+  const mk = (label, cls, fn)=>{ const b = document.createElement('button'); b.className = 'btn sm ' + cls; b.textContent = label; b.onclick = fn; btns.appendChild(b); };
+  mk('Take to hand', 'gold', ()=>{ act({ t: 'searchResolve', ids: [...searchSel], to: 'hand' }); if(searchSel.size) setTimeout(()=>act({ t: 'shuffle' }), 200); closeGridOv(); });
+  mk('To battlefield', '', ()=>{ act({ t: 'searchResolve', ids: [...searchSel], to: 'bf' }); if(searchSel.size) setTimeout(()=>act({ t: 'shuffle' }), 200); closeGridOv(); });
+  mk('Put back & shuffle', 'ghost', ()=>{ act({ t: 'searchResolve', ids: [] }); closeGridOv(); });
+  $('gridOv').classList.add('on');
+}
+function closeGridOv(){ $('gridOv').classList.remove('on'); $('gridBtns').innerHTML = ''; }
+// ---------- token overlay ----------
+$('tTokenBtn').onclick = ()=>{ $('tokResults').innerHTML = ''; $('tokenOv').classList.add('on'); $('tokSearch').focus(); };
+$('tokGoBtn').onclick = ()=>{ const q = $('tokSearch').value.trim(); if(q){ $('tokResults').innerHTML = '<span class="dim">searching…</span>'; act({ t: 'tokq', q }); } };
+$('tokSearch').addEventListener('keydown', e=>{ if(e.key === 'Enter') $('tokGoBtn').click(); });
+function renderTokResults(protos){
+  const el = $('tokResults'); el.innerHTML = '';
+  if(!protos || !protos.length){ el.innerHTML = '<span class="dim">no tokens found</span>'; return; }
+  for(const p of protos){
+    const c = crdEl(p);
+    c.onclick = ()=>{ act({ t: 'token', proto: p, row: 0, slot: freeSlot(0) }); $('tokenOv').classList.remove('on'); };
+    el.appendChild(c);
+  }
+}
+$('tokMakeBtn').onclick = ()=>{
+  const name = $('tokName').value.trim() || 'Token';
+  act({ t: 'token', proto: { name, pt: $('tokPT').value.trim() || null, type: 'Token' }, row: 0, slot: freeSlot(0) });
+  $('tokenOv').classList.remove('on');
+};
+$('tokCancel').onclick = ()=>$('tokenOv').classList.remove('on');
+// ---------- sideboard lock (build screen reuse) ----------
+const origReady = $('bReadyBtn').onclick;
+$('bReadyBtn').onclick = ()=>{
+  if(A.sideboard){
+    const total = A.deckIds.size + Object.values(A.lands).reduce((a,b)=>a+b,0);
+    if(total < 40){ toast('deck needs 40 cards (have ' + total + ')'); return; }
+    act({ t: 'deckSwap', main: [...A.deckIds], lands: A.lands });
+    A.sideboard = false;
+    $('bReadyBtn').textContent = 'Ready';
+    showScr('table');
+    return;
+  }
+  origReady();
+};
+// ---------- keyboard ----------
+document.addEventListener('keydown', e=>{
+  const tag = (e.target.tagName||'').toLowerCase();
+  if(tag === 'input' || tag === 'textarea' || tag === 'select') return;
+  if(e.key === 'Escape'){
+    closeModal(); closeMenu();
+    $('tokenOv').classList.remove('on'); closeGridOv();
+    if(scryS) $('scryDone').click(); // resolve as-is rather than strand the overlay
+    if(A.attachFrom){ A.attachFrom = null; toast('attach cancelled'); }
+    return;
+  }
+  if(A.screen === 'draft'){
+    if(e.key === 'Enter'){ $('dConfirm').click(); }
+    else if(e.key === ' '){ e.preventDefault(); $('dTrayBar').click(); }
+    else if((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && A.packMsg && A.packMsg.cards){
+      const cards = A.packMsg.cards;
+      let i = cards.findIndex(c=>c.id === A.sel);
+      i = i < 0 ? 0 : Math.min(cards.length-1, Math.max(0, i + (e.key === 'ArrowRight' ? 1 : -1)));
+      A.sel = cards[i].id; gsend({ t: 'sel', id: A.sel }); renderPack();
+      e.preventDefault();
+    }
+  } else if(A.screen === 'table' && A.ts >= 0){
+    const k = e.key.toLowerCase();
+    if(k === 'd') act({ t: 'draw', n: 1 });
+    else if(k === 'u') act({ t: 'untapAll' });
+    else if(k === 's') act({ t: 'shuffle' });
+    else if(k === 'n') act({ t: 'turn' });
+  }
+});
+document.querySelectorAll('.tovl').forEach(ov=>{
+  ov.addEventListener('click', e=>{ if(e.target === ov && ov.id !== 'scryOv') ov.classList.remove('on'); });
+});
+// ---------- boot ----------
+$('nameIn').focus();
+window.addEventListener('beforeunload', e=>{
+  if(A.screen && A.screen !== 'home' && A.screen !== 'summary'){ e.preventDefault(); e.returnValue = ''; }
+});
+
+</script>
+</body>
+</html>
