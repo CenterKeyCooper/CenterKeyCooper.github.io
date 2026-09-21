@@ -343,13 +343,37 @@ label.cfg{display:flex; align-items:center; gap:8px; font-size:13px; color:var(-
 .tc.tapped{transform:rotate(90deg);}
 .tc.fd .back{width:100%; aspect-ratio:63/88; border-radius:5px;
   background:repeating-linear-gradient(45deg,#33270f 0 6px,#241b0c 6px 12px); border:1px solid var(--line2);}
-.tc .cbadges{position:absolute; top:2px; left:2px; display:flex; flex-direction:column; gap:2px; pointer-events:none;}
-.cbadge{font-size:10px; background:rgba(10,8,5,.88); border:1px solid var(--gold); color:var(--gold-hi); border-radius:9px; padding:0 5px; line-height:15px; white-space:nowrap;}
-.cbadge.note{border-color:var(--line2); color:var(--ink-soft); max-width:80px; overflow:hidden; text-overflow:ellipsis;}
+.tc .cbadges{position:absolute; top:2px; left:2px; display:flex; flex-direction:column; gap:2px; pointer-events:none; align-items:flex-start;}
+.cbadge{
+  font-size:10px; background:rgba(8,5,2,.92); border:1px solid var(--line2); color:var(--ink);
+  border-radius:8px; padding:1px 6px; line-height:13px; white-space:nowrap;
+  pointer-events:auto; cursor:pointer; transition:border-color .12s, color .12s;
+}
+.cbadge:hover{border-color:var(--gold); color:var(--gold-hi);}
+.cbadge.pp{border-color:rgba(98,176,108,.75); color:#a8dcb0;}
+.cbadge.pp:hover{border-color:var(--G); color:#cdeed2;}
+.cbadge.loy{
+  position:absolute; bottom:3px; right:3px; top:auto; left:auto;
+  border-color:var(--gold); color:var(--gold-hi); background:#241b0cf2;
+  font-size:12px; min-width:20px; text-align:center; padding:2px 6px; border-radius:4px 10px 4px 10px;
+}
+.cbadge.note{border-color:var(--line2); color:var(--ink-soft); max-width:80px; overflow:hidden; text-overflow:ellipsis; cursor:default; pointer-events:none;}
 .tc.opphl:hover{outline:1px solid rgba(212,169,78,.5); outline-offset:1px;}
 #tHandWrap{flex:none; display:flex; align-items:flex-end; gap:10px; padding:6px 14px 10px; background:rgba(0,0,0,.35); border-top:1px solid rgba(0,0,0,.4); min-height:128px;}
-#tHand{flex:1; display:flex; gap:6px; overflow-x:auto; align-items:flex-end; min-height:112px;}
-#tHand .crd{flex:none; width:78px;}
+#tHand{
+  flex:1; display:flex; gap:6px; overflow-x:auto; align-items:flex-end; min-height:112px;
+  padding-top:18px; /* headroom so lifted cards don't clip */
+  position:relative; transition:transform .18s ease; transform-origin:50% 100%;
+}
+#tHand.zoomed{z-index:60; overflow:visible;}
+#tHand{scrollbar-width:none;}
+#tHand::-webkit-scrollbar{display:none;}
+#tHand .crd{flex:none; width:var(--handw,78px); transform-origin:50% 100%;}
+#tHand .crd:first-child{margin-left:auto;}
+#tHand .crd:last-child{margin-right:auto;}
+/* fan out like a held hand while magnified */
+#tHand.zoomed .crd{transform:rotate(var(--fr,0deg)) translateY(var(--fy,0px));}
+#tHand.zoomed .crd:hover{transform:rotate(var(--fr,0deg)) translateY(calc(var(--fy,0px) - 16px));}
 #tHand .crd:hover{transform:translateY(-10px);}
 #tHand .crd.sel{transform:translateY(-10px);}
 #tBtns{flex:none; display:flex; flex-direction:column; gap:5px;}
@@ -714,6 +738,8 @@ label.cfg{display:flex; align-items:center; gap:8px; font-size:13px; color:var(-
         <button class="btn xs ghost" id="tD6Btn">d6</button>
         <button class="btn xs ghost" id="tD20Btn">d20</button>
         <button class="btn xs ghost" id="tCoinBtn">Coin</button>
+        <button class="btn xs ghost" id="tZoomOut" title="smaller cards">&minus;</button>
+        <button class="btn xs ghost" id="tZoomIn" title="larger cards">+</button>
         <button class="btn xs ghost" id="tMoreBtn">More</button>
       </div>
     </div>
@@ -728,6 +754,7 @@ label.cfg{display:flex; align-items:center; gap:8px; font-size:13px; color:var(-
     <div id="sumGrid"></div>
     <div style="display:flex; gap:10px; justify-content:center;">
       <button class="btn sm ghost" id="sumRecapBtn">Draft recap</button>
+      <button class="btn sm" id="sumRematchBtn" style="display:none;">Rematch</button>
       <button class="btn gold" id="sumLobbyBtn" style="display:none;">Back to lobby</button>
     </div>
   </div>
@@ -748,6 +775,16 @@ label.cfg{display:flex; align-items:center; gap:8px; font-size:13px; color:var(-
   <h3 id="gridTitle">Cards</h3>
   <div class="ovlgrid" id="gridBody"></div>
   <div class="ovlbtns" id="gridBtns"></div>
+</div></div>
+<div class="tovl" id="mullOv"><div class="tovlBox" style="align-items:center; max-width:92vw;">
+  <h3 id="mullTitle">Keep this hand?</h3>
+  <div id="mullCards" style="display:flex; gap:10px; justify-content:center; padding:6px 4px; flex-wrap:wrap;"></div>
+  <div class="ovlbtns" style="justify-content:center; width:100%; gap:14px;">
+    <span class="dim" id="mullHint" style="font-size:12px;"></span>
+    <button class="btn gold" id="mullKeep">Keep hand</button>
+    <button class="btn" id="mullMull">Mulligan</button>
+    <button class="btn gold" id="mullConfirm" style="display:none;">Confirm</button>
+  </div>
 </div></div>
 <div class="tovl" id="tokenOv"><div class="tovlBox">
   <h3>Create token</h3>
@@ -808,7 +845,8 @@ function cardFromScry(c){
     cmc: (typeof c.cmc === 'number') ? c.cmc : 0,
     img: iu.normal || iu.large || iu.small || '',
     imgL: iu.large || iu.normal || '',
-    pt: (f.power != null && f.toughness != null) ? (f.power + '/' + f.toughness) : null
+    pt: (f.power != null && f.toughness != null) ? (f.power + '/' + f.toughness) : null,
+    loy: (f.loyalty != null ? f.loyalty : (c.loyalty != null ? c.loyalty : null))
   };
 }
 function isLand(c){ return /\bLand\b/.test(c.type||''); }
@@ -900,28 +938,45 @@ function buildTemplatePacks(protos, nPacks, rng){
 }
 
 // mtgjson booster config walker. booster = data.booster[key]; byUuid maps mtgjson uuid -> proto
+function drawSheet(sheet, byUuid, count, rng){
+  const uuids = Object.keys(sheet.cards);
+  const weights = uuids.map(u=>sheet.cards[u]);
+  const attempt = ()=>{
+    const used = new Set(), out = [];
+    for(let i=0;i<count;i++){
+      for(let tries=0; tries<60; tries++){
+        const u = uuids[weightedIndex(weights, rng)];
+        if(used.has(u)) continue;
+        used.add(u);
+        const proto = byUuid[u];
+        if(!proto) continue; // printing we couldn't resolve; draw another
+        out.push(proto); break;
+      }
+    }
+    return out;
+  };
+  let out = attempt();
+  if(sheet.balanceColors && count >= 5){
+    // real print runs guarantee all five colors among these slots
+    for(let k=0; k<15; k++){
+      const have = new Set();
+      for(const p of out) if((p.colors||[]).length === 1) have.add(p.colors[0]);
+      if(have.size >= 5) break;
+      out = attempt();
+    }
+  }
+  return out;
+}
 function buildBoosterPack(booster, byUuid, rng){
   const variants = booster.boosters || [];
   if(!variants.length) return null;
   const vi = weightedIndex(variants.map(v=>v.weight||1), rng);
   const contents = variants[vi].contents || {};
-  const pack = [], used = new Set();
+  const pack = [];
   for(const sheetName of Object.keys(contents)){
-    const count = contents[sheetName];
     const sheet = (booster.sheets||{})[sheetName];
     if(!sheet || !sheet.cards) continue;
-    const uuids = Object.keys(sheet.cards);
-    const weights = uuids.map(u=>sheet.cards[u]);
-    for(let i=0;i<count;i++){
-      let placed = false;
-      for(let tries=0; tries<60 && !placed; tries++){
-        const u = uuids[weightedIndex(weights, rng)];
-        if(used.has(u)) continue;
-        const proto = byUuid[u];
-        if(!proto) { used.add(u); continue; } // printing we couldn't resolve; skip it
-        used.add(u); pack.push(instanceOf(proto)); placed = true;
-      }
-    }
+    for(const proto of drawSheet(sheet, byUuid, contents[sheetName], rng)) pack.push(instanceOf(proto));
   }
   return pack.length ? pack : null;
 }
@@ -1060,6 +1115,9 @@ function tStartGame(T, rng){
     for(let k=0;k<7;k++){ if(s.lib.length) tMove(T, s.lib[0], 'hand'); }
   });
 }
+function tInitBF(c){ // planeswalkers enter with their base loyalty
+  if(/Planeswalker/.test(c.type||'') && c.loy != null && !isNaN(+c.loy)) c.ctrs.loyalty = +c.loy;
+}
 function tPubName(T, c){
   if(!c) return 'a card';
   if(c.zone === 'bf') return c.fd ? 'a face-down card' : c.name;
@@ -1095,6 +1153,7 @@ function tableApply(T, si, a, rng){
       const c = C(a.id); if(!c || c.zone!=='hand' || c.seat!==si) return null;
       tMove(T, a.id, 'bf');
       c.row = a.row|0; c.slot = a.slot|0; c.fd = !!a.fd;
+      if(!c.fd) tInitBF(c);
       return nm + (c.fd ? ' plays a card face down' : ' plays ' + c.name);
     }
     case 'bfmove': {
@@ -1120,7 +1179,7 @@ function tableApply(T, si, a, rng){
         return nm + ' exiles ' + (c2 ? c2.name : name0); }
       if(to==='bf'){
         tMove(T, a.id, 'bf'); const c2=C(a.id); if(!c2) return null;
-        c2.row = a.row|0; c2.slot = a.slot|0;
+        c2.row = a.row|0; c2.slot = a.slot|0; tInitBF(c2);
         return nm + ' puts ' + c2.name + ' onto the battlefield'; }
       if(to==='libtop' || to==='libbottom'){
         const nm2 = (from==='hand'||wasFd) ? 'a card' : name0;
@@ -1148,6 +1207,7 @@ function tableApply(T, si, a, rng){
     case 'face': {
       const c = C(a.id); if(!c || c.zone!=='bf') return null;
       c.fd = !!a.v;
+      if(!c.fd) tInitBF(c); // e.g. a morphed planeswalker flips up with loyalty
       return nm + (c.fd ? ' turns a card face down' : ' turns ' + c.name + ' face up');
     }
     case 'reveal': {
@@ -1163,15 +1223,18 @@ function tableApply(T, si, a, rng){
       const c = tSpawn(T, {
         sid: proto.sid||'', name: String(proto.name||'Token').slice(0,40), cost:'',
         type: proto.type||'Token', text: proto.text||'', r:'token', colors: proto.colors||[],
-        cmc:0, img: proto.img||'', imgL: proto.imgL||proto.img||'', pt: proto.pt||null
+        cmc:0, img: proto.img||'', imgL: proto.imgL||proto.img||'', pt: proto.pt||null,
+        loy: proto.loy != null ? proto.loy : null
       }, si, 'bf', { tok:true, row:a.row|0, slot:a.slot|0 });
+      tInitBF(c);
       return nm + ' creates a ' + c.name + ' token';
     }
     case 'dupe': {
       const c = C(a.id); if(!c || c.zone!=='bf') return null;
-      tSpawn(T, { sid:c.sid, name:c.name, cost:c.cost, type:c.type, text:c.text, r:c.r,
-        colors:c.colors, cmc:c.cmc, img:c.img, imgL:c.imgL, pt:c.pt },
+      const c2 = tSpawn(T, { sid:c.sid, name:c.name, cost:c.cost, type:c.type, text:c.text, r:c.r,
+        colors:c.colors, cmc:c.cmc, img:c.img, imgL:c.imgL, pt:c.pt, loy:c.loy != null ? c.loy : null },
         si, 'bf', { tok:true, row:c.row, slot:Math.min(47, c.slot+2) });
+      tInitBF(c2); // copies of planeswalkers enter with base loyalty
       return nm + ' creates a copy of ' + c.name;
     }
     case 'life': {
@@ -1378,7 +1441,7 @@ async function fetchSetList(){
 async function fetchSetCards(code){
   code = code.toLowerCase();
   if(DATA.setCache[code]) return DATA.setCache[code];
-  const cached = await idb.get('set:' + code);
+  const cached = await idb.get('set2:' + code); // v2: protos carry loyalty
   if(cached){ DATA.setCache[code] = cached; return cached; }
   let url = SCRY + '/cards/search?q=' + encodeURIComponent('e:' + code) + '&unique=prints&include_variations=true';
   const protos = [];
@@ -1389,7 +1452,7 @@ async function fetchSetCards(code){
     if(url) await new Promise(r=>setTimeout(r, 110));
   }
   if(!protos.length) throw new Error('set ' + code + ' has no cards');
-  DATA.setCache[code] = protos; idb.put('set:' + code, protos);
+  DATA.setCache[code] = protos; idb.put('set2:' + code, protos);
   return protos;
 }
 // mtgjson booster config, trimmed to {booster, uuidToSid}; cached forever
@@ -1424,7 +1487,7 @@ async function resolveNames(entries, noRetry){
     const chunk = entries.slice(i, i+75);
     const idents = chunk.map(e=>(e.set && e.num)
       ? { set: e.set, collector_number: String(e.num) }
-      : { name: e.name });
+      : { name: e.name.split(' // ')[0] }); // collection only matches face names, not "A // B"
     const r = await fetch(SCRY + '/cards/collection', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ identifiers: idents })
@@ -2212,6 +2275,8 @@ function clientRecv(m){
   }
 }
 function onPhase(m){
+  closeModal(); closeMenu();
+  document.querySelectorAll('.tovl').forEach(o=>o.classList.remove('on'));
   switch(m.p){
     case 'lobby':
       A.pool = []; A.picks = []; A.recap = null; A.snap = null; A.deckIds = new Set(); A.buildReady = false;
@@ -2228,6 +2293,7 @@ function onPhase(m){
     case 'table':
       A.tid = m.tid; A.ts = m.ts; A.snap = null;
       A.kept = false; A.keptGame = 0; A.bottomMode = false; A.bottomSel = new Set(); A.handSel = null;
+      A.shownBetween = 0; A.shownOver = 0; A.lastTurn = -1; A.prevGame = null;
       $('tLog').innerHTML = ''; $('tChatLog').innerHTML = '';
       $('tSpecSel').style.display = A.ts === -1 ? '' : 'none';
       showScr('table'); break;
@@ -2784,15 +2850,31 @@ function renderSummary(){
   }
   if(!(A.results||[]).length) el.innerHTML = '<span class="dim">no matches were played</span>';
   $('sumLobbyBtn').style.display = A.isHost ? '' : 'none';
+  $('sumRematchBtn').style.display = A.isHost ? '' : 'none';
 }
 $('sumLobbyBtn').onclick = ()=>{ if(A.isHost) hostEndNight(); };
+$('sumRematchBtn').onclick = ()=>{
+  if(!A.isHost) return;
+  if(H.cfg.mode === 'table'){ hostStartTableNight(); return; }
+  if(H.pairs && H.pairs.length){ H.phase = 'bridge'; hostStartMatches(); }
+};
 // ================= TABLE UI =================
 function act(a){ if(A.ts < 0 && a.t !== 'view') return; gsend({ t: 'act', a }); }
 function isAttachType(c){ return /\bAura\b|\bEquipment\b|\bFortification\b/.test((c && c.type) || ''); }
 function mySeat(){ return A.ts >= 0 ? A.ts : 0; }
-const TCW = 86, TCH = Math.round(86*88/63);
+let TCW = 86, TCH = Math.round(86*88/63);
 const MAXS = 47; // horizontal snap slots (fine grid)
 const MAXY = 11; // vertical snap slots per half
+const ZOOMS = [1, 1.15, 1.3, 0.85];
+A.zoom = parseFloat(localStorage.getItem('wheel-zoom')) || 1;
+function applyZoom(){
+  TCW = Math.round(86 * A.zoom); TCH = Math.round(TCW * 88/63);
+  document.documentElement.style.setProperty('--tcw', TCW + 'px');
+  document.documentElement.style.setProperty('--handw', Math.round(78 * A.zoom) + 'px');
+  A.prevBF = {}; // don't animate a zoom shift
+  renderTable();
+}
+applyZoom();
 function renderTable(){
   const snap = A.snap; if(!snap || A.screen !== 'table') return;
   if(A.prevGame !== snap.game + '|' + snap.tid){
@@ -2907,7 +2989,7 @@ function renderTable(){
         el._card = c;
         if(A.ts >= 0){
           if(mine) el.addEventListener('pointerdown', ev=>{ if(ev.button === 0) beginDrag(ev, c, 'bf', el); });
-          else el.addEventListener('pointerup', ev=>{ if(ev.button === 0) widgetClick(c, ev.shiftKey); });
+          else el.addEventListener('pointerup', ev=>{ if(ev.button === 0 && !ev.ctrlKey) widgetClick(c, ev.shiftKey); });
           el.addEventListener('contextmenu', ev=>{ ev.preventDefault(); widgetMenu(ev, c); });
         }
         fieldEl.appendChild(el);
@@ -2917,11 +2999,29 @@ function renderTable(){
       else if(c.fd) el.innerHTML = '<div class="back" style="outline:1px solid var(--gold);"></div>';
       else if(c.img) el.innerHTML = '<img src="' + c.img + '" alt="">';
       else el.innerHTML = '<div class="ph" style="font-size:11px;"><b>' + esc(c.name||'') + '</b>' + (c.pt ? '<span>' + esc(c.pt) + '</span>' : '') + '</div>';
-      // badges
+      // counter badges — click +1, shift-click or right-click −1, any type, either player
+      const ctrs = c.ctrs || {};
       const badges = [];
-      for(const k in (c.ctrs||{})) badges.push('<span class="cbadge">' + esc(k) + (c.ctrs[k]>1 ? ' ×' + c.ctrs[k] : '') + '</span>');
+      for(const k in ctrs){
+        if(k === 'loyalty') continue;
+        const label = k === '+1/+1' ? ('+' + ctrs[k] + '/+' + ctrs[k]) : (esc(k) + ' ' + ctrs[k]);
+        badges.push('<span class="cbadge' + (k === '+1/+1' ? ' pp' : '') + '" data-k="' + esc(k) + '">' + label + '</span>');
+      }
       if(c.note) badges.push('<span class="cbadge note">' + esc(c.note) + '</span>');
       if(badges.length) el.insertAdjacentHTML('beforeend', '<div class="cbadges">' + badges.join('') + '</div>');
+      if(ctrs.loyalty != null)
+        el.insertAdjacentHTML('beforeend', '<span class="cbadge loy" data-k="loyalty" title="loyalty">' + ctrs.loyalty + '</span>');
+      el.querySelectorAll('.cbadge[data-k]').forEach(b=>{
+        b.addEventListener('pointerdown', ev=>ev.stopPropagation());
+        b.addEventListener('click', ev=>{
+          ev.stopPropagation();
+          if(A.ts >= 0) act({ t: 'counter', id: c.id, k: b.dataset.k, d: ev.shiftKey ? -1 : 1 });
+        });
+        b.addEventListener('contextmenu', ev=>{
+          ev.preventDefault(); ev.stopPropagation();
+          if(A.ts >= 0) act({ t: 'counter', id: c.id, k: b.dataset.k, d: -1 });
+        });
+      });
       if(!c.fd || c.name) attachHover(el, c);
       el._card = c;
       if(mine && A.ts >= 0){
@@ -2946,14 +3046,18 @@ function renderHand(){
   }
   const hand = snap.seats[me].hand || [];
   const prevHand = A.prevHand || new Set();
-  for(const c of hand){
+  const mid = (hand.length - 1) / 2;
+  hand.forEach((c, i)=>{
     const el = crdEl(c, A.bottomSel.has(c.id) ? 'sel' : '');
+    const d = i - mid; // fan geometry, used only while magnified
+    el.style.setProperty('--fr', Math.max(-9, Math.min(9, d * 2.2)).toFixed(1) + 'deg');
+    el.style.setProperty('--fy', (Math.pow(Math.abs(d), 1.6) * 1.8).toFixed(1) + 'px');
     if(!prevHand.has(c.id)) el.classList.add('dealt');
     el.addEventListener('pointerdown', e=>{ if(e.button === 0) beginDrag(e, c, 'hand', el); });
     el.addEventListener('contextmenu', e=>{ e.preventDefault(); handMenu(e, c); });
     el.ondblclick = ()=>{ if(!A.bottomMode) act({ t: 'play', id: c.id, row: 0, slot: freeSlot(0) }); };
     handEl.appendChild(el);
-  }
+  });
   A.prevHand = new Set(hand.map(c=>c.id));
 }
 function freeSlot(row){
@@ -2965,6 +3069,7 @@ function freeSlot(row){
 // ---------- drag ----------
 let drag = null;
 function beginDrag(e, card, from, el){
+  if(e.ctrlKey) return; // mac ctrl-click = context menu, never a tap/roll
   if(A.ts < 0 || A.bottomMode && from === 'hand'){
     if(A.bottomMode && from === 'hand'){ toggleBottomSel(card); }
     return;
@@ -3086,8 +3191,7 @@ function handMenu(e, c){
     { sep: true },
     { label: 'Discard', fn: ()=>act({ t: 'move', id: c.id, to: 'gy' }) },
     { label: 'Exile', fn: ()=>act({ t: 'move', id: c.id, to: 'ex' }) },
-    { label: 'Top of library', fn: ()=>act({ t: 'move', id: c.id, to: 'libtop' }) },
-    { label: 'Bottom of library', fn: ()=>act({ t: 'move', id: c.id, to: 'libbottom' }) }
+    { label: 'Top of library', fn: ()=>act({ t: 'move', id: c.id, to: 'libtop' }) }
   ]);
 }
 function bfMenu(e, c){
@@ -3109,7 +3213,6 @@ function bfMenu(e, c){
   items.push({ label: 'To graveyard', fn: ()=>act({ t: 'move', id: c.id, to: 'gy' }) });
   items.push({ label: 'Exile', fn: ()=>act({ t: 'move', id: c.id, to: 'ex' }) });
   items.push({ label: 'Top of library', fn: ()=>act({ t: 'move', id: c.id, to: 'libtop' }) });
-  items.push({ label: 'Bottom of library', fn: ()=>act({ t: 'move', id: c.id, to: 'libbottom' }) });
   openMenu(e.clientX, e.clientY, items);
 }
 $('tLib').onclick = (e)=>{
@@ -3191,9 +3294,58 @@ $('tMoreBtn').onclick = (e)=>{
     { sep: true },
     { label: 'Reveal hand', fn: ()=>act({ t: 'revealHand' }) },
     { label: 'Reveal random card', fn: ()=>act({ t: 'randHand' }) },
-    { label: 'Mulligan', fn: ()=>askConfirm('Shuffle your hand away and draw 7?', 'Mulligan', ()=>act({ t: 'mull' })) }
+    { label: 'Mulligan', fn: ()=>askConfirm('Shuffle your hand away and draw 7?', 'Mulligan', ()=>act({ t: 'mull' })) },
+    { sep: true },
+    { label: 'Declare game won', fn: ()=>askConfirm('Declare this game won? (opponent conceded / goldfish)', 'I won', ()=>act({ t: 'endGame', winner: mySeat() })) }
   ]);
 };
+function setZoom(z){
+  A.zoom = Math.max(0.7, Math.min(1.6, Math.round(z*100)/100));
+  localStorage.setItem('wheel-zoom', A.zoom);
+  applyZoom();
+  toast('card size ' + Math.round(A.zoom*100) + '%');
+}
+$('tZoomIn').onclick = ()=>setZoom(A.zoom + 0.15);
+$('tZoomOut').onclick = ()=>setZoom(A.zoom - 0.15);
+// hand magnify: scale from bottom-center, clamped so it never leaves the viewport
+let handPan = null;
+$('tHand').addEventListener('mouseenter', ()=>{
+  const h = $('tHand');
+  if(A.ts < 0) return;
+  if($('mullOv').classList.contains('on')) return; // keep/mulligan decision stays unobstructed
+  const cards = h.querySelectorAll('.crd');
+  if(!cards.length) return;
+  // actual card span, not scrollWidth (the centering auto-margins inflate that)
+  const w = cards[cards.length-1].getBoundingClientRect().right - cards[0].getBoundingClientRect().left;
+  h.scrollLeft = (h.scrollWidth - h.clientWidth) / 2; // pan math assumes centered content
+  const wrap = $('tHandWrap').getBoundingClientRect();
+  const avail = Math.max(320, innerWidth - 300);
+  const s = Math.max(1.12, Math.min(1.4, avail / Math.max(1, w)));
+  handPan = { s, over: Math.max(0, w*s - (wrap.width - 40)) };
+  h.style.transform = 'scale(' + s.toFixed(3) + ')';
+  h.classList.add('zoomed');
+});
+// big hands: mouse position pans the magnified fan left/right
+$('tHand').addEventListener('mousemove', e=>{
+  if(!handPan || !handPan.over) return;
+  const h = $('tHand');
+  const wrap = $('tHandWrap').getBoundingClientRect();
+  const fx = Math.max(0, Math.min(1, (e.clientX - wrap.left) / Math.max(1, wrap.width)));
+  const tx = (0.5 - fx) * handPan.over;
+  h.style.transition = 'transform .09s linear';
+  h.style.transform = 'translateX(' + tx.toFixed(0) + 'px) scale(' + handPan.s.toFixed(3) + ')';
+});
+$('tHand').addEventListener('mouseleave', ()=>{
+  const h = $('tHand');
+  h.style.transform = ''; h.style.transition = ''; h.classList.remove('zoomed');
+  handPan = null;
+});
+// wheel scrubs an oversized hand when not magnified (scrollbar is hidden)
+$('tHand').addEventListener('wheel', e=>{
+  const h = $('tHand');
+  if(h.classList.contains('zoomed')) return;
+  if(Math.abs(e.deltaY) > Math.abs(e.deltaX)){ h.scrollLeft += e.deltaY; e.preventDefault(); }
+}, { passive: false });
 $('tSpecSel').onclick = ()=>{
   A.specN = ((A.specN||1) % 4) + 1;
   A.tid = 'table-' + A.specN;
@@ -3263,53 +3415,54 @@ function showBanner(s, mine){
   el.classList.add('on');
   clearTimeout(bannerTimer); bannerTimer = setTimeout(()=>el.classList.remove('on'), 1100);
 }
-// ---------- mulligan bar ----------
-function ensureMullBar(){
-  let el = $('tMullBar');
-  if(!el){
-    el = document.createElement('div');
-    el.id = 'tMullBar';
-    el.style.cssText = 'position:fixed; left:50%; transform:translateX(-50%); bottom:150px; z-index:80;' +
-      'background:rgba(12,9,5,.95); border:1px solid var(--gold); border-radius:5px; padding:10px 18px;' +
-      'display:none; gap:12px; align-items:center; font-size:14px;';
-    document.body.appendChild(el);
-  }
-  return el;
-}
+// ---------- mulligan overlay (Arena-style) ----------
 function renderMullBar(){
-  const el = ensureMullBar();
+  const ov = $('mullOv');
   const snap = A.snap;
-  if(!snap || A.ts < 0 || snap.between || snap.over || snap.turnNum > 0 || A.keptGame === snap.game){
-    el.style.display = 'none'; return;
-  }
+  const show = snap && A.ts >= 0 && A.screen === 'table' && !snap.between && !snap.over &&
+    snap.turnNum === 0 && A.keptGame !== snap.game;
+  if(!show){ ov.classList.remove('on'); return; }
   const me = mySeat(), mull = snap.seats[me].mull;
-  el.style.display = 'flex'; el.innerHTML = '';
+  const hand = snap.seats[me].hand || [];
+  ov.classList.add('on');
+  const wrap = $('mullCards'); wrap.innerHTML = '';
+  const w = Math.max(96, Math.min(158, Math.floor((innerWidth * 0.84 - hand.length * 10) / Math.max(1, hand.length))));
+  hand.forEach(c=>{
+    const el = crdEl(c, A.bottomSel.has(c.id) ? 'sel' : '');
+    el.style.width = w + 'px';
+    if(A.bottomMode) el.onclick = ()=>toggleBottomSel(c);
+    wrap.appendChild(el);
+  });
   if(!A.bottomMode){
-    const keep = document.createElement('button'); keep.className = 'btn sm gold';
-    keep.textContent = 'Keep hand';
-    keep.onclick = ()=>{
-      act({ t: 'keep' });
-      if(mull > 0){ A.bottomMode = true; A.bottomSel = new Set(); toast('select ' + mull + ' card' + (mull>1?'s':'') + ' to bottom'); renderMullBar(); renderHand(); }
-      else { A.keptGame = snap.game; renderMullBar(); }
-    };
-    const m2 = document.createElement('button'); m2.className = 'btn sm';
-    m2.textContent = 'Mulligan' + (mull ? ' (' + mull + ')' : '');
-    m2.onclick = ()=>act({ t: 'mull' });
-    el.appendChild(keep); el.appendChild(m2);
+    $('mullTitle').textContent = 'Keep this hand?';
+    $('mullHint').textContent = mull
+      ? 'keeping will put ' + mull + ' card' + (mull > 1 ? 's' : '') + ' on the bottom'
+      : '';
+    $('mullKeep').style.display = ''; $('mullMull').style.display = '';
+    $('mullConfirm').style.display = 'none';
+    $('mullMull').textContent = 'Mulligan' + (mull ? ' (to ' + (6 - mull) + ')' : '');
   } else {
-    const span = document.createElement('span');
-    span.innerHTML = 'bottom <b style="color:var(--gold-hi)">' + A.bottomSel.size + ' / ' + mull + '</b> — click cards in hand';
-    const go = document.createElement('button'); go.className = 'btn sm gold';
-    go.textContent = 'Confirm';
-    go.disabled = A.bottomSel.size !== mull;
-    go.onclick = ()=>{
-      act({ t: 'bottom', ids: [...A.bottomSel] });
-      A.bottomMode = false; A.bottomSel = new Set(); A.keptGame = snap.game;
-      renderMullBar();
-    };
-    el.appendChild(span); el.appendChild(go);
+    $('mullTitle').textContent = 'Choose ' + mull + ' card' + (mull > 1 ? 's' : '') + ' to put on the bottom';
+    $('mullHint').textContent = 'selected ' + A.bottomSel.size + ' / ' + mull;
+    $('mullKeep').style.display = 'none'; $('mullMull').style.display = 'none';
+    const cf = $('mullConfirm'); cf.style.display = '';
+    cf.disabled = A.bottomSel.size !== mull;
   }
 }
+$('mullKeep').onclick = ()=>{
+  const snap = A.snap; if(!snap) return;
+  const mull = snap.seats[mySeat()].mull;
+  act({ t: 'keep' });
+  if(mull > 0){ A.bottomMode = true; A.bottomSel = new Set(); }
+  else A.keptGame = snap.game;
+  renderMullBar();
+};
+$('mullMull').onclick = ()=>act({ t: 'mull' });
+$('mullConfirm').onclick = ()=>{
+  act({ t: 'bottom', ids: [...A.bottomSel] });
+  A.bottomMode = false; A.bottomSel = new Set(); A.keptGame = A.snap.game;
+  renderMullBar();
+};
 function toggleBottomSel(card){
   const snap = A.snap, mull = snap.seats[mySeat()].mull;
   if(A.bottomSel.has(card.id)) A.bottomSel.delete(card.id);
@@ -3362,7 +3515,7 @@ function openScry(m){
   for(const c of m.cards) scryS.zone[c.id] = 'top';
   $('scryTitle').textContent = m.peek ? 'Top of library — put back in order' : (m.surveil ? 'Surveil' : 'Scry');
   $('scryGY').style.display = m.surveil ? 'flex' : 'none';
-  $('scryBottom').style.display = m.peek ? 'none' : 'flex';
+  $('scryBottom').style.display = (m.peek || m.surveil) ? 'none' : 'flex'; // surveil is top-or-graveyard only
   renderScry();
   $('scryOv').classList.add('on');
 }
@@ -3387,7 +3540,7 @@ function renderScry(){
       }
       if(!scryS.peek){
         el.onclick = ()=>{
-          const cyc = scryS.surveil ? ['top','bottom','gy'] : ['top','bottom'];
+          const cyc = scryS.surveil ? ['top','gy'] : ['top','bottom'];
           const cur = cyc.indexOf(scryS.zone[id]);
           scryS.zone[id] = cyc[(cur+1) % cyc.length];
           renderScry();
@@ -3500,7 +3653,7 @@ document.addEventListener('keydown', e=>{
   }
 });
 document.querySelectorAll('.tovl').forEach(ov=>{
-  ov.addEventListener('click', e=>{ if(e.target === ov && ov.id !== 'scryOv') ov.classList.remove('on'); });
+  ov.addEventListener('click', e=>{ if(e.target === ov && ov.id !== 'scryOv' && ov.id !== 'mullOv') ov.classList.remove('on'); });
 });
 // ---------- boot ----------
 $('nameIn').focus();
