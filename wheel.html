@@ -374,9 +374,12 @@ label.cfg{display:flex; align-items:center; gap:8px; font-size:13px; color:var(-
 /* fan out like a held hand while magnified */
 #tHand.zoomed .crd{transform:rotate(var(--fr,0deg)) translateY(var(--fy,0px));}
 #tHand.zoomed .crd:hover{transform:rotate(var(--fr,0deg)) translateY(calc(var(--fy,0px) - 16px));}
+/* big hands overlap like held cards; hovering pops one out full-size */
+#tHand.overlap .crd{transition:transform .15s ease;}
+#tHand.overlap .crd:hover{transform:translateY(-40px) scale(1.55); z-index:99 !important;}
 #tHand .crd:hover{transform:translateY(-10px);}
 #tHand .crd.sel{transform:translateY(-10px);}
-#tBtns{flex:none; display:flex; flex-direction:column; gap:5px;}
+#tBtns{flex:none; display:flex; flex-direction:column; gap:5px; position:relative; z-index:72;}
 #tBtnsRow{display:flex; gap:5px;}
 #tZonesBar{flex:none; display:flex; flex-direction:column; gap:6px; align-items:center; padding:0 4px;}
 .zpile{
@@ -552,7 +555,7 @@ label.cfg{display:flex; align-items:center; gap:8px; font-size:13px; color:var(-
               <input id="tmplSets" type="text" placeholder="codes, comma separated: fdn, dsk" style="flex:1;">
             </div>
             <div class="cfgrow"><span class="lbl">Slots</span>
-              <span class="dim" style="font-size:13px;">10 commons &middot; 3 uncommons &middot; 1 rare (1 in 7 mythic) &middot; 1 wildcard</span>
+              <span class="dim" style="font-size:13px;">7 balanced commons &middot; 3 uncommons &middot; 1 rare/mythic &middot; 1 land slot &middot; 2 wildcards</span>
             </div>
             <div id="tmplStat" class="dim" style="font-size:12px; min-height:16px;"></div>
           </div>
@@ -584,7 +587,7 @@ label.cfg{display:flex; align-items:center; gap:8px; font-size:13px; color:var(-
       </div>
       <div id="cfgTable" style="display:none;">
         <div class="dim" style="font-size:13px; margin-bottom:8px;">Each player pastes a decklist. Basics welcome. Host starts when both decks resolve.</div>
-        <textarea id="deckTxt" style="width:100%; height:140px; font-size:12px;" placeholder="17 Island&#10;3 Counterspell&#10;&hellip; plain lists or Arena exports (2 Burglar Rat (FDN) 170) both work"></textarea>
+        <textarea id="deckTxt" style="width:100%; height:140px; font-size:12px;" placeholder="17 Island&#10;3 Counterspell&#10;&hellip; Arena exports work; a blank line (or a Sideboard header) starts your sideboard"></textarea>
         <div style="display:flex; gap:10px; align-items:center; margin-top:6px;">
           <button class="btn sm" id="deckSubmitBtn">Submit deck</button>
           <span id="deckStat" class="dim"></span>
@@ -835,7 +838,8 @@ function weightedIndex(weights, rng){
 function cardFromScry(c){
   const f = (c.card_faces && c.card_faces.length) ? c.card_faces[0] : c;
   const iu = c.image_uris || (c.card_faces && c.card_faces[0] && c.card_faces[0].image_uris) || {};
-  return {
+  const tks = (c.all_parts || []).filter(p=>p.component === 'token').map(p=>p.id).slice(0, 4);
+  const o = {
     sid: c.id, name: c.name,
     cost: f.mana_cost || '',
     type: c.type_line || f.type_line || '',
@@ -848,14 +852,19 @@ function cardFromScry(c){
     pt: (f.power != null && f.toughness != null) ? (f.power + '/' + f.toughness) : null,
     loy: (f.loyalty != null ? f.loyalty : (c.loyalty != null ? c.loyalty : null))
   };
+  if(tks.length) o.tks = tks; // scryfall ids of tokens this card creates
+  return o;
 }
 function isLand(c){ return /\bLand\b/.test(c.type||''); }
 function parseDeckList(text){
   const out = [];
+  let side = false, seenCard = false;
   for(let ln of String(text).split('\n')){
     ln = ln.trim();
+    if(!ln){ if(seenCard) side = true; continue; } // blank line after the deck = sideboard begins
+    if(/^sideboard$/i.test(ln)){ side = true; continue; }
     // Arena/Moxfield export headers
-    if(!ln || /^(sideboard|deck|maindeck|main|about|commander|companion)$/i.test(ln) || /^name\s/i.test(ln)) continue;
+    if(/^(deck|maindeck|main|about|commander|companion)$/i.test(ln) || /^name\s/i.test(ln)) continue;
     const m = ln.match(/^(\d+)x?\s+(.+)$/);
     let n = 1, name = ln;
     if(m){ n = Math.min(99, parseInt(m[1],10)||1); name = m[2].trim(); }
@@ -863,7 +872,7 @@ function parseDeckList(text){
     let set = null, num = null;
     const am = name.match(/^(.*?)\s+\(([A-Za-z0-9]{2,6})\)(?:\s+([\w★-]+))?\s*(?:\*F\*)?$/);
     if(am){ name = am[1].trim(); set = am[2].toLowerCase(); num = am[3] || null; }
-    if(name) out.push({ n, name, set, num });
+    if(name){ out.push({ n, name, set, num, side }); seenCard = true; }
   }
   return out;
 }
@@ -905,34 +914,71 @@ function botChoose(pool, pack, rng){
 // ---------------- pack generation ----------------
 let INSTANCE_N = 1;
 function instanceOf(proto){ return Object.assign({}, proto, { id: 'k' + (INSTANCE_N++) }); }
+// pack order: special/foil pulls, rare/mythic, uncommons, commons, land last
+function orderPack(pack){
+  const w = c => {
+    if(c.r === 'special' || c.r === 'bonus') return 0;
+    if(c.r === 'mythic') return 1;
+    if(c.r === 'rare') return 2;
+    if(c.r === 'uncommon') return 3;
+    return isLand(c) ? 5 : 4; // commons, land at the very end
+  };
+  return pack.map((c,i)=>[w(c), i, c]).sort((a,b)=>a[0]-b[0] || a[1]-b[1]).map(x=>x[2]);
+}
 
+// template mirrors a modern Play Booster: 14 cards —
+// 1 rare/mythic (7.4:1), 3 uncommons, 1 land slot (the set's common duals; lands are
+// excluded from every other slot), 2 rarity-weighted wildcards, 7 color-balanced commons.
 function buildTemplatePacks(protos, nPacks, rng){
   const buckets = { common:[], uncommon:[], rare:[], mythic:[] };
+  const landPool = [];
   for(const c of protos){
     if(/Basic Land/.test(c.type)) continue;
+    if(c.r === 'common' && isLand(c)){ landPool.push(c); continue; }
     (buckets[c.r] || buckets.rare).push(c);
   }
   if(!buckets.rare.length) buckets.rare = buckets.mythic.slice();
+  const WILD = [['common',55],['uncommon',28],['rare',13],['mythic',4]];
   const packs = [];
   for(let p=0;p<nPacks;p++){
     const used = new Set(), pack = [];
-    const draw = (bucket)=>{
-      let pool = buckets[bucket];
-      if(!pool || !pool.length) pool = protos.filter(c=>!/Basic Land/.test(c.type));
+    const drawFrom = (pool)=>{
+      if(!pool || !pool.length) return false;
       for(let tries=0; tries<80; tries++){
         const c = pool[Math.floor(rng()*pool.length)];
-        if(c && !used.has(c.sid)){ used.add(c.sid); pack.push(instanceOf(c)); return; }
+        if(c && !used.has(c.sid)){ used.add(c.sid); pack.push(instanceOf(c)); return true; }
       }
       const c = pool[Math.floor(rng()*pool.length)];
-      if(c) pack.push(instanceOf(c));
+      if(c){ pack.push(instanceOf(c)); return true; }
+      return false;
     };
-    const rareBucket = (buckets.mythic.length && rng() < 1/7.4) ? 'mythic' : 'rare';
-    draw(rareBucket);
+    const draw = (bucket)=>{
+      let pool = buckets[bucket];
+      if(!pool || !pool.length) pool = buckets.common.length ? buckets.common : protos.filter(c=>!/Basic Land/.test(c.type));
+      return drawFrom(pool);
+    };
+    draw((buckets.mythic.length && rng() < 1/7.4) ? 'mythic' : 'rare');
     for(let i=0;i<3;i++) draw('uncommon');
-    for(let i=0;i<10;i++) draw('common');
-    const any = ['common','common','uncommon','uncommon','rare'][Math.floor(rng()*5)];
-    draw(any); // wildcard slot
-    packs.push(pack);
+    if(landPool.length) drawFrom(landPool); else draw('common'); // land slot
+    for(let w=0;w<2;w++){ // wildcards, real-odds rarity weighting
+      let roll = rng()*100, bucket = 'common';
+      for(const [b, wt] of WILD){ if((roll -= wt) < 0){ bucket = b; break; } }
+      if(bucket === 'mythic' && !buckets.mythic.length) bucket = 'rare';
+      draw(bucket);
+    }
+    const commonsStart = pack.length;
+    for(let i=0;i<7;i++) draw('common');
+    for(let k=0;k<12;k++){ // color-balance the commons like a real print run
+      const have = new Set();
+      for(let i=commonsStart;i<pack.length;i++){
+        const c = pack[i];
+        if((c.colors||[]).length === 1) have.add(c.colors[0]);
+      }
+      if(have.size >= 5) break;
+      for(let i=pack.length-1;i>=commonsStart;i--){ used.delete(pack[i].sid); pack.splice(i,1); }
+      for(let i=0;i<7;i++) draw('common');
+    }
+    packs.push(orderPack(pack));
   }
   return packs;
 }
@@ -978,7 +1024,7 @@ function buildBoosterPack(booster, byUuid, rng){
     if(!sheet || !sheet.cards) continue;
     for(const proto of drawSheet(sheet, byUuid, contents[sheetName], rng)) pack.push(instanceOf(proto));
   }
-  return pack.length ? pack : null;
+  return pack.length ? orderPack(pack) : null;
 }
 function pickBoosterKey(boosterObj){
   if(!boosterObj) return null;
@@ -1243,7 +1289,12 @@ function tableApply(T, si, a, rng){
       const tgt = T.seats[who];
       tgt[k] += (a.d|0);
       const d = a.d|0;
-      if(who !== si) return nm + ' sets ' + tgt.name + '’s ' + k + ' to ' + tgt[k];
+      if(who !== si){
+        if(k !== 'life') return nm + ' sets ' + tgt.name + '’s ' + k + ' to ' + tgt[k];
+        return d < 0
+          ? nm + ' deals ' + (-d) + ' to ' + tgt.name + ' (' + tgt.life + ')'
+          : nm + ' gives ' + tgt.name + ' +' + d + ' life (' + tgt.life + ')';
+      }
       if(k==='life') return nm + (d>0? ' gains ':' loses ') + Math.abs(d) + ' life (' + tgt.life + ')';
       return nm + (d>0?' gets ':' removes ') + Math.abs(d) + ' ' + k + ' (' + tgt[k] + ')';
     }
@@ -1354,6 +1405,7 @@ function tPub(c, full){
   const o = { id:c.id, sid:c.sid, name:c.name, cost:c.cost, type:c.type, r:c.r,
     colors:c.colors, cmc:c.cmc, img:c.img, imgL:c.imgL, pt:c.pt, tok:!!c.tok };
   if(c.wtype){ o.wtype = c.wtype; o.val = c.val; o.sides = c.sides; o.rn = c.rn; }
+  if(c.tks && c.tks.length) o.tks = c.tks;
   if(full) o.text = c.text;
   return o;
 }
@@ -1442,7 +1494,8 @@ async function fetchSetCards(code){
   code = code.toLowerCase();
   if(DATA.setCache[code]) return DATA.setCache[code];
   const cached = await idb.get('set2:' + code); // v2: protos carry loyalty
-  if(cached){ DATA.setCache[code] = cached; return cached; }
+  // TTL so spoiler-season sets pick up newly previewed cards
+  if(cached && cached.at && Date.now() - cached.at < 72*3600e3 && cached.v3){ DATA.setCache[code] = cached.v; return cached.v; }
   let url = SCRY + '/cards/search?q=' + encodeURIComponent('e:' + code) + '&unique=prints&include_variations=true';
   const protos = [];
   while(url){
@@ -1452,15 +1505,16 @@ async function fetchSetCards(code){
     if(url) await new Promise(r=>setTimeout(r, 110));
   }
   if(!protos.length) throw new Error('set ' + code + ' has no cards');
-  DATA.setCache[code] = protos; idb.put('set2:' + code, protos);
+  DATA.setCache[code] = protos; idb.put('set2:' + code, { at: Date.now(), v3: true, v: protos });
   return protos;
 }
 // mtgjson booster config, trimmed to {booster, uuidToSid}; cached forever
 async function fetchBoosterCfg(code){
   code = code.toLowerCase();
   if(DATA.boosterCache[code] !== undefined) return DATA.boosterCache[code];
-  const cached = await idb.get('booster:' + code);
-  if(cached !== undefined){ DATA.boosterCache[code] = cached; return cached; }
+  const cached = await idb.get('booster2:' + code);
+  // TTL matters most for the null case: preview sets gain real collation data at release
+  if(cached && cached.at && Date.now() - cached.at < 72*3600e3){ DATA.boosterCache[code] = cached.v; return cached.v; }
   let out = null;
   try{
     const j = await jget('https://mtgjson.com/api/v5/' + code.toUpperCase() + '.json');
@@ -1473,7 +1527,7 @@ async function fetchBoosterCfg(code){
       out = { booster: d.booster, uuidToSid };
     }
   }catch(e){ out = null; }
-  DATA.boosterCache[code] = out; idb.put('booster:' + code, out);
+  DATA.boosterCache[code] = out; idb.put('booster2:' + code, { at: Date.now(), v: out });
   return out;
 }
 // resolve a decklist/cube via /cards/collection (chunks of 75).
@@ -1536,6 +1590,19 @@ async function fetchBasics(preferPool){
     }
     DATA.basics = cached;
     for(const n of BASIC_NAMES) if(!out[n]) out[n] = cached[n];
+  }
+  return out;
+}
+async function fetchByIds(ids){
+  const out = [];
+  for(let i=0; i<ids.length; i+=75){
+    const r = await fetch(SCRY + '/cards/collection', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ identifiers: ids.slice(i, i+75).map(id=>({ id })) })
+    });
+    if(!r.ok) break;
+    const j = await r.json();
+    for(const c of (j.data||[])) out.push(cardFromScry(c));
   }
   return out;
 }
@@ -1625,7 +1692,8 @@ const H = {
          timer:'leisure', dest:'tables', bo:3, livePicks:false },
   players: [], rng: null, draft: null, perPack: 15,
   sel: {}, dl: {}, botAt: {}, paused: false, pausedAt: 0, tick: null,
-  decks: {}, recap: null, pairs: null, tables: [], results: [], viewTid: {}, starting: false
+  decks: {}, recap: null, pairs: null, tables: [], results: [], viewTid: {}, starting: false,
+  sbReg: {}, sbSeq: 0
 };
 function hostInit(mode){
   net.mode = 'host'; H.on = true; H.phase = 'lobby';
@@ -1702,7 +1770,7 @@ function hostResync(seat){
     if(H.phase === 'bridge') pushBridge();
   } else if(H.phase === 'table'){
     const t = tableOf(seat);
-    if(t){ hsend(seat, { t: 'phase', p: 'table', tid: t.T.tid, ts: t.si }); hsend(seat, { t: 'table', tid: t.T.tid, snap: sanitizeTable(t.T, t.si) }); }
+    if(t){ hsend(seat, { t: 'phase', p: 'table', tid: t.T.tid, ts: t.si }); hsend(seat, { t: 'table', tid: t.T.tid, snap: sanitizeTable(t.T, t.si) }); sendSbPool(seat); }
     else if(H.tables.length){ const tid = H.viewTid[seat] || H.tables[0].tid;
       hsend(seat, { t: 'phase', p: 'table', tid, ts: -1 });
       const T = H.tables.find(x=>x.tid===tid) || H.tables[0];
@@ -1755,7 +1823,7 @@ async function buildRounds(){
       hall({ t: 'toast', s: 'fetching ' + c.toUpperCase() + '…' });
       for(const p of await fetchSetCards(c)) if(!seen.has(p.name)){ seen.add(p.name); protos.push(p); }
     }
-    H.perPack = 15;
+    H.perPack = 14;
     const rounds = [];
     for(let r=0;r<cfg.packsEach;r++) rounds.push(buildTemplatePacks(protos, n, rng));
     return rounds;
@@ -1774,6 +1842,9 @@ async function buildRounds(){
       if(key){ booster = bcfgRaw.booster[key]; byUuid = {};
         for(const u in bcfgRaw.uuidToSid){ const pr = bySid[bcfgRaw.uuidToSid[u]]; if(pr) byUuid[u] = pr; } }
     }
+    if(r === 0) hall({ t: 'toast', s: code.toUpperCase() + (booster
+      ? ' — authentic pack collation'
+      : ' — template packs (no collation data published yet)') });
     const packs = [];
     const seen = new Set(); const dedup = protos.filter(p=>{ if(seen.has(p.name)||/Basic Land/.test(p.type)) return false; seen.add(p.name); return true; });
     for(let s=0;s<n;s++){
@@ -1908,7 +1979,7 @@ function hostBotify(seat, v){
 }
 function hostAbort(){
   if(H.tick){ clearInterval(H.tick); H.tick = null; }
-  H.phase = 'lobby'; H.draft = null; H.decks = {}; H.tables = []; H.results = []; H.pairs = null;
+  H.phase = 'lobby'; H.draft = null; H.decks = {}; H.tables = []; H.results = []; H.pairs = null; H.sbReg = {};
   H.players = H.players.filter(p=>!p.bot);
   for(const p of H.players) if(p.seat !== 0) p.ready = false;
   hall({ t: 'phase', p: 'lobby' });
@@ -1947,27 +2018,45 @@ function pushBridge(){
     odd: H.odd != null ? H.players[H.odd].name : null,
     bo: H.cfg.bo });
 }
-async function buildDeckProtos(seat){
-  const d = H.decks[seat];
-  const pool = H.draft ? H.draft.seats[seat].pool : [];
-  const basics = await fetchBasics(pool.length ? (await fetchSetCards(H.cfg.sets[0]).catch(()=>null)) : null);
-  const protos = d.main.map(c=>{ const p = Object.assign({}, c); delete p.id; return p; });
+// sideboard registry: per seat, the full owned pool (main + sideboard) with stable
+// ids, the current maindeck ids, and basic-land counts. Drafted and imported decks
+// both register here, so between-game sideboarding works identically for either.
+const BASIC_KEY = { Plains:'W', Island:'U', Swamp:'B', Mountain:'R', Forest:'G' };
+async function deckFromReg(seat){
+  const reg = H.sbReg[seat];
+  const byId = {}; for(const c of reg.pool) byId[c.id] = c;
+  const protos = reg.mainIds.map(id=>byId[id]).filter(Boolean)
+    .map(c=>{ const p = Object.assign({}, c); delete p.id; return p; });
+  const basics = await fetchBasics(H.draft ? (await fetchSetCards(H.cfg.sets[0]).catch(()=>null)) : null);
   for(const nmk of BASIC_NAMES){
-    const key = { Plains:'W', Island:'U', Swamp:'B', Mountain:'R', Forest:'G' }[nmk];
-    const n = (d.lands && d.lands[key]) || 0;
+    const n = (reg.lands && reg.lands[BASIC_KEY[nmk]]) || 0;
     for(let i=0;i<n;i++) protos.push(basics[nmk]);
   }
   return protos;
 }
+function registerDraftedSb(seat){
+  const d = H.decks[seat];
+  if(!d || !d.main || !H.draft || !H.draft.seats[seat]) return;
+  H.sbReg[seat] = {
+    pool: H.draft.seats[seat].pool,
+    mainIds: d.main.map(c=>c.id),
+    lands: Object.assign({ W:0,U:0,B:0,R:0,G:0 }, d.lands || {})
+  };
+}
+function sendSbPool(seat){
+  const reg = H.sbReg[seat];
+  if(reg) hsend(seat, { t: 'priv', k: 'sb', pool: reg.pool, main: reg.mainIds, lands: reg.lands });
+}
 async function hostStartMatches(){
   if(H.phase !== 'bridge' || !H.pairs || !H.pairs.length) return;
-  H.tables = []; H.results = []; H.viewTid = {};
+  H.tables = []; H.results = []; H.viewTid = {}; H.sbReg = H.sbReg || {};
+  for(const pr of H.pairs) for(const seat of pr) if(seat >= 0 && !H.sbReg[seat]) registerDraftedSb(seat);
   let tid = 0;
   for(const [sa, sb] of H.pairs){
-    const pa = { seat: sa, name: H.players[sa].name, deck: await buildDeckProtos(sa) };
+    const pa = { seat: sa, name: H.players[sa].name, deck: await deckFromReg(sa) };
     const pb = sb === -1
       ? { seat: -9, name: 'Goldfish', deck: [] }
-      : { seat: sb, name: H.players[sb].name, deck: await buildDeckProtos(sb) };
+      : { seat: sb, name: H.players[sb].name, deck: await deckFromReg(sb) };
     const T = makeTable('table-' + (++tid), [pa, pb], H.cfg.bo);
     tStartGame(T, H.rng);
     H.tables.push(T);
@@ -1980,6 +2069,7 @@ async function hostStartMatches(){
     else { H.viewTid[p.seat] = H.tables[0].tid; hsend(p.seat, { t: 'phase', p: 'table', tid: H.tables[0].tid, ts: -1 }); }
   }
   for(const T of H.tables) sendSnaps(T);
+  for(const T of H.tables) for(const s of T.seats) if(s.lobbySeat >= 0) sendSbPool(s.lobbySeat);
   for(const T of H.tables) tlog(T, '— game 1 — ' + T.seats[0].name + ' vs ' + T.seats[1].name);
 }
 function tableOf(seat){
@@ -2038,18 +2128,26 @@ function hostAct(seat, a){
     return;
   }
   if(a.t === 'tokq'){
+    if(a.ids && a.ids.length){ // related tokens of cards in play
+      fetchByIds(a.ids.slice(0, 24)).then(protos=>hsend(seat, { t: 'priv', k: 'tok', protos, rel: true }));
+      return;
+    }
     searchTokens(String(a.q||'').slice(0,40)).then(protos=>hsend(seat, { t: 'priv', k: 'tok', protos }));
     return;
   }
   if(a.t === 'deckSwap'){
-    const sPool = H.draft && H.draft.seats[seat];
-    if(!sPool){ hsend(seat, { t: 'toast', s: 'sideboarding is only available for drafted decks' }); return; }
-    const byId = {}; for(const c of sPool.pool) byId[c.id] = c;
-    const main = (a.main||[]).map(id=>byId[id]).filter(Boolean);
-    H.decks[seat] = { main, lands: a.lands || {}, ready: true };
-    buildDeckProtos(seat).then(protos=>{
-      if(protos.length >= 40){ s.deck = protos; tlog(T, nm + ' adjusts their deck (' + protos.length + ' cards)'); sendSnaps(T); }
-      else hsend(seat, { t: 'toast', s: 'deck must be 40+ cards' });
+    const reg = H.sbReg && H.sbReg[seat];
+    if(!reg){ hsend(seat, { t: 'toast', s: 'no sideboard registered for this seat' }); return; }
+    const valid = new Set(reg.pool.map(c=>c.id));
+    const main = (a.main||[]).filter(id=>valid.has(id));
+    const lands = Object.assign({ W:0,U:0,B:0,R:0,G:0 }, a.lands || {});
+    const landN = Object.values(lands).reduce((x,y)=>x+(y|0), 0);
+    if(main.length + landN < 40){ hsend(seat, { t: 'toast', s: 'deck must be 40+ cards' }); return; }
+    reg.mainIds = main; reg.lands = lands;
+    deckFromReg(seat).then(protos=>{
+      s.deck = protos;
+      tlog(T, nm + ' adjusts their deck (' + protos.length + ' cards)');
+      sendSnaps(T); sendSbPool(seat);
     });
     return;
   }
@@ -2082,23 +2180,36 @@ function afterTableAct(T, si, a, res){
 async function hostImportDeck(seat, text){
   try{
     const entries = parseDeckList(text);
-    if(!entries.length){ hsend(seat, { t: 'priv', k: 'deckres', msg: 'empty list' }); return; }
-    const { protos, missing } = await resolveNames(entries);
-    H.decks[seat] = { protos, ready: true };
+    const mains = entries.filter(e=>!e.side), sides = entries.filter(e=>e.side);
+    if(!mains.length){ hsend(seat, { t: 'priv', k: 'deckres', msg: 'empty list' }); return; }
+    const rm = await resolveNames(mains);
+    const rs = sides.length ? await resolveNames(sides) : { protos: [], missing: [] };
+    H.sbSeq = H.sbSeq || 0;
+    H.sbReg = H.sbReg || {};
+    const pool = rm.protos.concat(rs.protos).map(p=>Object.assign({}, p, { id: 'i' + (++H.sbSeq) }));
+    H.sbReg[seat] = {
+      pool,
+      mainIds: pool.slice(0, rm.protos.length).map(c=>c.id),
+      lands: { W:0,U:0,B:0,R:0,G:0 }
+    };
+    H.decks[seat] = { protos: rm.protos, ready: true };
+    const missing = rm.missing.concat(rs.missing);
     hsend(seat, { t: 'priv', k: 'deckres',
-      msg: protos.length + ' cards resolved' + (missing.length ? ' — missing: ' + missing.join(', ') : ' — ready') });
+      msg: rm.protos.length + ' main' + (rs.protos.length ? ' + ' + rs.protos.length + ' sideboard' : '') +
+        ' resolved' + (missing.length ? ' — missing: ' + missing.join(', ') : ' — ready') });
     broadcastLobby();
   }catch(e){
     hsend(seat, { t: 'priv', k: 'deckres', msg: 'import failed: ' + String(e.message||e) });
   }
 }
-function hostStartTableNight(){
-  const withDecks = H.players.filter(p=>!p.bot && H.decks[p.seat] && H.decks[p.seat].protos);
+async function hostStartTableNight(){
+  H.sbReg = H.sbReg || {};
+  const withDecks = H.players.filter(p=>!p.bot && H.sbReg[p.seat]);
   if(withDecks.length < 1){ lobMsg('need at least one submitted deck'); return; }
   H.rng = mulberry32((Date.now() & 0xffffff) ^ Math.floor(Math.random()*1e9));
-  const pa = { seat: withDecks[0].seat, name: withDecks[0].name, deck: H.decks[withDecks[0].seat].protos };
+  const pa = { seat: withDecks[0].seat, name: withDecks[0].name, deck: await deckFromReg(withDecks[0].seat) };
   const pb = withDecks[1]
-    ? { seat: withDecks[1].seat, name: withDecks[1].name, deck: H.decks[withDecks[1].seat].protos }
+    ? { seat: withDecks[1].seat, name: withDecks[1].name, deck: await deckFromReg(withDecks[1].seat) }
     : { seat: -9, name: 'Goldfish', deck: [] };
   const T = makeTable('table-1', [pa, pb], H.cfg.bo);
   tStartGame(T, H.rng);
@@ -2111,6 +2222,7 @@ function hostStartTableNight(){
     else { H.viewTid[p.seat] = T.tid; hsend(p.seat, { t: 'phase', p: 'table', tid: T.tid, ts: -1 }); }
   }
   sendSnaps(T);
+  for(const s of T.seats) if(s.lobbySeat >= 0) sendSbPool(s.lobbySeat);
   tlog(T, '— game 1 — ' + pa.name + ' vs ' + pb.name);
 }
 function hostEndNight(){ hostAbort(); }
@@ -2301,9 +2413,10 @@ function onPhase(m){
   }
 }
 function onPriv(m){
+  if(m.k === 'sb'){ A.sbPool = m.pool; A.sbMain = m.main; A.sbLands = m.lands; return; }
   if(m.k === 'scry') openScry(m);
   else if(m.k === 'search') openSearch(m.cards);
-  else if(m.k === 'tok') renderTokResults(m.protos);
+  else if(m.k === 'tok') renderTokResults(m.protos, m.rel);
   else if(m.k === 'deckres') $('deckStat').textContent = m.msg;
 }
 function appendChat(m){
@@ -2772,11 +2885,16 @@ function renderBuildRoster(list){
   }
 }
 function exportText(){
-  const counts = {};
-  for(const c of deckCards()) counts[c.name] = (counts[c.name]||0) + 1;
+  const count = list => { const m = {}; for(const c of list) m[c.name] = (m[c.name]||0) + 1; return m; };
+  const counts = count(deckCards());
   const landNames = { W:'Plains', U:'Island', B:'Swamp', R:'Mountain', G:'Forest' };
   for(const k in A.lands) if(A.lands[k]) counts[landNames[k]] = (counts[landNames[k]]||0) + A.lands[k];
-  return Object.keys(counts).map(n=>counts[n] + ' ' + n).join('\n');
+  let out = Object.keys(counts).map(n=>counts[n] + ' ' + n).join('\n');
+  // blank line, then the sideboard (everything owned but not maindecked)
+  const side = count(A.pool.filter(c=>!A.deckIds.has(c.id)));
+  const sideLines = Object.keys(side).map(n=>side[n] + ' ' + n);
+  if(sideLines.length) out += '\n\n' + sideLines.join('\n');
+  return out;
 }
 $('bExportBtn').onclick = ()=>{
   openModal('Export deck', body=>{
@@ -2909,8 +3027,13 @@ function renderTable(){
     A.lastTurn = snap.turnNum;
     if(snap.turnNum > 0) showBanner(myTurn ? 'Your turn' : S[snap.turnSeat].name + '’s turn', myTurn);
   }
-  $('tTurnBtn').innerHTML = (myTurn ? 'Pass turn' : 'Take turn') + ' &middot; <b style="font-weight:normal; color:var(--gold);">N</b>';
-  $('tTurnBtn').classList.toggle('gold', myTurn);
+  if(snap.between && A.ts >= 0){
+    $('tTurnBtn').textContent = 'Deal game ' + (snap.game + 1);
+    $('tTurnBtn').classList.add('gold');
+  } else {
+    $('tTurnBtn').innerHTML = (myTurn ? 'Pass turn' : 'Take turn') + ' &middot; <b style="font-weight:normal; color:var(--gold);">N</b>';
+    $('tTurnBtn').classList.toggle('gold', myTurn);
+  }
   // my zone bar
   $('tLife').textContent = S[me].life;
   $('tSubLife').textContent = (S[me].poison ? '☠' + S[me].poison + ' ' : '') + (S[me].energy ? '⚡' + S[me].energy : '');
@@ -3058,8 +3181,30 @@ function renderHand(){
     el.ondblclick = ()=>{ if(!A.bottomMode) act({ t: 'play', id: c.id, row: 0, slot: freeSlot(0) }); };
     handEl.appendChild(el);
   });
+  layoutHand();
   A.prevHand = new Set(hand.map(c=>c.id));
 }
+// big hands compress with overlap so the whole hand always fits on screen
+function layoutHand(){
+  const handEl = $('tHand');
+  const cards = [...handEl.children].filter(x=>x.classList.contains('crd'));
+  handEl.classList.remove('overlap');
+  handEl.style.gap = '';
+  for(const el of cards){ el.style.marginLeft = ''; el.style.zIndex = ''; }
+  const n = cards.length;
+  if(n < 2) return;
+  const w = Math.round(78 * A.zoom);
+  const availW = handEl.clientWidth - 12;
+  if(n * w + (n - 1) * 6 <= availW) return;
+  handEl.classList.add('overlap');
+  handEl.style.gap = '0px';
+  const step = Math.max(w * 0.18, (availW - w) / (n - 1));
+  cards.forEach((el, i)=>{
+    if(i > 0) el.style.marginLeft = (step - w).toFixed(1) + 'px';
+    el.style.zIndex = 1 + i;
+  });
+}
+window.addEventListener('resize', ()=>{ if(A.screen === 'table') layoutHand(); });
 function freeSlot(row){
   const snap = A.snap, me = mySeat();
   const taken = (snap.seats[me].bf||[]).filter(c=>(c.row|0) === row && !c.att).map(c=>c.slot|0);
@@ -3257,7 +3402,10 @@ function openGrid(title, cards, menuFn){
 // ---------- buttons / life ----------
 $('tDrawBtn').onclick = ()=>act({ t: 'draw', n: 1 });
 $('tUntapBtn').onclick = ()=>act({ t: 'untapAll' });
-$('tTurnBtn').onclick = ()=>act({ t: 'turn' });
+$('tTurnBtn').onclick = ()=>{
+  if(A.snap && A.snap.between){ closeModal(); A.kept = false; A.keptGame = 0; act({ t: 'nextGame' }); }
+  else act({ t: 'turn' });
+};
 function diceMenu(e, sides){
   openMenu(e.clientX, e.clientY, [
     { label: 'Roll d' + sides + ' (log)', fn: ()=>act({ t: 'roll', sides }) },
@@ -3308,37 +3456,22 @@ function setZoom(z){
 $('tZoomIn').onclick = ()=>setZoom(A.zoom + 0.15);
 $('tZoomOut').onclick = ()=>setZoom(A.zoom - 0.15);
 // hand magnify: scale from bottom-center, clamped so it never leaves the viewport
-let handPan = null;
 $('tHand').addEventListener('mouseenter', ()=>{
   const h = $('tHand');
   if(A.ts < 0) return;
+  if(h.classList.contains('overlap')) return; // big hands use overlap + per-card pop instead
   if($('mullOv').classList.contains('on')) return; // keep/mulligan decision stays unobstructed
   const cards = h.querySelectorAll('.crd');
   if(!cards.length) return;
   // actual card span, not scrollWidth (the centering auto-margins inflate that)
   const w = cards[cards.length-1].getBoundingClientRect().right - cards[0].getBoundingClientRect().left;
-  h.scrollLeft = (h.scrollWidth - h.clientWidth) / 2; // pan math assumes centered content
-  const wrap = $('tHandWrap').getBoundingClientRect();
   const avail = Math.max(320, innerWidth - 300);
-  const s = Math.max(1.12, Math.min(1.4, avail / Math.max(1, w)));
-  handPan = { s, over: Math.max(0, w*s - (wrap.width - 40)) };
-  h.style.transform = 'scale(' + s.toFixed(3) + ')';
-  h.classList.add('zoomed');
-});
-// big hands: mouse position pans the magnified fan left/right
-$('tHand').addEventListener('mousemove', e=>{
-  if(!handPan || !handPan.over) return;
-  const h = $('tHand');
-  const wrap = $('tHandWrap').getBoundingClientRect();
-  const fx = Math.max(0, Math.min(1, (e.clientX - wrap.left) / Math.max(1, wrap.width)));
-  const tx = (0.5 - fx) * handPan.over;
-  h.style.transition = 'transform .09s linear';
-  h.style.transform = 'translateX(' + tx.toFixed(0) + 'px) scale(' + handPan.s.toFixed(3) + ')';
+  const s = Math.max(1, Math.min(1.4, avail / Math.max(1, w)));
+  if(s > 1.04){ h.style.transform = 'scale(' + s.toFixed(3) + ')'; h.classList.add('zoomed'); }
 });
 $('tHand').addEventListener('mouseleave', ()=>{
   const h = $('tHand');
-  h.style.transform = ''; h.style.transition = ''; h.classList.remove('zoomed');
-  handPan = null;
+  h.style.transform = ''; h.classList.remove('zoomed');
 });
 // wheel scrubs an oversized hand when not magnified (scrollbar is hidden)
 $('tHand').addEventListener('wheel', e=>{
@@ -3374,22 +3507,49 @@ function tryMergeLog(a, b){
   ma = a.match(/^(.+) sets (.+)’s life to (-?\d+)$/);
   mb = b.match(/^(.+) sets (.+)’s life to (-?\d+)$/);
   if(ma && mb && ma[1] === mb[1] && ma[2] === mb[2]) return b;
+  ma = a.match(/^(.+) deals (\d+) to (.+?) \((-?\d+)\)$/);
+  mb = b.match(/^(.+) deals (\d+) to (.+?) \((-?\d+)\)$/);
+  if(ma && mb && ma[1] === mb[1] && ma[3] === mb[3])
+    return ma[1] + ' deals ' + (+ma[2] + +mb[2]) + ' to ' + ma[3] + ' (' + mb[4] + ')';
+  ma = a.match(/^(.+) gives (.+?) \+(\d+) life \((-?\d+)\)$/);
+  mb = b.match(/^(.+) gives (.+?) \+(\d+) life \((-?\d+)\)$/);
+  if(ma && mb && ma[1] === mb[1] && ma[2] === mb[2])
+    return ma[1] + ' gives ' + ma[2] + ' +' + (+ma[3] + +mb[3]) + ' life (' + mb[4] + ')';
   ma = a.match(/^(.+) rolls the (d\d+): \d+$/);
   mb = b.match(/^(.+) rolls the (d\d+): \d+$/);
   if(ma && mb && ma[1] === mb[1] && ma[2] === mb[2]) return b;
   return null;
 }
+function tapAggText(agg){
+  const parts = Object.entries(agg.counts).map(([nm2, k])=>k > 1 ? k + ' ' + nm2 : nm2);
+  const list = parts.length > 1 ? parts.slice(0, -1).join(', ') + ' and ' + parts[parts.length - 1] : parts[0];
+  return agg.actor + ' ' + agg.verb + ' ' + list;
+}
 function appendTLog(e){
   const el = $('tLog');
   const now = Date.now();
+  const refresh = ()=>{
+    lastLog.at = now;
+    lastLog.tx.textContent = lastLog.s;
+    lastLog.el.classList.remove('flash'); void lastLog.el.offsetWidth;
+    lastLog.el.classList.add('flash');
+    el.scrollTop = el.scrollHeight;
+  };
+  // "Ada taps Plains" bursts fold into "Ada taps 3 Plains and 2 Forest"
+  const tm = (typeof e.s === 'string') && e.s.match(/^(.+?) (taps|untaps) (.+)$/);
+  if(tm && lastLog && lastLog.agg && now - lastLog.at < 6000 &&
+     lastLog.agg.actor === tm[1] && lastLog.agg.verb === tm[2]){
+    lastLog.agg.counts[tm[3]] = (lastLog.agg.counts[tm[3]] || 0) + 1;
+    lastLog.s = tapAggText(lastLog.agg);
+    refresh();
+    return;
+  }
   if(lastLog && now - lastLog.at < 6000 && !e.img && typeof e.s === 'string'){
     const merged = tryMergeLog(lastLog.s, e.s);
     if(merged){
-      lastLog.s = merged; lastLog.at = now;
-      lastLog.tx.textContent = merged;
-      lastLog.el.classList.remove('flash'); void lastLog.el.offsetWidth;
-      lastLog.el.classList.add('flash');
-      el.scrollTop = el.scrollHeight;
+      lastLog.s = merged;
+      lastLog.agg = null;
+      refresh();
       return;
     }
   }
@@ -3404,7 +3564,8 @@ function appendTLog(e){
   d.appendChild(ts); d.appendChild(tx);
   if(e.img) attachHover(d, { imgL: e.img, name: '' });
   el.appendChild(d);
-  lastLog = { el: d, tx, s: e.s, at: now };
+  lastLog = { el: d, tx, s: e.s, at: now,
+    agg: tm ? { actor: tm[1], verb: tm[2], counts: { [tm[3]]: 1 } } : null };
   while(el.children.length > 300) el.removeChild(el.firstChild);
   el.scrollTop = el.scrollHeight;
 }
@@ -3489,10 +3650,18 @@ function renderBetween(){
         esc(snap.seats[0].name) + ' <b style="color:var(--gold-hi)">' + snap.score[0] + ' — ' + snap.score[1] + '</b> ' + esc(snap.seats[1].name) + '</div>';
       const row = document.createElement('div'); row.style.cssText = 'display:flex; gap:10px;';
       if(A.ts >= 0){
-        if(A.pool.length){
+        if(A.sbPool && A.sbPool.length){
           const sb = document.createElement('button'); sb.className = 'btn sm';
           sb.textContent = 'Sideboard';
-          sb.onclick = ()=>{ closeModal(); A.sideboard = true; $('bReadyBtn').textContent = 'Lock deck & return'; renderBuild(); showScr('build'); };
+          sb.onclick = ()=>{
+            closeModal();
+            A.pool = A.sbPool;
+            A.deckIds = new Set(A.sbMain);
+            A.lands = Object.assign({ W:0,U:0,B:0,R:0,G:0 }, A.sbLands || {});
+            A.sideboard = true;
+            $('bReadyBtn').textContent = 'Lock deck & return';
+            renderBuild(); showScr('build');
+          };
           row.appendChild(sb);
         }
         const next = document.createElement('button'); next.className = 'btn sm gold';
@@ -3591,21 +3760,73 @@ function openSearch(cards){
 }
 function closeGridOv(){ $('gridOv').classList.remove('on'); $('gridBtns').innerHTML = ''; }
 // ---------- token overlay ----------
-$('tTokenBtn').onclick = ()=>{ $('tokResults').innerHTML = ''; $('tokenOv').classList.add('on'); $('tokSearch').focus(); };
+function saveRecentTok(p){
+  const rec = JSON.parse(localStorage.getItem('wheel-tok-recent') || '[]').filter(x=>x.name !== p.name);
+  rec.unshift({ sid: p.sid, name: p.name, type: p.type, text: p.text, colors: p.colors,
+    img: p.img, imgL: p.imgL, pt: p.pt, loy: p.loy || null });
+  localStorage.setItem('wheel-tok-recent', JSON.stringify(rec.slice(0, 8)));
+}
+function tokCard(p){
+  const c = crdEl(p);
+  c.onclick = ()=>{
+    saveRecentTok(p);
+    act({ t: 'token', proto: p, row: 0, slot: freeSlot(0) });
+    $('tokenOv').classList.remove('on');
+  };
+  return c;
+}
+function addTokGroup(label, protos){
+  const el = $('tokResults');
+  const lbl = document.createElement('div');
+  lbl.className = 'dim';
+  lbl.style.cssText = 'grid-column:1/-1; font-size:10px; letter-spacing:2px; text-transform:uppercase;';
+  lbl.textContent = label;
+  el.appendChild(lbl);
+  for(const p of protos) el.appendChild(tokCard(p));
+}
+$('tTokenBtn').onclick = ()=>{
+  const el = $('tokResults'); el.innerHTML = '';
+  // tokens made by cards currently in play, both sides
+  const ids = new Set();
+  if(A.snap && A.ts >= 0){
+    for(const s of A.snap.seats) for(const c of s.bf) for(const t of (c.tks||[])) ids.add(t);
+    const me = mySeat();
+    for(const c of (A.snap.seats[me].hand||[])) for(const t of (c.tks||[])) ids.add(t);
+  }
+  if(ids.size){
+    addTokGroup('from cards in play', []);
+    act({ t: 'tokq', ids: [...ids] });
+  }
+  const rec = JSON.parse(localStorage.getItem('wheel-tok-recent') || '[]');
+  if(rec.length) addTokGroup('recent', rec);
+  if(!ids.size && !rec.length) el.innerHTML = '<span class="dim">search for a token above</span>';
+  $('tokenOv').classList.add('on');
+  $('tokSearch').value = ''; $('tokSearch').focus();
+};
 $('tokGoBtn').onclick = ()=>{ const q = $('tokSearch').value.trim(); if(q){ $('tokResults').innerHTML = '<span class="dim">searching…</span>'; act({ t: 'tokq', q }); } };
 $('tokSearch').addEventListener('keydown', e=>{ if(e.key === 'Enter') $('tokGoBtn').click(); });
-function renderTokResults(protos){
-  const el = $('tokResults'); el.innerHTML = '';
-  if(!protos || !protos.length){ el.innerHTML = '<span class="dim">no tokens found</span>'; return; }
-  for(const p of protos){
-    const c = crdEl(p);
-    c.onclick = ()=>{ act({ t: 'token', proto: p, row: 0, slot: freeSlot(0) }); $('tokenOv').classList.remove('on'); };
-    el.appendChild(c);
+function renderTokResults(protos, rel){
+  const el = $('tokResults');
+  if(rel){
+    // fill the placeholder "from cards in play" group at the top
+    const first = el.firstChild;
+    if(protos && protos.length){
+      const frag = document.createDocumentFragment();
+      for(const p of protos) frag.appendChild(tokCard(p));
+      if(first && first.nextSibling) el.insertBefore(frag, first.nextSibling);
+      else el.appendChild(frag);
+    } else if(first) first.remove();
+    return;
   }
+  el.innerHTML = '';
+  if(!protos || !protos.length){ el.innerHTML = '<span class="dim">no tokens found</span>'; return; }
+  for(const p of protos) el.appendChild(tokCard(p));
 }
 $('tokMakeBtn').onclick = ()=>{
   const name = $('tokName').value.trim() || 'Token';
-  act({ t: 'token', proto: { name, pt: $('tokPT').value.trim() || null, type: 'Token' }, row: 0, slot: freeSlot(0) });
+  const proto = { name, pt: $('tokPT').value.trim() || null, type: 'Token' };
+  saveRecentTok(proto);
+  act({ t: 'token', proto, row: 0, slot: freeSlot(0) });
   $('tokenOv').classList.remove('on');
 };
 $('tokCancel').onclick = ()=>$('tokenOv').classList.remove('on');
@@ -3618,7 +3839,9 @@ $('bReadyBtn').onclick = ()=>{
     act({ t: 'deckSwap', main: [...A.deckIds], lands: A.lands });
     A.sideboard = false;
     $('bReadyBtn').textContent = 'Ready';
+    A.shownBetween = 0; // re-offer the Deal-next-game modal on return
     showScr('table');
+    renderTable();
     return;
   }
   origReady();
@@ -3649,7 +3872,7 @@ document.addEventListener('keydown', e=>{
     if(k === 'd') act({ t: 'draw', n: 1 });
     else if(k === 'u') act({ t: 'untapAll' });
     else if(k === 's') act({ t: 'shuffle' });
-    else if(k === 'n') act({ t: 'turn' });
+    else if(k === 'n') $('tTurnBtn').click(); // deals next game while between games
   }
 });
 document.querySelectorAll('.tovl').forEach(ov=>{
