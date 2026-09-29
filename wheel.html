@@ -148,6 +148,21 @@ label.cfg{display:flex; align-items:center; gap:8px; font-size:13px; color:var(-
 .seatrow .tag{font-size:10px; letter-spacing:1px; color:var(--ink-dim); text-transform:uppercase;}
 .seatrow.me{border-color:var(--line2);}
 .seatrow .crown{color:var(--gold); font-size:13px;}
+.seatrow .num{font-size:10px; color:var(--ink-dim); width:14px; text-align:right; font-variant-numeric:tabular-nums; flex:none;}
+.seatrow.bot{color:var(--ink-soft);}
+.seatrow.grab{cursor:grab;}
+.seatrow.grab:hover{border-color:var(--line2);}
+.seatrow.dragging{opacity:.4;}
+.seatrow.dropAbove{box-shadow:0 -2px 0 var(--gold);}
+.seatrow.dropBelow{box-shadow:0 2px 0 var(--gold);}
+.seatrow .mv{display:flex; flex-direction:column; gap:1px; flex:none;}
+.seatrow .mv button{
+  font:inherit; font-size:9px; line-height:1; padding:1px 4px; cursor:pointer;
+  background:transparent; border:1px solid var(--line); border-radius:2px; color:var(--ink-dim);
+}
+.seatrow .mv button:hover:not(:disabled){border-color:var(--gold); color:var(--gold);}
+.seatrow .mv button:disabled{opacity:.25; cursor:default;}
+#lobOrderHint{font-size:11px; color:var(--ink-dim); margin-top:8px; letter-spacing:.3px;}
 #lobCfgP{width:520px; flex:none;}
 .cfgrow{display:flex; align-items:center; gap:12px; margin:10px 0; flex-wrap:wrap;}
 .cfgrow .lbl{width:110px; flex:none; font-size:12px; letter-spacing:1.5px; text-transform:uppercase; color:var(--ink-dim);}
@@ -520,6 +535,7 @@ label.cfg{display:flex; align-items:center; gap:8px; font-size:13px; color:var(-
     <div class="panel" id="lobRosterP">
       <h3>Seats</h3>
       <div id="lobRoster"></div>
+      <div id="lobOrderHint"></div>
       <div class="rule"></div>
       <div style="display:flex; gap:8px;">
         <button class="btn sm" id="readyBtn">Ready</button>
@@ -1631,26 +1647,35 @@ function makeCode(){
 }
 // guest (or host-as-player) -> host
 function gsend(m){
-  if(net.mode === 'host'){ setTimeout(()=>hostRecv(0, m), 0); }
+  if(net.mode === 'host'){ setTimeout(()=>hostRecv(hostSeat(), m), 0); }
   else if(net.hostConn && net.hostConn.open){ try{ net.hostConn.send(m); }catch(e){} }
 }
 // host -> one seat
 function hsend(seat, m){
   const p = H.players[seat];
   if(!p || p.bot) return;
-  if(seat === 0){ setTimeout(()=>clientRecv(m), 0); return; }
+  if(p.token === 'host'){ setTimeout(()=>clientRecv(m), 0); return; }
   if(p.conn && p.conn.open){ try{ p.conn.send(m); }catch(e){} }
 }
 // host -> all humans
 function hall(m){
   for(const p of H.players) if(!p.bot) hsend(p.seat, m);
 }
-function hostOpenPeer(){
+function hostOpenPeer(tries){
   if(typeof Peer === 'undefined'){ lobMsg('offline mode — no peer server; solo only'); return; }
+  tries = tries || 0;
   try{
     net.peer = new Peer('whl-' + net.code, peerOpts());
-    net.peer.on('open', ()=>{ net.open = true; ui.lobCode.textContent = net.code; });
-    net.peer.on('error', (e)=>{ if(!net.open) lobMsg('peer server unreachable — solo drafting still works'); });
+    net.peer.on('open', ()=>{ net.open = true; ui.lobCode.textContent = net.code; lobMsg(''); });
+    net.peer.on('error', (e)=>{
+      if(e && e.type === 'unavailable-id' && tries < 12){ // previous host's id not released yet
+        try{ net.peer.destroy(); }catch(_){}
+        lobMsg('claiming lobby code…');
+        setTimeout(()=>hostOpenPeer(tries + 1), 700);
+        return;
+      }
+      if(!net.open) lobMsg('peer server unreachable — solo drafting still works');
+    });
     net.peer.on('connection', (conn)=>{
       conn.on('data', (m)=>hostRecvConn(conn, m));
       conn.on('close', ()=>hostDropConn(conn));
@@ -1659,15 +1684,19 @@ function hostOpenPeer(){
   }catch(e){ lobMsg('peer init failed — solo drafting still works'); }
 }
 function guestJoin(code, onFail){
-  net.mode = 'guest'; net.code = code;
+  net.mode = 'guest'; net.code = code; net.hostConn = null;
+  if(net.peer){ try{ net.peer.destroy(); }catch(e){} net.peer = null; }
   try{
     net.peer = new Peer(peerOpts());
   }catch(e){ onFail('peer init failed'); return; }
-  net.peer.on('error', (e)=>{
+  const myPeer = net.peer;
+  myPeer.on('error', (e)=>{
+    if(net.peer !== myPeer) return; // a newer attempt owns the connection now
     if(e.type === 'peer-unavailable') onFail('no lobby answers to ' + code);
   });
-  net.peer.on('open', ()=>{
-    const conn = net.peer.connect('whl-' + code, { reliable: true });
+  myPeer.on('open', ()=>{
+    if(net.peer !== myPeer) return;
+    const conn = myPeer.connect('whl-' + code, { reliable: true });
     net.hostConn = conn;
     let opened = false;
     conn.on('open', ()=>{
@@ -1679,8 +1708,12 @@ function guestJoin(code, onFail){
       conn.send({ t: 'hello', name: A.name, token: tok });
     });
     conn.on('data', (m)=>clientRecv(m));
-    conn.on('close', ()=>{ if(opened) toast('connection to host lost'); });
-    setTimeout(()=>{ if(!opened) onFail('could not reach lobby ' + code); }, 9000);
+    conn.on('close', ()=>{
+      if(net.peer !== myPeer || net.pendingHost) return;
+      if(net.rejoin){ const c = net.rejoin; net.rejoin = null; setTimeout(()=>rejoinLoop(c, 0), 1500); return; }
+      if(opened) toast('connection to host lost');
+    });
+    setTimeout(()=>{ if(!opened && net.peer === myPeer) onFail('could not reach lobby ' + code); }, 9000);
   });
 }
 // ================= HOST CONTROLLER =================
@@ -1689,7 +1722,7 @@ const H = {
   on: false, phase: 'lobby',
   cfg: { mode:'draft', src:'set', sets:['fdn','fdn','fdn'], setName:'Foundations', sameSet:true,
          cubeText:'', cubeProtos:null, tmplSets:'fdn', podSize:7, packsEach:3,
-         timer:'leisure', dest:'tables', bo:3, livePicks:false },
+         timer:'leisure', dest:'tables', bo:3, livePicks:false, botsFill:true },
   players: [], rng: null, draft: null, perPack: 15,
   sel: {}, dl: {}, botAt: {}, paused: false, pausedAt: 0, tick: null,
   decks: {}, recap: null, pairs: null, tables: [], results: [], viewTid: {}, starting: false,
@@ -1705,17 +1738,137 @@ function hostInit(mode){
   net.code = makeCode();
   localStorage.setItem('wheel-last', net.code);
   hostOpenPeer();
+  syncLobbyBots();
   broadcastLobby();
+}
+function hostSeat(){ const i = H.players.findIndex(p=>p.token === 'host'); return i < 0 ? 0 : i; }
+// seat number == index in H.players == draft position. After any roster change, make them agree
+// again, rekey seat-indexed state, and tell every human where they now sit.
+function renumberSeats(){
+  const oldDecks = H.decks || {}, oldReg = H.sbReg || {};
+  const decks = {}, reg = {};
+  H.players.forEach((p,i)=>{ if(oldDecks[p.seat]) decks[i] = oldDecks[p.seat]; if(oldReg[p.seat]) reg[i] = oldReg[p.seat]; });
+  H.decks = decks; H.sbReg = reg;
+  H.players.forEach((p,i)=>{
+    const moved = p.seat !== i;
+    p.seat = i;
+    if(p.conn) p.conn._seat = i;
+    if(p.token === 'host') A.seat = i;
+    else if(moved && !p.bot) hsend(i, { t: 'seat', seat: i });
+  });
+}
+function freeBotName(){
+  const used = new Set(H.players.map(p=>p.name));
+  for(const n of BOT_NAMES){ if(!used.has(n + ' (bot)')) return n + ' (bot)'; }
+  return 'Bot ' + (H.players.filter(p=>p.bot).length + 1);
+}
+// keep exactly (podSize - humans) bots in the roster (draft mode with bot fill on), else none.
+// bots live in the lobby so the host can slot them into the passing order like anyone else.
+function syncLobbyBots(){
+  if(H.phase !== 'lobby') return;
+  const humans = H.players.filter(p=>!p.bot).length;
+  const want = (H.cfg.mode === 'draft' && H.cfg.botsFill) ? Math.max(0, H.cfg.podSize - humans) : 0;
+  let have = H.players.filter(p=>p.bot).length;
+  while(have > want){ // drop bots from the bottom of the list first
+    let i = H.players.length - 1; while(i >= 0 && !H.players[i].bot) i--;
+    if(i < 0) break;
+    H.players.splice(i, 1); have--;
+  }
+  let bi = 0;
+  while(have < want){
+    H.players.push({ seat: H.players.length, name: freeBotName(), token: 'bot' + (++bi) + '-' + Math.random().toString(36).slice(2,7),
+      conn: null, bot: true, ready: true, connected: true });
+    have++;
+  }
+  renumberSeats();
+}
+// ---- host transfer (lobby only): hand the authoritative state to another human, everyone
+// reconnects to the same lobby code once the new host claims it. ----
+function hostTransfer(seat){
+  if(H.phase !== 'lobby' || H.transferring) return;
+  const tgt = H.players[seat];
+  if(!tgt || tgt.bot || tgt.token === 'host' || !tgt.connected || !tgt.conn) return;
+  H.transferring = true;
+  const myTok = Math.random().toString(36).slice(2, 10);
+  localStorage.setItem('wheel-token-' + net.code, myTok); // so we can reclaim our seat under the new host
+  const state = {
+    t: 'handoff', code: net.code, cfg: H.cfg, decks: H.decks || {}, sbReg: H.sbReg || {}, sbSeq: H.sbSeq || 0,
+    players: H.players.map(p=>({ seat: p.seat, name: p.name, bot: p.bot, ready: p.token === 'host' ? false : p.ready,
+      token: p.token === 'host' ? myTok : (p === tgt ? 'host' : p.token) }))
+  };
+  const finish = ()=>{
+    if(!H.transferring) return; H.transferring = false;
+    for(const p of H.players) if(!p.bot && p.token !== 'host' && p !== tgt) hsend(p.seat, { t: 'hostMoved', name: tgt.name });
+    hall({ t: 'chat', from: '', x: tgt.name + ' is now the host', sys: true });
+    setTimeout(()=>{
+      try{ net.peer.destroy(); }catch(e){}
+      net.peer = null; net.open = false; net.mode = null;
+      A.isHost = false;
+      H.players = []; H.decks = {}; H.sbReg = {};
+      toast('handing the lobby to ' + tgt.name + '…');
+      setTimeout(()=>rejoinLoop(state.code, 0), 1800);
+    }, 400);
+  };
+  H.onHandoffAck = finish;
+  hsend(seat, state);
+  setTimeout(finish, 4000); // ack fallback
+}
+function becomeHost(m){
+  if(net.hostConn){ try{ net.hostConn.close(); }catch(e){} }
+  if(net.peer){ try{ net.peer.destroy(); }catch(e){} }
+  net.peer = null; net.hostConn = null; net.open = false; net.mode = 'host'; net.code = m.code; net.rejoin = null; net.pendingHost = false;
+  A.isHost = true;
+  H.phase = 'lobby'; H.draft = null; H.recap = null; H.pairs = null; H.tables = []; H.results = [];
+  H.sel = {}; H.dl = {}; H.botAt = {}; H.starting = false; H.transferring = false;
+  H.cfg = m.cfg || H.cfg;
+  H.decks = m.decks || {}; H.sbReg = m.sbReg || {}; H.sbSeq = m.sbSeq || 0;
+  H.players = (m.players || []).map(p=>({ seat: p.seat, name: p.name, token: p.token, conn: null, bot: !!p.bot,
+    ready: p.bot || p.token === 'host' ? true : !!p.ready,
+    connected: !!p.bot || p.token === 'host', dcAt: (p.bot || p.token === 'host') ? 0 : Date.now() }));
+  H.players.sort((a,b)=>a.seat - b.seat);
+  renumberSeats();
+  localStorage.setItem('wheel-last', net.code);
+  ui.lobCode.textContent = '…';
+  hostOpenPeer();
+  reflectCfg(Object.assign({}, H.cfg, { cubeCount: H.cfg.cubeProtos ? H.cfg.cubeProtos.length : 0 }));
+  $('botsFill').checked = H.cfg.botsFill !== false;
+  syncLobbyBots();
+  broadcastLobby();
+  toast('you are the host now');
+}
+function rejoinLoop(code, tries){
+  if(A.isHost) return;
+  if(tries === 0) toast('reconnecting to the lobby…');
+  guestJoin(code, why=>{
+    if(tries < 10){ setTimeout(()=>rejoinLoop(code, tries + 1), 1200); return; }
+    showScr('home'); $('homeMsg').textContent = 'lost the lobby: ' + why;
+  });
+}
+function hostMoveSeat(from, to){
+  if(H.phase !== 'lobby') return;
+  const n = H.players.length;
+  if(from < 0 || from >= n || to < 0 || to >= n || from === to) return;
+  const [p] = H.players.splice(from, 1);
+  H.players.splice(to, 0, p);
+  renumberSeats();
+  broadcastLobby();
+}
+function hostShuffleSeats(){
+  if(H.phase !== 'lobby') return;
+  H.players = shuffled(H.players, Math.random.bind(Math));
+  renumberSeats();
+  broadcastLobby();
+  hall({ t: 'chat', from: '', x: 'seats shuffled', sys: true });
 }
 function lobbySnapshot(){
   return {
     mode: H.cfg.mode, phase: H.phase,
     players: H.players.map(p=>({ seat: p.seat, name: p.name, bot: p.bot, ready: p.ready,
-      connected: p.connected, host: p.seat === 0, hasDeck: !!(H.decks[p.seat] && H.decks[p.seat].protos) })),
+      connected: p.connected, host: p.token === 'host', hasDeck: !!(H.decks[p.seat] && H.decks[p.seat].protos) })),
     cfg: {
       src: H.cfg.src, sets: H.cfg.sets, setName: H.cfg.setName, sameSet: H.cfg.sameSet,
       podSize: H.cfg.podSize, packsEach: H.cfg.packsEach, timer: H.cfg.timer,
-      dest: H.cfg.dest, bo: H.cfg.bo, livePicks: H.cfg.livePicks, tmplSets: H.cfg.tmplSets,
+      dest: H.cfg.dest, bo: H.cfg.bo, livePicks: H.cfg.livePicks, tmplSets: H.cfg.tmplSets, botsFill: H.cfg.botsFill !== false,
       cubeCount: H.cfg.cubeProtos ? H.cfg.cubeProtos.length : 0
     }
   };
@@ -1723,7 +1876,7 @@ function lobbySnapshot(){
 function broadcastLobby(){ hall({ t: 'lobby', l: lobbySnapshot() }); }
 function hostRecvConn(conn, m){
   if(m && m.t === 'hello'){
-    const reclaim = H.players.find(p=>!p.bot && p.token === m.token && p.seat !== 0);
+    const reclaim = m.token !== 'host' && H.players.find(p=>!p.bot && p.token === m.token && p.token !== 'host');
     if(reclaim){
       reclaim.conn = conn; reclaim.connected = true; reclaim.dcAt = 0;
       reclaim.name = String(m.name||reclaim.name).slice(0,18) || reclaim.name;
@@ -1736,11 +1889,15 @@ function hostRecvConn(conn, m){
     if(H.phase !== 'lobby'){ conn.send({ t: 'deny', why: 'night already in progress' }); return; }
     const humans = H.players.filter(p=>!p.bot).length;
     if(humans >= H.cfg.podSize){ conn.send({ t: 'deny', why: 'lobby is full' }); return; }
-    const seat = H.players.length;
-    H.players.push({ seat, name: String(m.name||'guest').slice(0,18) || 'guest', token: m.token,
-      conn, bot: false, ready: false, connected: true });
-    conn._seat = seat;
-    conn.send({ t: 'welcome', seat, code: net.code });
+    const np = { seat: -1, name: String(m.name||'guest').slice(0,18) || 'guest', token: m.token,
+      conn, bot: false, ready: false, connected: true };
+    const bi = H.players.findIndex(p=>p.bot);
+    if(bi >= 0) H.players.splice(bi, 1, np); // take the first placeholder bot's seat
+    else H.players.push(np);
+    renumberSeats();
+    conn._seat = np.seat;
+    conn.send({ t: 'welcome', seat: np.seat, code: net.code });
+    syncLobbyBots();
     broadcastLobby();
     hall({ t: 'chat', from: '', x: (m.name||'guest') + ' joined', sys: true });
     return;
@@ -1782,6 +1939,7 @@ function hostRecv(seat, m){
   const p = H.players[seat]; if(!p) return;
   switch(m.t){
     case 'ready': p.ready = !!m.v; broadcastLobby(); break;
+    case 'handoffAck': if(H.onHandoffAck){ const f = H.onHandoffAck; H.onHandoffAck = null; f(); } break;
     case 'chat': hall({ t: 'chat', from: p.name, x: String(m.x||'').slice(0,200) }); break;
     case 'sel': H.sel[seat] = m.id; break;
     case 'pick': if(H.phase === 'draft' && !H.paused) hostPick(seat, m.id, false); break;
@@ -1863,15 +2021,9 @@ async function hostStartDraft(){
   if(!H.cfg.botsFill && humans.length < 2){ lobMsg('need 2+ players (or enable bots)'); return; }
   H.starting = true; lobMsg('');
   try{
-    H.cfg.podSize = Math.max(H.cfg.podSize, humans.length);
+    H.cfg.podSize = H.cfg.botsFill ? Math.max(H.cfg.podSize, humans.length) : humans.length;
     H.rng = mulberry32((Date.now() & 0xffffff) ^ Math.floor(Math.random()*1e9));
-    // fill with bots
-    H.players = H.players.filter(p=>!p.bot);
-    let bi = 0;
-    while(H.players.length < H.cfg.podSize){
-      H.players.push({ seat: H.players.length, name: BOT_NAMES[bi++ % BOT_NAMES.length] + ' (bot)',
-        token: 'bot'+bi, conn: null, bot: true, ready: true, connected: true });
-    }
+    syncLobbyBots(); // bots already sit in the roster in the host's chosen order; just true-up the count
     const rounds = await buildRounds();
     H.draft = makeDraft(H.players.length, rounds);
     draftOpenRound(H.draft);
@@ -1972,7 +2124,7 @@ function hostPlus30(){
   hall({ t: 'toast', s: 'host added 30s' });
 }
 function hostBotify(seat, v){
-  const p = H.players[seat]; if(!p || p.seat === 0) return;
+  const p = H.players[seat]; if(!p || p.token === 'host') return;
   if(v){ p.connected = false; p.dcAt = 1; hall({ t:'toast', s: p.name + ' is now piloted by a bot' }); }
   else { p.dcAt = 0; p.connected = !!p.conn; hall({ t:'toast', s: p.name + ' resumes control' }); }
   pushDraftStatus();
@@ -1980,8 +2132,8 @@ function hostBotify(seat, v){
 function hostAbort(){
   if(H.tick){ clearInterval(H.tick); H.tick = null; }
   H.phase = 'lobby'; H.draft = null; H.decks = {}; H.tables = []; H.results = []; H.pairs = null; H.sbReg = {};
-  H.players = H.players.filter(p=>!p.bot);
-  for(const p of H.players) if(p.seat !== 0) p.ready = false;
+  for(const p of H.players) if(p.token !== 'host') p.ready = false;
+  syncLobbyBots();
   hall({ t: 'phase', p: 'lobby' });
   broadcastLobby();
   hall({ t: 'toast', s: 'back to the lobby' });
@@ -2350,6 +2502,18 @@ function clientRecv(m){
   if(!m || typeof m !== 'object') return;
   switch(m.t){
     case 'welcome': A.seat = m.seat; if(m.code) ui.lobCode.textContent = m.code; showScr('lobby'); break;
+    case 'seat': A.seat = m.seat; if(A.lobby) renderLobby(); break;
+    case 'handoff': {
+      if(A.isHost) break;
+      gsend({ t: 'handoffAck' });
+      let done = false;
+      const go = ()=>{ if(done) return; done = true; becomeHost(m); };
+      net.rejoin = null; net.pendingHost = true;
+      if(net.hostConn) net.hostConn.on('close', ()=>setTimeout(go, 300));
+      setTimeout(go, 3000); // if the old host's close never reaches us
+      break;
+    }
+    case 'hostMoved': net.rejoin = net.code; toast(m.name + ' is now the host — reconnecting…'); break;
     case 'deny': showScr('home'); $('homeMsg').textContent = m.why; break;
     case 'lobby': A.lobby = m.l; A.mode = m.l.mode; renderLobby(); break;
     case 'phase': onPhase(m); break;
@@ -2457,6 +2621,9 @@ function joinGo(){
   }
 })();
 // ---------- lobby ----------
+let dragSeat = -1;
+function clearDropMarks(){ document.querySelectorAll('#lobRoster .seatrow').forEach(x=>x.classList.remove('dropAbove', 'dropBelow', 'dragging')); }
+$('shuffleSeatsBtn').onclick = ()=>{ if(A.isHost) hostShuffleSeats(); };
 function renderLobby(){
   const l = A.lobby; if(!l) return;
   $('lobMode').textContent = l.mode === 'table' ? 'table only' : 'draft night';
@@ -2465,29 +2632,62 @@ function renderLobby(){
   if(A.isHost) ui.lobCode.textContent = net.open ? net.code : '…';
   // roster
   const r = $('lobRoster'); r.innerHTML = '';
-  for(const p of l.players){
+  const canOrder = A.isHost && l.phase === 'lobby' && l.players.length > 1;
+  const n = l.players.length;
+  l.players.forEach((p, idx)=>{
     const d = document.createElement('div');
-    d.className = 'seatrow' + (p.seat === A.seat ? ' me' : '');
+    d.className = 'seatrow' + (p.seat === A.seat ? ' me' : '') + (p.bot ? ' bot' : '') + (canOrder ? ' grab' : '');
     d.innerHTML =
+      '<span class="num">' + (idx + 1) + '</span>' +
       '<span class="dot' + (p.connected ? (p.ready ? ' rdy' : '') : ' dc') + '"></span>' +
       '<span class="who">' + esc(p.name) + (p.seat === A.seat ? ' <span class="tag">you</span>' : '') + '</span>' +
       (l.mode === 'table' && p.hasDeck ? '<span class="tag">deck in</span>' : '') +
       (p.host ? '<span class="crown">&#9812;</span>' : '');
-    if(A.isHost && !p.host){
+    if(canOrder){
+      const mv = document.createElement('span'); mv.className = 'mv';
+      const up = document.createElement('button'); up.innerHTML = '&#9650;'; up.title = 'move up';
+      up.disabled = idx === 0; up.onclick = e=>{ e.stopPropagation(); hostMoveSeat(idx, idx - 1); };
+      const dn = document.createElement('button'); dn.innerHTML = '&#9660;'; dn.title = 'move down';
+      dn.disabled = idx === n - 1; dn.onclick = e=>{ e.stopPropagation(); hostMoveSeat(idx, idx + 1); };
+      mv.appendChild(up); mv.appendChild(dn);
+      d.appendChild(mv);
+      // drag to reorder
+      d.draggable = true;
+      d.addEventListener('dragstart', e=>{ dragSeat = idx; d.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; try{ e.dataTransfer.setData('text/plain', String(idx)); }catch(_){ } });
+      d.addEventListener('dragend', ()=>{ dragSeat = -1; clearDropMarks(); });
+      d.addEventListener('dragover', e=>{
+        if(dragSeat < 0 || dragSeat === idx) return;
+        e.preventDefault(); e.dataTransfer.dropEffect = 'move';
+        clearDropMarks(); d.classList.add(dragSeat < idx ? 'dropBelow' : 'dropAbove');
+      });
+      d.addEventListener('dragleave', ()=>{ d.classList.remove('dropAbove', 'dropBelow'); });
+      d.addEventListener('drop', e=>{ e.preventDefault(); if(dragSeat >= 0 && dragSeat !== idx) hostMoveSeat(dragSeat, idx); dragSeat = -1; clearDropMarks(); });
+    }
+    if(A.isHost && !p.host && !p.bot){
+      if(l.phase === 'lobby' && p.connected){
+        const h = document.createElement('button');
+        h.className = 'btn xs ghost'; h.innerHTML = '&#9812;'; h.title = 'make ' + p.name + ' the host';
+        h.onclick = e=>{ e.stopPropagation(); askConfirm('Hand the lobby to ' + p.name + '? Everyone reconnects to the same code.', 'Transfer host', ()=>hostTransfer(p.seat)); };
+        d.appendChild(h);
+      }
       const x = document.createElement('button');
       x.className = 'btn xs ghost'; x.textContent = 'kick';
-      x.onclick = ()=>{ hostKick(p.seat); };
+      x.onclick = e=>{ e.stopPropagation(); hostKick(p.seat); };
       d.appendChild(x);
     }
     r.appendChild(d);
-  }
+  });
   const openSeats = (l.cfg ? l.cfg.podSize : 8) - l.players.length;
   for(let i=0;i<Math.max(0, Math.min(openSeats, 8));i++){
     const d = document.createElement('div');
     d.className = 'seatrow'; d.style.opacity = '.4';
-    d.innerHTML = '<span class="dot"></span><span class="who dimmer">open seat</span>';
+    d.innerHTML = '<span class="num"></span><span class="dot"></span><span class="who dimmer">open seat</span>';
     r.appendChild(d);
   }
+  $('lobOrderHint').textContent = l.mode === 'draft'
+    ? (canOrder ? 'top to bottom is the passing order for pack 1 — drag rows or use the arrows' : 'top to bottom is the passing order for pack 1')
+    : '';
+  $('shuffleSeatsBtn').style.display = canOrder ? '' : 'none';
   // controls
   $('readyBtn').style.display = A.isHost ? 'none' : '';
   const me = l.players.find(p=>p.seat === A.seat);
@@ -2510,6 +2710,7 @@ function reflectCfg(c){
   $('podSize').value = c.podSize; $('packsEach').value = c.packsEach;
   $('timerSel').value = c.timer; $('destSel').value = c.dest; $('boSel').value = c.bo;
   $('livePicks').checked = !!c.livePicks;
+  if(c.botsFill != null) $('botsFill').checked = !!c.botsFill;
 }
 function showSrcBody(src){
   $('srcSet').style.display = src === 'set' ? '' : 'none';
@@ -2540,6 +2741,7 @@ function syncCfgFromUI(){
   H.cfg.livePicks = $('livePicks').checked;
   H.cfg.botsFill = $('botsFill').checked;
   H.cfg.tmplSets = $('tmplSets').value;
+  syncLobbyBots();
   broadcastLobby();
 }
 for(const id of ['sameSet','podSize','packsEach','timerSel','destSel','boSel','livePicks','botsFill','tmplSets'])
@@ -2635,7 +2837,8 @@ function hostKick(seat){
   const p = H.players[seat]; if(!p) return;
   if(p.conn){ try{ p.conn.close(); }catch(e){} }
   H.players.splice(seat, 1);
-  H.players.forEach((x,i)=>{ x.seat = i; if(x.conn) x.conn._seat = i; });
+  renumberSeats();
+  syncLobbyBots();
   broadcastLobby();
   hall({ t: 'chat', from: '', x: p.name + ' was removed', sys: true });
 }
@@ -2775,7 +2978,7 @@ $('dHostMenuBtn').onclick = (e)=>{
     { sep: true }
   ];
   for(const p of H.players){
-    if(p.seat === 0 || p.bot) continue;
+    if(p.token === 'host' || p.bot) continue;
     const botted = !p.connected;
     items.push({ label: (botted ? 'Return control: ' : 'Hand to bot: ') + p.name,
       fn: ()=>hostBotify(p.seat, !botted) });
