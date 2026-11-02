@@ -203,7 +203,7 @@ summary{cursor:pointer;color:var(--muted);font-size:15px;padding:6px 0}
 
 /* ---------- constants ---------- */
 const LS = { key:'dutch.key', model:'dutch.model', state:'dutch.state.v1', recent:'dutch.recent' };
-const DEFAULT_MODEL = 'gemini-flash-latest';
+const DEFAULT_MODEL = 'gemini-3.1-flash-lite';
 const COLORS = ['#2f56e0','#d1307a','#1f8a4c','#d9581a','#0f7f86','#9a6b00','#7a3fb0','#4a5568'];
 const STEPS = ['Receipt','People','Items','Assign','Split'];
 const MOBILE = /iPhone|iPad|Android/i.test(navigator.userAgent);
@@ -451,7 +451,7 @@ async function diagnoseNetwork(key){
 }
 class ApiError extends Error {}
 async function callGemini(url, body){
-  const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 90000);
+  const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 60000);
   try {
     const res = await fetch(url, { method:'POST', headers:{ 'Content-Type':'application/json' }, body, signal:ctl.signal });
     if (res.ok) return { ok:true, data:await res.json() };
@@ -462,37 +462,40 @@ async function callGemini(url, body){
     throw e;
   } finally { clearTimeout(timer); }
 }
+// Receipts don't need deep reasoning. Newer Gemini models think a lot by default, which is slow and costs more.
+function thinkingFor(model){
+  return /2\.5/.test(model) ? { thinkingBudget:0 } : { thinkingLevel:'minimal' };
+}
 async function scan(){
-  const key = getKey(); if (!key || !ui.photos.length) return;
+  const key = getKey(); if (!key || !ui.photos.length || ui.scanning) return;
   ui.scanning = true; ui.error = ''; ui.attempt = 1; render();
   try {
     const model = lsGet(LS.model) || DEFAULT_MODEL;
     const parts = ui.photos.map(d => ({ inline_data:{ mime_type:d.slice(5, d.indexOf(';')), data:d.split(',')[1] } }));
     parts.push({ text:PROMPT });
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`;
-    const body = JSON.stringify({ contents:[{ parts }], generationConfig:{ responseMimeType:'application/json', responseSchema:SCHEMA, temperature:0 } });
-    // Google sometimes times out on its side ("Deadline expired"), so retry a couple of times.
-    let r;
-    for (let attempt = 1; attempt <= 3; attempt++) {
-      ui.attempt = attempt; if (attempt > 1) render();
-      r = await callGemini(url, body);
-      if (r.ok || !r.transient) break;
-      if (attempt < 3) await new Promise(res => setTimeout(res, 1500 * attempt));
-    }
+    const mk = withThinking => JSON.stringify({
+      contents:[{ parts }],
+      generationConfig:{ responseMimeType:'application/json', responseSchema:SCHEMA, temperature:0, maxOutputTokens:8192, ...(withThinking ? { thinkingConfig:thinkingFor(model) } : {}) }
+    });
+    // One request, no automatic retries: every attempt can be billed.
+    let r = await callGemini(url, mk(true));
+    // A custom model that doesn't accept the thinking setting: ask once more without it.
+    if (!r.ok && r.status === 400 && /think/i.test(r.msg)) r = await callGemini(url, mk(false));
     if (!r.ok) {
-      if (r.status === 429) throw new ApiError('You’ve hit the free rate limit. Wait a minute and try again.');
+      if (r.status === 429) throw new ApiError('You’ve hit the rate limit. Wait a minute and try again.');
       if (r.status === 400 || r.status === 403) throw new ApiError('Google rejected the request. Check that the key and model name are right. ' + r.msg);
       if (r.status === 404) throw new ApiError('That model name doesn’t exist. Change it under the key settings.');
-      if (r.transient) throw new ApiError('Google timed out three times in a row. Try again in a minute, or use fewer photos.');
+      if (r.transient) throw new ApiError('Google timed out. I didn’t retry automatically, to avoid extra charges. Tap Read receipt to try again.');
       throw new ApiError(r.msg || `Request failed (${r.status}).`);
     }
-    let text = (r.data.candidates?.[0]?.content?.parts || []).map(p => p.text || '').join('').trim();
+    let text = (r.data.candidates?.[0]?.content?.parts || []).filter(p => !p.thought).map(p => p.text || '').join('').trim();
     text = text.replace(/^```(?:json)?/i, '').replace(/```$/, '').trim();
     if (!text) throw new ApiError('The model sent back nothing. Try a clearer photo.');
     applyReceipt(JSON.parse(text));
     if (!S.items.length) throw new ApiError('No line items found. Try a clearer, flatter photo.');
   } catch (e) {
-    if (e instanceof SyntaxError) ui.error = 'The response wasn’t readable. Try again.';
+    if (e instanceof SyntaxError) ui.error = 'The response wasn’t readable. Tap Read receipt to try again.';
     else if (e instanceof ApiError) ui.error = e.message;
     else ui.error = (await diagnoseNetwork(key)) + ` (${e && e.name}: ${e && e.message})`;
   }
@@ -534,7 +537,7 @@ function stepReceipt(){
     h += `<p class="muted small" style="margin-top:22px">Gemini key saved on this device (${esc(key.slice(0, 4))}…, ${key.length} characters). <button class="link tiny" data-act="editKey" style="padding:0">Change</button></p>`;
   }
   if (!hasItems && !ui.scanning) h += `<div><button class="link" data-act="manual">Skip the photo and type the items instead</button></div>`;
-  h += `<p class="muted small" style="margin-top:28px">dutch v7</p>`;
+  h += `<p class="muted small" style="margin-top:28px">dutch v8</p>`;
   return h;
 }
 
