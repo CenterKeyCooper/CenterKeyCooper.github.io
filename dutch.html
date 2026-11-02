@@ -12,14 +12,14 @@
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
---bg:#f5f6f7; --surface:#ffffff; --ink:#161a20; --muted:#667080; --line:#e0e3e8; --soft:#eceef1;
---hi:#ffd23f; --hi-ink:#161a20; --ok:#1d7a44; --bad:#c42f2f;
---display:"Bricolage Grotesque","Avenir Next","Segoe UI",system-ui,sans-serif;
---body:"Figtree",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
-color-scheme:light dark;
+  --bg:#f5f6f7; --surface:#ffffff; --ink:#161a20; --muted:#667080; --line:#e0e3e8; --soft:#eceef1;
+  --hi:#ffd23f; --hi-ink:#161a20; --ok:#1d7a44; --bad:#c42f2f;
+  --display:"Bricolage Grotesque","Avenir Next","Segoe UI",system-ui,sans-serif;
+  --body:"Figtree",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  color-scheme:light dark;
 }
 @media (prefers-color-scheme:dark){
-:root{ --bg:#101215; --surface:#181b20; --ink:#eef0f3; --muted:#8b93a0; --line:#282c33; --soft:#20242a; --ok:#5bc489; --bad:#ff7a73; }
+  :root{ --bg:#101215; --surface:#181b20; --ink:#eef0f3; --muted:#8b93a0; --line:#282c33; --soft:#20242a; --ok:#5bc489; --bad:#ff7a73; }
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 [hidden]{display:none!important}
@@ -215,21 +215,21 @@ const lsDel = k => { try { localStorage.removeItem(k); } catch {} };
 
 /* ---------- state ---------- */
 const fresh = () => ({
-step:0, people:[], payer:null, items:[], fees:[], tax:0,
-tip:{ mode:'pct', pct:20, flat:0, basis:'pre', fromReceipt:false },
-receipt:null, view:'item', activePerson:null, venmo:'', note:'Dinner'
+  step:0, people:[], payer:null, items:[], fees:[], tax:0,
+  tip:{ mode:'pct', pct:20, flat:0, basis:'pre', fromReceipt:false },
+  receipt:null, view:'item', activePerson:null, venmo:'', note:'Dinner'
 });
 function load(){
-try {
-const s = JSON.parse(lsGet(LS.state) || 'null');
-if (s && typeof s === 'object') {
-const m = { ...fresh(), ...s, tip:{ ...fresh().tip, ...(s.tip || {}) } };
-if (m.step >= 2 && (m.people.length < 2 || !m.payer)) m.step = 1;
-if (m.step >= 3 && !m.items.length) m.step = 2;
-return m;
-}
-} catch {}
-return fresh();
+  try {
+    const s = JSON.parse(lsGet(LS.state) || 'null');
+    if (s && typeof s === 'object') {
+      const m = { ...fresh(), ...s, tip:{ ...fresh().tip, ...(s.tip || {}) } };
+      if (m.step >= 2 && (m.people.length < 2 || !m.payer)) m.step = 1;
+      if (m.step >= 3 && !m.items.length) m.step = 2;
+      return m;
+    }
+  } catch {}
+  return fresh();
 }
 let S = load();
 const save = () => lsSet(LS.state, JSON.stringify(S));
@@ -254,61 +254,61 @@ const getRecent = () => { try { return JSON.parse(lsGet(LS.recent) || '[]'); } c
 
 const svg = (d, s = 22) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 const ICON = {
-camera: svg('<path d="M4 8h3l1.5-2h7L17 8h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>', 34),
-x: svg('<path d="M6 6l12 12M18 6L6 18"/>', 18),
-plus: svg('<path d="M12 5v14M5 12h14"/>', 20),
-check: svg('<path d="M5 12.5l4.5 4.5L19 7.5"/>', 16),
-back: svg('<path d="M15 5l-7 7 7 7"/>', 22)
+  camera: svg('<path d="M4 8h3l1.5-2h7L17 8h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>', 34),
+  x: svg('<path d="M6 6l12 12M18 6L6 18"/>', 18),
+  plus: svg('<path d="M12 5v14M5 12h14"/>', 20),
+  check: svg('<path d="M5 12.5l4.5 4.5L19 7.5"/>', 16),
+  back: svg('<path d="M15 5l-7 7 7 7"/>', 22)
 };
 const LOGO = `<svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="14" fill="currentColor"/><path d="M16 2v28" stroke="#ffd23f" stroke-width="3.5"/></svg>`;
 
 function toast(msg){
-$toast.textContent = msg; $toast.hidden = false;
-clearTimeout(toast.t); toast.t = setTimeout(() => { $toast.hidden = true; }, 1600);
+  $toast.textContent = msg; $toast.hidden = false;
+  clearTimeout(toast.t); toast.t = setTimeout(() => { $toast.hidden = true; }, 1600);
 }
 async function copyText(t){
-try { await navigator.clipboard.writeText(t); return true; } catch {}
-try {
-const a = document.createElement('textarea'); a.value = t; a.style.position = 'fixed'; a.style.opacity = '0';
-document.body.appendChild(a); a.select(); const ok = document.execCommand('copy'); a.remove(); return ok;
-} catch { return false; }
+  try { await navigator.clipboard.writeText(t); return true; } catch {}
+  try {
+    const a = document.createElement('textarea'); a.value = t; a.style.position = 'fixed'; a.style.opacity = '0';
+    document.body.appendChild(a); a.select(); const ok = document.execCommand('copy'); a.remove(); return ok;
+  } catch { return false; }
 }
 
 /* ---------- money math (integer cents) ---------- */
 // Split `total` cents by `weights`; leftover pennies go to the largest remainders.
 function allocate(total, weights, offset = 0){
-const n = weights.length; if (!n) return [];
-const sign = total < 0 ? -1 : 1, t = Math.abs(total);
-let w = weights.map(x => Math.max(0, x)), s = w.reduce((a,b) => a + b, 0);
-if (s === 0) { w = w.map(() => 1); s = n; }
-const raw = w.map(x => t * x / s);
-const out = raw.map(Math.floor);
-const rem = t - out.reduce((a,b) => a + b, 0);
-const order = raw.map((r,i) => ({ i, f:r - out[i] }))
-.sort((a,b) => (b.f - a.f) || (((a.i + offset) % n) - ((b.i + offset) % n)));
-for (let k = 0; k < rem; k++) out[order[k].i]++;
-return out.map(x => sign * x || 0);
+  const n = weights.length; if (!n) return [];
+  const sign = total < 0 ? -1 : 1, t = Math.abs(total);
+  let w = weights.map(x => Math.max(0, x)), s = w.reduce((a,b) => a + b, 0);
+  if (s === 0) { w = w.map(() => 1); s = n; }
+  const raw = w.map(x => t * x / s);
+  const out = raw.map(Math.floor);
+  const rem = t - out.reduce((a,b) => a + b, 0);
+  const order = raw.map((r,i) => ({ i, f:r - out[i] }))
+    .sort((a,b) => (b.f - a.f) || (((a.i + offset) % n) - ((b.i + offset) % n)));
+  for (let k = 0; k < rem; k++) out[order[k].i]++;
+  return out.map(x => sign * x || 0);
 }
 // Pure: items [{name,cents,who:[ids]}], people ids, tax/fees/tip in cents.
 function computeSplit(items, ids, tax, fees, tip){
-const per = {}; ids.forEach(id => per[id] = { items:[], sub:0, tax:0, fees:0, tip:0, total:0 });
-const unassigned = [];
-items.forEach((it, idx) => {
-const who = ids.filter(id => it.who.includes(id));
-if (!who.length) { unassigned.push(it); return; }
-const shares = allocate(it.cents, who.map(() => 1), idx);
-who.forEach((id, i) => {
-per[id].sub += shares[i];
-per[id].items.push({ name:(it.name || '').trim() || 'Item', cents:shares[i], n:who.length });
-});
-});
-const weights = ids.map(id => per[id].sub);
-const t = allocate(tax, weights), f = allocate(fees, weights), p = allocate(tip, weights);
-ids.forEach((id, i) => {
-Object.assign(per[id], { tax:t[i], fees:f[i], tip:p[i] });
-per[id].total = per[id].sub + t[i] + f[i] + p[i];
-});
-return { per, unassigned };
+  const per = {}; ids.forEach(id => per[id] = { items:[], sub:0, tax:0, fees:0, tip:0, total:0 });
+  const unassigned = [];
+  items.forEach((it, idx) => {
+    const who = ids.filter(id => it.who.includes(id));
+    if (!who.length) { unassigned.push(it); return; }
+    const shares = allocate(it.cents, who.map(() => 1), idx);
+    who.forEach((id, i) => {
+      per[id].sub += shares[i];
+      per[id].items.push({ name:(it.name || '').trim() || 'Item', cents:shares[i], n:who.length });
+    });
+  });
+  const weights = ids.map(id => per[id].sub);
+  const t = allocate(tax, weights), f = allocate(fees, weights), p = allocate(tip, weights);
+  ids.forEach((id, i) => {
+    Object.assign(per[id], { tax:t[i], fees:f[i], tip:p[i] });
+    per[id].total = per[id].sub + t[i] + f[i] + p[i];
+  });
+  return { per, unassigned };
 }
 const itemsSum = () => S.items.reduce((a,i) => a + i.cents, 0);
 const feeCents = f => f.neg ? -f.amt : f.amt;
@@ -331,508 +331,531 @@ tax_cents is the total sales tax. tip_cents is the tip or auto-gratuity if one i
 subtotal_cents and total_cents are as printed, otherwise null.
 Respond with JSON only.`;
 const SCHEMA = {
-type:'OBJECT',
-properties:{
-items:{ type:'ARRAY', items:{ type:'OBJECT', properties:{ name:{type:'STRING'}, quantity:{type:'INTEGER'}, price_cents:{type:'INTEGER'} }, required:['name','price_cents'] } },
-fees:{ type:'ARRAY', items:{ type:'OBJECT', properties:{ name:{type:'STRING'}, amount_cents:{type:'INTEGER'} }, required:['name','amount_cents'] } },
-subtotal_cents:{ type:'INTEGER', nullable:true },
-tax_cents:{ type:'INTEGER', nullable:true },
-tip_cents:{ type:'INTEGER', nullable:true },
-total_cents:{ type:'INTEGER', nullable:true }
-},
-required:['items']
+  type:'OBJECT',
+  properties:{
+    items:{ type:'ARRAY', items:{ type:'OBJECT', properties:{ name:{type:'STRING'}, quantity:{type:'INTEGER'}, price_cents:{type:'INTEGER'} }, required:['name','price_cents'] } },
+    fees:{ type:'ARRAY', items:{ type:'OBJECT', properties:{ name:{type:'STRING'}, amount_cents:{type:'INTEGER'} }, required:['name','amount_cents'] } },
+    subtotal_cents:{ type:'INTEGER', nullable:true },
+    tax_cents:{ type:'INTEGER', nullable:true },
+    tip_cents:{ type:'INTEGER', nullable:true },
+    total_cents:{ type:'INTEGER', nullable:true }
+  },
+  required:['items']
 };
 
 const HEIC_SRC = 'https://cdnjs.cloudflare.com/ajax/libs/heic2any/0.0.4/heic2any.min.js';
 // Draw any decoded image source onto a canvas capped at ~2000px and return a JPEG data URL.
 function drawScaled(src, w0, h0){
-const M = 2000, k = Math.min(1, M / Math.max(w0, h0));
-const w = Math.max(1, Math.round(w0 * k)), h = Math.max(1, Math.round(h0 * k));
-const c = document.createElement('canvas'); c.width = w; c.height = h;
-const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, w, h); x.drawImage(src, 0, 0, w, h);
-const out = c.toDataURL('image/jpeg', .85);
-if (!out || out.length < 100) throw new Error('empty canvas');
-return out;
+  const M = 1600, k = Math.min(1, M / Math.max(w0, h0));
+  const w = Math.max(1, Math.round(w0 * k)), h = Math.max(1, Math.round(h0 * k));
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, w, h); x.drawImage(src, 0, 0, w, h);
+  const out = c.toDataURL('image/jpeg', .8);
+  if (!out || out.length < 100) throw new Error('empty canvas');
+  return out;
 }
 function viaImageEl(url, revoke){
-return new Promise((resolve, reject) => {
-const img = new Image();
-img.onload = () => {
-try { resolve(drawScaled(img, img.naturalWidth, img.naturalHeight)); }
-catch (e) { reject(e); }
-finally { if (revoke) URL.revokeObjectURL(url); }
-};
-img.onerror = () => { if (revoke) URL.revokeObjectURL(url); reject(new Error('decode')); };
-img.src = url;
-});
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      try { resolve(drawScaled(img, img.naturalWidth, img.naturalHeight)); }
+      catch (e) { reject(e); }
+      finally { if (revoke) URL.revokeObjectURL(url); }
+    };
+    img.onerror = () => { if (revoke) URL.revokeObjectURL(url); reject(new Error('decode')); };
+    img.src = url;
+  });
 }
 function readAsDataURL(blob){
-return new Promise((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(r.result); r.onerror = () => reject(new Error('read')); r.readAsDataURL(blob); });
+  return new Promise((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(r.result); r.onerror = () => reject(new Error('read')); r.readAsDataURL(blob); });
 }
 function loadScript(src){
-return new Promise((resolve, reject) => { const s = document.createElement('script'); s.src = src; s.onload = resolve; s.onerror = () => reject(new Error('script')); document.head.appendChild(s); });
+  return new Promise((resolve, reject) => { const s = document.createElement('script'); s.src = src; s.onload = resolve; s.onerror = () => reject(new Error('script')); document.head.appendChild(s); });
 }
 // Turn any photo into a JPEG of about 2000px, trying several decoders before giving up.
 async function downscale(file){
-const why = [];
-const attempt = async (name, fn) => { try { return await fn(); } catch (e) { why.push(name + ': ' + (e && e.message || e)); return null; } };
-let out = null;
+  const why = [];
+  const attempt = async (name, fn) => { try { return await fn(); } catch (e) { why.push(name + ': ' + (e && e.message || e)); return null; } };
+  let out = null;
 
-if (window.createImageBitmap) {
-out = await attempt('bitmap', async () => {
-const bmp = await createImageBitmap(file, { imageOrientation:'from-image' }).catch(() => createImageBitmap(file));
-try { return drawScaled(bmp, bmp.width, bmp.height); } finally { bmp.close && bmp.close(); }
-});
-if (out) return out;
-}
-out = await attempt('blob', () => { const u = URL.createObjectURL(file); return viaImageEl(u, true); });
-if (out) return out;
-out = await attempt('dataurl', async () => viaImageEl(await readAsDataURL(file), false));
-if (out) return out;
+  if (window.createImageBitmap) {
+    out = await attempt('bitmap', async () => {
+      const bmp = await createImageBitmap(file, { imageOrientation:'from-image' }).catch(() => createImageBitmap(file));
+      try { return drawScaled(bmp, bmp.width, bmp.height); } finally { bmp.close && bmp.close(); }
+    });
+    if (out) return out;
+  }
+  out = await attempt('blob', () => { const u = URL.createObjectURL(file); return viaImageEl(u, true); });
+  if (out) return out;
+  out = await attempt('dataurl', async () => viaImageEl(await readAsDataURL(file), false));
+  if (out) return out;
 
-const isHeic = /hei[cf]/i.test(file.type) || /\.hei[cf]$/i.test(file.name);
-if (isHeic) {
-out = await attempt('heic', async () => {
-if (!window.heic2any) await loadScript(HEIC_SRC);
-const res = await window.heic2any({ blob:file, toType:'image/jpeg', quality:.85 });
-const blob = Array.isArray(res) ? res[0] : res;
-return viaImageEl(await readAsDataURL(blob), false);
-});
-if (out) return out;
-}
+  const isHeic = /hei[cf]/i.test(file.type) || /\.hei[cf]$/i.test(file.name);
+  if (isHeic) {
+    out = await attempt('heic', async () => {
+      if (!window.heic2any) await loadScript(HEIC_SRC);
+      const res = await window.heic2any({ blob:file, toType:'image/jpeg', quality:.85 });
+      const blob = Array.isArray(res) ? res[0] : res;
+      return viaImageEl(await readAsDataURL(blob), false);
+    });
+    if (out) return out;
+  }
 
-// Last resort: send the original file untouched and let Gemini decode it.
-if (file.size < 12 * 1024 * 1024) {
-const raw = await attempt('raw', async () => {
-const d = await readAsDataURL(file);
-const mime = /^image\/(jpeg|png|webp|heic|heif)$/i.test(file.type) ? file.type.toLowerCase() : (isHeic ? 'image/heic' : 'image/jpeg');
-return d.replace(/^data:[^;,]*/, 'data:' + mime);
-});
-if (raw) return raw;
-}
-console.warn('Photo failed to load', file.type, file.size, why);
-throw new Error(`That photo (${file.type || 'unknown type'}, ${(file.size / 1048576).toFixed(1)} MB) couldn’t be processed. Try a screenshot of it instead. Details: ${why.join('; ')}`);
+  // Last resort: send the original file untouched and let Gemini decode it.
+  if (file.size < 12 * 1024 * 1024) {
+    const raw = await attempt('raw', async () => {
+      const d = await readAsDataURL(file);
+      const mime = /^image\/(jpeg|png|webp|heic|heif)$/i.test(file.type) ? file.type.toLowerCase() : (isHeic ? 'image/heic' : 'image/jpeg');
+      return d.replace(/^data:[^;,]*/, 'data:' + mime);
+    });
+    if (raw) return raw;
+  }
+  console.warn('Photo failed to load', file.type, file.size, why);
+  throw new Error(`That photo (${file.type || 'unknown type'}, ${(file.size / 1048576).toFixed(1)} MB) couldn’t be processed. Try a screenshot of it instead. Details: ${why.join('; ')}`);
 }
 async function addFiles(files){
-ui.error = '';
-for (const f of files) {
-if (ui.photos.length >= 6) break;
-try { ui.photos.push(await downscale(f)); } catch (e) { ui.error = e.message; }
-}
-render();
+  ui.error = '';
+  for (const f of files) {
+    if (ui.photos.length >= 6) break;
+    try { ui.photos.push(await downscale(f)); } catch (e) { ui.error = e.message; }
+  }
+  render();
 }
 function applyReceipt(r){
-S.items = (r.items || []).filter(i => i && Number.isFinite(i.price_cents)).map(i => ({
-id:uid(), name:String(i.name || '').trim(), qty:Math.max(1, i.quantity || 1), cents:Math.round(i.price_cents), who:[]
-}));
-S.fees = (r.fees || []).filter(f => f && Number.isFinite(f.amount_cents) && f.amount_cents !== 0).map(f => ({
-id:uid(), name:String(f.name || '').trim(), amt:Math.abs(Math.round(f.amount_cents)), neg:f.amount_cents < 0
-}));
-S.tax = Math.max(0, Math.round(r.tax_cents || 0));
-if (r.tip_cents > 0) S.tip = { ...S.tip, mode:'flat', flat:Math.round(r.tip_cents), fromReceipt:true };
-else S.tip = { ...S.tip, mode:'pct', pct:S.tip.pct || 20, fromReceipt:false };
-S.receipt = { subtotal:Number.isFinite(r.subtotal_cents) ? r.subtotal_cents : null, total:Number.isFinite(r.total_cents) ? r.total_cents : null };
-save();
+  S.items = (r.items || []).filter(i => i && Number.isFinite(i.price_cents)).map(i => ({
+    id:uid(), name:String(i.name || '').trim(), qty:Math.max(1, i.quantity || 1), cents:Math.round(i.price_cents), who:[]
+  }));
+  S.fees = (r.fees || []).filter(f => f && Number.isFinite(f.amount_cents) && f.amount_cents !== 0).map(f => ({
+    id:uid(), name:String(f.name || '').trim(), amt:Math.abs(Math.round(f.amount_cents)), neg:f.amount_cents < 0
+  }));
+  S.tax = Math.max(0, Math.round(r.tax_cents || 0));
+  if (r.tip_cents > 0) S.tip = { ...S.tip, mode:'flat', flat:Math.round(r.tip_cents), fromReceipt:true };
+  else S.tip = { ...S.tip, mode:'pct', pct:S.tip.pct || 20, fromReceipt:false };
+  S.receipt = { subtotal:Number.isFinite(r.subtotal_cents) ? r.subtotal_cents : null, total:Number.isFinite(r.total_cents) ? r.total_cents : null };
+  save();
 }
 // Safari reports any blocked or failed request as "Load failed". Probe to tell why.
 async function diagnoseNetwork(key){
-const shape = `${key.slice(0, 4)}…, ${key.length} characters`;
-let online = true;
-try { await fetch('https://www.gstatic.com/generate_204', { mode:'no-cors', cache:'no-store' }); } catch { online = false; }
-if (!online) return 'Your browser can’t reach Google at all. Check your connection, and turn off any VPN, iCloud Private Relay, or content blocker.';
-try {
-const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=1&key=' + encodeURIComponent(key));
-if (r.ok) return 'Google accepted the key, but the receipt request itself failed. Try one or two smaller photos.';
-return `Google answered with status ${r.status}. Check the key and its restrictions.`;
-} catch {
-return `Google is reachable, but it refused the browser request for this key (saved key: ${shape}). `
-+ 'Most often the key itself is the cause. In Google Cloud Console, create a new API key, restrict it to Generative Language API only, and leave website restrictions off for now.';
-}
+  const shape = `${key.slice(0, 4)}…, ${key.length} characters`;
+  let online = true;
+  try { await fetch('https://www.gstatic.com/generate_204', { mode:'no-cors', cache:'no-store' }); } catch { online = false; }
+  if (!online) return 'Your browser can’t reach Google at all. Check your connection, and turn off any VPN, iCloud Private Relay, or content blocker.';
+  try {
+    const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=1&key=' + encodeURIComponent(key));
+    if (r.ok) return 'Google accepted the key, but the receipt request itself failed. Try one or two smaller photos.';
+    return `Google answered with status ${r.status}. Check the key and its restrictions.`;
+  } catch {
+    return `Google is reachable, but it refused the browser request for this key (saved key: ${shape}). `
+      + 'Most often the key itself is the cause. In Google Cloud Console, create a new API key, restrict it to Generative Language API only, and leave website restrictions off for now.';
+  }
 }
 class ApiError extends Error {}
+async function callGemini(url, body){
+  const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 90000);
+  try {
+    const res = await fetch(url, { method:'POST', headers:{ 'Content-Type':'application/json' }, body, signal:ctl.signal });
+    if (res.ok) return { ok:true, data:await res.json() };
+    let msg = ''; try { msg = (await res.json()).error?.message || ''; } catch {}
+    return { ok:false, status:res.status, msg, transient:[500,502,503,504].includes(res.status) || /deadline|overloaded|unavailable/i.test(msg) };
+  } catch (e) {
+    if (e && e.name === 'AbortError') return { ok:false, status:0, msg:'Google took too long to answer.', transient:true };
+    throw e;
+  } finally { clearTimeout(timer); }
+}
 async function scan(){
-const key = getKey(); if (!key || !ui.photos.length) return;
-ui.scanning = true; ui.error = ''; render();
-try {
-const model = lsGet(LS.model) || DEFAULT_MODEL;
-const parts = ui.photos.map(d => ({ inline_data:{ mime_type:d.slice(5, d.indexOf(';')), data:d.split(',')[1] } }));
-parts.push({ text:PROMPT });
-const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`, {
-method:'POST',
-headers:{ 'Content-Type':'application/json' },
-body:JSON.stringify({ contents:[{ parts }], generationConfig:{ responseMimeType:'application/json', responseSchema:SCHEMA, temperature:0 } })
-});
-if (!res.ok) {
-let msg = ''; try { msg = (await res.json()).error?.message || ''; } catch {}
-if (res.status === 429) throw new ApiError('You’ve hit the free rate limit. Wait a minute and try again.');
-if (res.status === 400 || res.status === 403) throw new ApiError('Google rejected the request. Check that the key and model name are right. ' + msg);
-if (res.status === 404) throw new ApiError('That model name doesn’t exist. Change it under the key settings.');
-throw new ApiError(msg || `Request failed (${res.status}).`);
-}
-const data = await res.json();
-let text = (data.candidates?.[0]?.content?.parts || []).map(p => p.text || '').join('').trim();
-text = text.replace(/^```(?:json)?/i, '').replace(/```$/, '').trim();
-if (!text) throw new ApiError('The model sent back nothing. Try a clearer photo.');
-applyReceipt(JSON.parse(text));
-if (!S.items.length) throw new ApiError('No line items found. Try a clearer, flatter photo.');
-} catch (e) {
-if (e instanceof SyntaxError) ui.error = 'The response wasn’t readable. Try again.';
-else if (e instanceof ApiError) ui.error = e.message;
-else ui.error = (await diagnoseNetwork(key)) + ` (${e && e.name}: ${e && e.message})`;
-}
-ui.scanning = false; render();
+  const key = getKey(); if (!key || !ui.photos.length) return;
+  ui.scanning = true; ui.error = ''; ui.attempt = 1; render();
+  try {
+    const model = lsGet(LS.model) || DEFAULT_MODEL;
+    const parts = ui.photos.map(d => ({ inline_data:{ mime_type:d.slice(5, d.indexOf(';')), data:d.split(',')[1] } }));
+    parts.push({ text:PROMPT });
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`;
+    const body = JSON.stringify({ contents:[{ parts }], generationConfig:{ responseMimeType:'application/json', responseSchema:SCHEMA, temperature:0 } });
+    // Google sometimes times out on its side ("Deadline expired"), so retry a couple of times.
+    let r;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      ui.attempt = attempt; if (attempt > 1) render();
+      r = await callGemini(url, body);
+      if (r.ok || !r.transient) break;
+      if (attempt < 3) await new Promise(res => setTimeout(res, 1500 * attempt));
+    }
+    if (!r.ok) {
+      if (r.status === 429) throw new ApiError('You’ve hit the free rate limit. Wait a minute and try again.');
+      if (r.status === 400 || r.status === 403) throw new ApiError('Google rejected the request. Check that the key and model name are right. ' + r.msg);
+      if (r.status === 404) throw new ApiError('That model name doesn’t exist. Change it under the key settings.');
+      if (r.transient) throw new ApiError('Google timed out three times in a row. Try again in a minute, or use fewer photos.');
+      throw new ApiError(r.msg || `Request failed (${r.status}).`);
+    }
+    let text = (r.data.candidates?.[0]?.content?.parts || []).map(p => p.text || '').join('').trim();
+    text = text.replace(/^```(?:json)?/i, '').replace(/```$/, '').trim();
+    if (!text) throw new ApiError('The model sent back nothing. Try a clearer photo.');
+    applyReceipt(JSON.parse(text));
+    if (!S.items.length) throw new ApiError('No line items found. Try a clearer, flatter photo.');
+  } catch (e) {
+    if (e instanceof SyntaxError) ui.error = 'The response wasn’t readable. Try again.';
+    else if (e instanceof ApiError) ui.error = e.message;
+    else ui.error = (await diagnoseNetwork(key)) + ` (${e && e.name}: ${e && e.message})`;
+  }
+  ui.scanning = false; render();
 }
 
 /* ---------- views ---------- */
 function headerHTML(){
-return `<header class="top"><div class="brand">${LOGO}dutch</div></header>
-<nav class="prog" aria-label="Steps">${STEPS.map((n,i) =>
-`<button data-act="goto" data-n="${i}" class="${i < S.step ? 'done' : i === S.step ? 'cur' : ''}" ${i > S.step ? 'disabled' : ''} aria-label="${n}"${i === S.step ? ' aria-current="step"' : ''}></button>`).join('')}</nav>`;
+  const started = S.step > 0 || S.items.length || S.people.length || ui.photos.length;
+  return `<header class="top"><div class="brand">${LOGO}dutch</div>${started ? `<button class="link" data-act="startover">Start over</button>` : ''}</header>
+  <nav class="prog" aria-label="Steps">${STEPS.map((n,i) =>
+    `<button data-act="goto" data-n="${i}" class="${i < S.step ? 'done' : i === S.step ? 'cur' : ''}" ${i > S.step ? 'disabled' : ''} aria-label="${n}"${i === S.step ? ' aria-current="step"' : ''}></button>`).join('')}</nav>`;
 }
 
 function stepReceipt(){
-const key = getKey(), hasItems = S.items.length > 0;
-let h = `<h1>Scan the receipt</h1><p class="lede">Add a photo and I’ll pull out the line items.</p>`;
-if (ui.photos.length) {
-h += `<div class="thumbs">${ui.photos.map((p,i) =>
-`<div class="thumb"><img src="${p}" alt="Receipt photo ${i+1}"><button class="x" data-act="rmPhoto" data-i="${i}" aria-label="Remove photo ${i+1}">${ICON.x}</button></div>`).join('')}
-${ui.photos.length < 6 ? `<label class="thumb add" aria-label="Add another photo">${ICON.plus}<input type="file" accept="image/*" multiple hidden data-file></label>` : ''}</div>`;
-} else {
-h += `<label class="drop">${ICON.camera}<strong>Add receipt photos</strong><span>Take a picture or choose from your library. For a long receipt, add a few shots.</span><input type="file" accept="image/*" multiple hidden data-file></label>`;
-}
-if (ui.scanning) {
-h += `<div class="note" role="status"><strong>Reading your receipt…</strong><div class="muted small">This takes a few seconds.</div><div class="ind"></div></div>`;
-} else if (ui.error) {
-h += `<div class="note err" role="alert"><strong>Couldn’t read the receipt.</strong> ${esc(ui.error)}</div>`;
-} else if (hasItems) {
-h += `<div class="note ok"><strong>Found ${S.items.length} item${S.items.length === 1 ? '' : 's'} totaling ${fmt(itemsSum())}.</strong><div class="muted small">You can fix anything on the items step.</div>${ui.photos.length && key ? `<button class="link" data-act="scan">Read the photos again</button>` : ''}</div>`;
-}
-if (!key || ui.keyEdit) {
-h += `<form class="keybox" data-form="saveKey" autocomplete="off">
-<p><strong>${key ? 'Gemini key' : 'To read photos, add a free Gemini key.'}</strong><br><span class="muted small">It’s saved only in this browser and sent only to Google. <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Get a key</a></span></p>
-<input class="field" id="keyinput" type="password" placeholder="Paste key (starts with AIza)" value="${esc(key)}" autocomplete="off" spellcheck="false">
-${key ? `<div class="muted small" style="margin-top:12px">Model</div><input class="field" id="modelinput" type="text" value="${esc(lsGet(LS.model) || DEFAULT_MODEL)}" autocomplete="off" spellcheck="false" style="margin-top:6px">` : ''}
-<div class="row"><button class="btn sm" type="submit">Save key</button>${key ? `<button class="btn ghost sm" type="button" data-act="rmKey">Remove key</button>` : ''}</div></form>`;
-} else {
-h += `<p class="muted small" style="margin-top:22px">Gemini key saved on this device (${esc(key.slice(0, 4))}…, ${key.length} characters). <button class="link tiny" data-act="editKey" style="padding:0">Change</button></p>`;
-}
-if (!hasItems && !ui.scanning) h += `<div><button class="link" data-act="manual">Skip the photo and type the items instead</button></div>`;
-h += `<p class="muted small" style="margin-top:28px">dutch v6</p>`;
-return h;
+  const key = getKey(), hasItems = S.items.length > 0;
+  let h = `<h1>Scan the receipt</h1><p class="lede">Add a photo and I’ll pull out the line items.</p>`;
+  if (ui.photos.length) {
+    h += `<div class="thumbs">${ui.photos.map((p,i) =>
+      `<div class="thumb"><img src="${p}" alt="Receipt photo ${i+1}"><button class="x" data-act="rmPhoto" data-i="${i}" aria-label="Remove photo ${i+1}">${ICON.x}</button></div>`).join('')}
+      ${ui.photos.length < 6 ? `<label class="thumb add" aria-label="Add another photo">${ICON.plus}<input type="file" accept="image/*" multiple hidden data-file></label>` : ''}</div>`;
+  } else {
+    h += `<label class="drop">${ICON.camera}<strong>Add receipt photos</strong><span>Take a picture or choose from your library. For a long receipt, add a few shots.</span><input type="file" accept="image/*" multiple hidden data-file></label>`;
+  }
+  if (ui.scanning) {
+    h += `<div class="note" role="status"><strong>Reading your receipt…</strong><div class="muted small">${ui.attempt > 1 ? `Google is slow right now. Trying again (${ui.attempt} of 3).` : 'This takes a few seconds.'}</div><div class="ind"></div></div>`;
+  } else if (ui.error) {
+    h += `<div class="note err" role="alert"><strong>Couldn’t read the receipt.</strong> ${esc(ui.error)}</div>`;
+  } else if (hasItems) {
+    h += `<div class="note ok"><strong>Found ${S.items.length} item${S.items.length === 1 ? '' : 's'} totaling ${fmt(itemsSum())}.</strong><div class="muted small">You can fix anything on the items step.</div>${ui.photos.length && key ? `<button class="link" data-act="scan">Read the photos again</button>` : ''}</div>`;
+  }
+  if (!key || ui.keyEdit) {
+    h += `<form class="keybox" data-form="saveKey" autocomplete="off">
+      <p><strong>${key ? 'Gemini key' : 'To read photos, add a free Gemini key.'}</strong><br><span class="muted small">It’s saved only in this browser and sent only to Google. <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Get a key</a></span></p>
+      <input class="field" id="keyinput" type="password" placeholder="Paste key (starts with AIza)" value="${esc(key)}" autocomplete="off" spellcheck="false">
+      ${key ? `<div class="muted small" style="margin-top:12px">Model</div><input class="field" id="modelinput" type="text" value="${esc(lsGet(LS.model) || DEFAULT_MODEL)}" autocomplete="off" spellcheck="false" style="margin-top:6px">` : ''}
+      <div class="row"><button class="btn sm" type="submit">Save key</button>${key ? `<button class="btn ghost sm" type="button" data-act="rmKey">Remove key</button>` : ''}</div></form>`;
+  } else {
+    h += `<p class="muted small" style="margin-top:22px">Gemini key saved on this device (${esc(key.slice(0, 4))}…, ${key.length} characters). <button class="link tiny" data-act="editKey" style="padding:0">Change</button></p>`;
+  }
+  if (!hasItems && !ui.scanning) h += `<div><button class="link" data-act="manual">Skip the photo and type the items instead</button></div>`;
+  h += `<p class="muted small" style="margin-top:28px">dutch v7</p>`;
+  return h;
 }
 
 function stepPeople(){
-const have = new Set(S.people.map(p => p.name.toLowerCase()));
-const recent = getRecent().filter(n => !have.has(n.toLowerCase())).slice(0, 8);
-return `<h1>Who’s splitting?</h1><p class="lede">Add everyone at the table, then mark who paid.</p>
-<form class="addrow" data-form="addPerson" autocomplete="off">
-<input class="field" id="pname" type="text" placeholder="${S.people.length ? 'Add another name' : 'Start with your name'}" enterkeyhint="done" autocapitalize="words" maxlength="24" aria-label="Name">
-<button class="btn sm" type="submit">Add</button>
-</form>
-${recent.length ? `<div class="recent"><span class="muted small">Add again:</span>${recent.map(n => `<button class="pill" data-act="addRecent" data-name="${esc(n)}">${esc(n)}</button>`).join('')}</div>` : ''}
-<ul class="plist">${S.people.map(p => `<li class="person" style="--c:${p.color}">
-<span class="dot">${esc(initial(p.name))}</span><span class="pn">${esc(p.name)}</span>
-<button class="paid ${S.payer === p.id ? 'on' : ''}" data-act="payer" data-p="${p.id}" aria-pressed="${S.payer === p.id}">${S.payer === p.id ? ICON.check : ''}Paid</button>
-<button class="iconbtn" data-act="rmPerson" data-p="${p.id}" aria-label="Remove ${esc(p.name)}">${ICON.x}</button></li>`).join('')}</ul>`;
+  const have = new Set(S.people.map(p => p.name.toLowerCase()));
+  const recent = getRecent().filter(n => !have.has(n.toLowerCase())).slice(0, 8);
+  return `<h1>Who’s splitting?</h1><p class="lede">Add everyone at the table, then mark who paid.</p>
+  <form class="addrow" data-form="addPerson" autocomplete="off">
+    <input class="field" id="pname" type="text" placeholder="${S.people.length ? 'Add another name' : 'Start with your name'}" enterkeyhint="done" autocapitalize="words" maxlength="24" aria-label="Name">
+    <button class="btn sm" type="submit">Add</button>
+  </form>
+  ${recent.length ? `<div class="recent"><span class="muted small">Add again:</span>${recent.map(n => `<button class="pill" data-act="addRecent" data-name="${esc(n)}">${esc(n)}</button>`).join('')}</div>` : ''}
+  <ul class="plist">${S.people.map(p => `<li class="person" style="--c:${p.color}">
+    <span class="dot">${esc(initial(p.name))}</span><span class="pn">${esc(p.name)}</span>
+    <button class="paid ${S.payer === p.id ? 'on' : ''}" data-act="payer" data-p="${p.id}" aria-pressed="${S.payer === p.id}">${S.payer === p.id ? ICON.check : ''}Paid</button>
+    <button class="iconbtn" data-act="rmPerson" data-p="${p.id}" aria-label="Remove ${esc(p.name)}">${ICON.x}</button></li>`).join('')}</ul>`;
 }
 
 function itemRow(it){
-return `<div class="iwrap"><div class="irow">
-<input class="ghost-in" type="text" value="${esc(it.name)}" placeholder="Item name" data-f="iname" data-id="${it.id}" aria-label="Item name" autocapitalize="words">
-${it.qty > 1 ? `<span class="qty">×${it.qty}</span>` : ''}
-<input class="ghost-in money" inputmode="decimal" value="${plain(it.cents)}" data-f="icents" data-id="${it.id}" aria-label="Price">
-<button class="iconbtn" data-act="rmItem" data-id="${it.id}" aria-label="Remove item">${ICON.x}</button></div>
-${it.qty > 1 ? `<button class="link tiny" data-act="splitQty" data-id="${it.id}">Split into ${it.qty} separate lines</button>` : ''}</div>`;
+  return `<div class="iwrap"><div class="irow">
+    <input class="ghost-in" type="text" value="${esc(it.name)}" placeholder="Item name" data-f="iname" data-id="${it.id}" aria-label="Item name" autocapitalize="words">
+    ${it.qty > 1 ? `<span class="qty">×${it.qty}</span>` : ''}
+    <input class="ghost-in money" inputmode="decimal" value="${plain(it.cents)}" data-f="icents" data-id="${it.id}" aria-label="Price">
+    <button class="iconbtn" data-act="rmItem" data-id="${it.id}" aria-label="Remove item">${ICON.x}</button></div>
+    ${it.qty > 1 ? `<button class="link tiny" data-act="splitQty" data-id="${it.id}">Split into ${it.qty} separate lines</button>` : ''}</div>`;
 }
 function feeRow(f){
-return `<div class="frow">
-<button class="sign ${f.neg ? 'neg' : ''}" data-act="feeSign" data-id="${f.id}" aria-label="${f.neg ? 'Discount, tap to make it a fee' : 'Fee, tap to make it a discount'}">${f.neg ? '−' : '+'}</button>
-<input class="ghost-in" type="text" value="${esc(f.name)}" placeholder="${f.neg ? 'Discount' : 'Fee'}" data-f="fname" data-id="${f.id}" aria-label="Fee name">
-<input class="ghost-in money" inputmode="decimal" value="${plain(f.amt)}" data-f="fcents" data-id="${f.id}" aria-label="Amount">
-<button class="iconbtn" data-act="rmFee" data-id="${f.id}" aria-label="Remove">${ICON.x}</button></div>`;
+  return `<div class="frow">
+    <button class="sign ${f.neg ? 'neg' : ''}" data-act="feeSign" data-id="${f.id}" aria-label="${f.neg ? 'Discount, tap to make it a fee' : 'Fee, tap to make it a discount'}">${f.neg ? '−' : '+'}</button>
+    <input class="ghost-in" type="text" value="${esc(f.name)}" placeholder="${f.neg ? 'Discount' : 'Fee'}" data-f="fname" data-id="${f.id}" aria-label="Fee name">
+    <input class="ghost-in money" inputmode="decimal" value="${plain(f.amt)}" data-f="fcents" data-id="${f.id}" aria-label="Amount">
+    <button class="iconbtn" data-act="rmFee" data-id="${f.id}" aria-label="Remove">${ICON.x}</button></div>`;
 }
 function tipNote(){
-if (S.tip.mode === 'flat') return S.tip.fromReceipt ? 'This is the tip written on the receipt.' : '';
-return `${S.tip.pct}% of ${fmt(tipBase())} is ${fmt(tipCents())}.`;
+  if (S.tip.mode === 'flat') return S.tip.fromReceipt ? 'This is the tip written on the receipt.' : '';
+  return `${S.tip.pct}% of ${fmt(tipBase())} is ${fmt(tipCents())}.`;
 }
 function sumHTML(){
-const sub = itemsSum(), fees = feesSum(), tip = tipCents(), total = sub + S.tax + fees + tip;
-let warn = '';
-if (S.receipt && S.receipt.subtotal != null && S.receipt.subtotal !== sub)
-warn = `<div class="note warn" style="margin-top:20px">The items add up to ${fmt(sub)}, but the receipt subtotal is ${fmt(S.receipt.subtotal)}. Compare with the photo.</div>`;
-return `${warn}<dl class="tot">
-<div><dt>Items</dt><dd>${fmt(sub)}</dd></div>
-<div><dt>Tax</dt><dd>${fmt(S.tax)}</dd></div>
-${fees ? `<div class="${fees < 0 ? 'minus' : ''}"><dt>Fees and discounts</dt><dd>${fmt(fees)}</dd></div>` : ''}
-<div><dt>Tip</dt><dd>${fmt(tip)}</dd></div>
-<div class="grand"><dt>Total</dt><dd>${fmt(total)}</dd></div></dl>`;
+  const sub = itemsSum(), fees = feesSum(), tip = tipCents(), total = sub + S.tax + fees + tip;
+  let warn = '';
+  if (S.receipt && S.receipt.subtotal != null && S.receipt.subtotal !== sub)
+    warn = `<div class="note warn" style="margin-top:20px">The items add up to ${fmt(sub)}, but the receipt subtotal is ${fmt(S.receipt.subtotal)}. Compare with the photo.</div>`;
+  return `${warn}<dl class="tot">
+    <div><dt>Items</dt><dd>${fmt(sub)}</dd></div>
+    <div><dt>Tax</dt><dd>${fmt(S.tax)}</dd></div>
+    ${fees ? `<div class="${fees < 0 ? 'minus' : ''}"><dt>Fees and discounts</dt><dd>${fmt(fees)}</dd></div>` : ''}
+    <div><dt>Tip</dt><dd>${fmt(tip)}</dd></div>
+    <div class="grand"><dt>Total</dt><dd>${fmt(total)}</dd></div></dl>`;
 }
 function stepItems(){
-const tp = S.tip;
-return `<h1>Check the items</h1><p class="lede">Fix anything that looks off, then set the tip.</p>
-${ui.photos.length ? `<div class="peek">${ui.photos.map((p,i) => `<button class="pthumb" data-act="lb" data-i="${i}" aria-label="View receipt photo ${i+1}"><img src="${p}" alt=""></button>`).join('')}<span class="muted small">Tap to compare with the receipt</span></div>` : ''}
-<div>${S.items.length ? S.items.map(itemRow).join('') : `<p class="muted">No items yet. Add the first one.</p>`}</div>
-<button class="addbtn" data-act="addItem">${ICON.plus}Add item</button>
-<h2>Tax and fees</h2>
-<div class="line"><label for="tax">Tax</label><input class="field money" id="tax" inputmode="decimal" value="${plain(S.tax)}" data-f="tax"></div>
-${S.fees.map(feeRow).join('')}
-<div style="display:flex;gap:20px"><button class="addbtn" style="width:auto" data-act="addFee" data-neg="0">${ICON.plus}Fee</button><button class="addbtn" style="width:auto" data-act="addFee" data-neg="1">${ICON.plus}Discount</button></div>
-<h2>Tip</h2>
-<div class="seg" role="group" aria-label="Tip">
-${[15,18,20,25].map(v => `<button data-act="tip" data-v="${v}" class="${tp.mode === 'pct' && tp.pct === v ? 'on' : ''}">${v}%</button>`).join('')}
-<button data-act="tipOther" class="${tp.mode === 'flat' ? 'on' : ''}">Custom</button></div>
-${tp.mode === 'flat'
-? `<div class="line" style="margin-top:10px"><label for="tipflat">Tip amount</label><input class="field money" id="tipflat" inputmode="decimal" value="${plain(tp.flat)}" data-f="tipflat"></div>`
-: `<div class="seg" style="margin-top:10px" role="group" aria-label="Tip basis"><button data-act="basis" data-v="pre" class="${tp.basis === 'pre' ? 'on' : ''}">Before tax</button><button data-act="basis" data-v="post" class="${tp.basis === 'post' ? 'on' : ''}">After tax</button></div>`}
-<p class="tipnote" id="tipnote">${esc(tipNote())}</p>
-<div id="sumbox">${sumHTML()}</div>`;
+  const tp = S.tip;
+  return `<h1>Check the items</h1><p class="lede">Fix anything that looks off, then set the tip.</p>
+  ${ui.photos.length ? `<div class="peek">${ui.photos.map((p,i) => `<button class="pthumb" data-act="lb" data-i="${i}" aria-label="View receipt photo ${i+1}"><img src="${p}" alt=""></button>`).join('')}<span class="muted small">Tap to compare with the receipt</span></div>` : ''}
+  <div>${S.items.length ? S.items.map(itemRow).join('') : `<p class="muted">No items yet. Add the first one.</p>`}</div>
+  <button class="addbtn" data-act="addItem">${ICON.plus}Add item</button>
+  <h2>Tax and fees</h2>
+  <div class="line"><label for="tax">Tax</label><input class="field money" id="tax" inputmode="decimal" value="${plain(S.tax)}" data-f="tax"></div>
+  ${S.fees.map(feeRow).join('')}
+  <div style="display:flex;gap:20px"><button class="addbtn" style="width:auto" data-act="addFee" data-neg="0">${ICON.plus}Fee</button><button class="addbtn" style="width:auto" data-act="addFee" data-neg="1">${ICON.plus}Discount</button></div>
+  <h2>Tip</h2>
+  <div class="seg" role="group" aria-label="Tip">
+    ${[15,18,20,25].map(v => `<button data-act="tip" data-v="${v}" class="${tp.mode === 'pct' && tp.pct === v ? 'on' : ''}">${v}%</button>`).join('')}
+    <button data-act="tipOther" class="${tp.mode === 'flat' ? 'on' : ''}">Custom</button></div>
+  ${tp.mode === 'flat'
+    ? `<div class="line" style="margin-top:10px"><label for="tipflat">Tip amount</label><input class="field money" id="tipflat" inputmode="decimal" value="${plain(tp.flat)}" data-f="tipflat"></div>`
+    : `<div class="seg" style="margin-top:10px" role="group" aria-label="Tip basis"><button data-act="basis" data-v="pre" class="${tp.basis === 'pre' ? 'on' : ''}">Before tax</button><button data-act="basis" data-v="post" class="${tp.basis === 'post' ? 'on' : ''}">After tax</button></div>`}
+  <p class="tipnote" id="tipnote">${esc(tipNote())}</p>
+  <div id="sumbox">${sumHTML()}</div>`;
 }
 
 function chip(p, on, itemId){
-return `<button class="chip ${on ? 'on' : ''}" style="--c:${p.color}" data-act="toggle" data-id="${itemId}" data-p="${p.id}" aria-pressed="${on}"><span class="dot">${esc(initial(p.name))}</span>${esc(p.name)}</button>`;
+  return `<button class="chip ${on ? 'on' : ''}" style="--c:${p.color}" data-act="toggle" data-id="${itemId}" data-p="${p.id}" aria-pressed="${on}"><span class="dot">${esc(initial(p.name))}</span>${esc(p.name)}</button>`;
 }
 function assignByItem(){
-return S.items.map(it => {
-const k = it.who.length, all = k === S.people.length;
-return `<section class="arow ${k ? 'done' : ''}"><div class="itop"><span class="iname">${esc(iname(it))}${it.qty > 1 ? ` <span class="qty">×${it.qty}</span>` : ''}</span><span class="price">${fmt(it.cents)}</span></div>
-<div class="chips"><button class="chip all ${all ? 'on' : ''}" data-act="all" data-id="${it.id}" aria-pressed="${all}">Everyone</button>${S.people.map(p => chip(p, it.who.includes(p.id), it.id)).join('')}</div>
-${k > 1 ? `<div class="each">${fmt(it.cents)} split ${k} ways is about ${fmt(Math.round(it.cents / k))} each.</div>` : ''}</section>`;
-}).join('');
+  return S.items.map(it => {
+    const k = it.who.length, all = k === S.people.length;
+    return `<section class="arow ${k ? 'done' : ''}"><div class="itop"><span class="iname">${esc(iname(it))}${it.qty > 1 ? ` <span class="qty">×${it.qty}</span>` : ''}</span><span class="price">${fmt(it.cents)}</span></div>
+      <div class="chips"><button class="chip all ${all ? 'on' : ''}" data-act="all" data-id="${it.id}" aria-pressed="${all}">Everyone</button>${S.people.map(p => chip(p, it.who.includes(p.id), it.id)).join('')}</div>
+      ${k > 1 ? `<div class="each">${fmt(it.cents)} split ${k} ways is about ${fmt(Math.round(it.cents / k))} each.</div>` : ''}</section>`;
+  }).join('');
 }
 function assignByPerson(R){
-const p = person(S.activePerson) || S.people[0];
-const idx = S.people.indexOf(p), next = S.people[idx + 1];
-const count = id => S.items.filter(i => i.who.includes(id)).length;
-return `<div class="ptabs" role="tablist">${S.people.map(q => `<button class="ptab ${q.id === p.id ? 'on' : ''}" style="--c:${q.color}" data-act="ptab" data-p="${q.id}" role="tab" aria-selected="${q.id === p.id}">${esc(q.name)}<small>${count(q.id)}</small></button>`).join('')}</div>
-<div>${S.items.map(it => {
-const on = it.who.includes(p.id), others = it.who.filter(id => id !== p.id).map(id => person(id)?.name).filter(Boolean);
-return `<button class="prow ${on ? 'on' : ''}" style="--c:${p.color}" data-act="toggle" data-id="${it.id}" data-p="${p.id}" aria-pressed="${on}">
-<span class="check">${on ? ICON.check : ''}</span>
-<span class="pmain"><span class="iname">${esc(iname(it))}${it.qty > 1 ? ` <span class="qty">×${it.qty}</span>` : ''}</span>${others.length ? `<span class="sub">${on ? 'Sharing with ' + esc(others.join(', ')) : esc(others.join(', ')) + (others.length > 1 ? ' have' : ' has') + ' this'}</span>` : ''}</span>
-<span class="price">${fmt(it.cents)}</span></button>`;
-}).join('')}</div>
-<div class="ptotal"><span>${esc(p.name)}’s items</span><span>${fmt(R.per[p.id].sub)}</span></div>
-${next ? `<button class="btn ghost wide" data-act="nextPerson" data-p="${next.id}">Next: ${esc(next.name)}</button>` : ''}`;
+  const p = person(S.activePerson) || S.people[0];
+  const idx = S.people.indexOf(p), next = S.people[idx + 1];
+  const count = id => S.items.filter(i => i.who.includes(id)).length;
+  return `<div class="ptabs" role="tablist">${S.people.map(q => `<button class="ptab ${q.id === p.id ? 'on' : ''}" style="--c:${q.color}" data-act="ptab" data-p="${q.id}" role="tab" aria-selected="${q.id === p.id}">${esc(q.name)}<small>${count(q.id)}</small></button>`).join('')}</div>
+  <div>${S.items.map(it => {
+    const on = it.who.includes(p.id), others = it.who.filter(id => id !== p.id).map(id => person(id)?.name).filter(Boolean);
+    return `<button class="prow ${on ? 'on' : ''}" style="--c:${p.color}" data-act="toggle" data-id="${it.id}" data-p="${p.id}" aria-pressed="${on}">
+      <span class="check">${on ? ICON.check : ''}</span>
+      <span class="pmain"><span class="iname">${esc(iname(it))}${it.qty > 1 ? ` <span class="qty">×${it.qty}</span>` : ''}</span>${others.length ? `<span class="sub">${on ? 'Sharing with ' + esc(others.join(', ')) : esc(others.join(', ')) + (others.length > 1 ? ' have' : ' has') + ' this'}</span>` : ''}</span>
+      <span class="price">${fmt(it.cents)}</span></button>`;
+  }).join('')}</div>
+  <div class="ptotal"><span>${esc(p.name)}’s items</span><span>${fmt(R.per[p.id].sub)}</span></div>
+  ${next ? `<button class="btn ghost wide" data-act="nextPerson" data-p="${next.id}">Next: ${esc(next.name)}</button>` : ''}`;
 }
 function stepAssign(){
-const n = S.items.length, left = unassigned().length, done = n - left, R = calc();
-return `<h1>Who had what?</h1><p class="lede">Tap names under each item. Shared items split evenly.</p>
-<div class="seg" role="group" aria-label="View"><button data-act="view" data-v="item" class="${S.view === 'item' ? 'on' : ''}">By item</button><button data-act="view" data-v="person" class="${S.view === 'person' ? 'on' : ''}">By person</button></div>
-<div class="meter" role="progressbar" aria-valuemin="0" aria-valuemax="${n}" aria-valuenow="${done}"><div style="width:${n ? done / n * 100 : 0}%"></div></div>
-<div class="muted small">${done} of ${n} items assigned.${left ? ` <button class="link tiny" style="padding:0" data-act="allLeft">Split the rest evenly</button>` : ''}</div>
-<div style="margin-top:8px">${S.view === 'item' ? assignByItem() : assignByPerson(R)}</div>`;
+  const n = S.items.length, left = unassigned().length, done = n - left, R = calc();
+  return `<h1>Who had what?</h1><p class="lede">Tap names under each item. Shared items split evenly.</p>
+  <div class="seg" role="group" aria-label="View"><button data-act="view" data-v="item" class="${S.view === 'item' ? 'on' : ''}">By item</button><button data-act="view" data-v="person" class="${S.view === 'person' ? 'on' : ''}">By person</button></div>
+  <div class="meter" role="progressbar" aria-valuemin="0" aria-valuemax="${n}" aria-valuenow="${done}"><div style="width:${n ? done / n * 100 : 0}%"></div></div>
+  <div class="muted small">${done} of ${n} items assigned.${left ? ` <button class="link tiny" style="padding:0" data-act="allLeft">Split the rest evenly</button>` : ''}</div>
+  <div style="margin-top:8px">${S.view === 'item' ? assignByItem() : assignByPerson(R)}</div>`;
 }
 
 function venmoHref(amt){
-const u = (S.venmo || '').trim().replace(/^@/, ''); if (!u) return '';
-const note = encodeURIComponent(S.note || 'Dinner');
-return MOBILE
-? `venmo://paycharge?txn=pay&recipients=${encodeURIComponent(u)}&amount=${plain(amt)}&note=${note}`
-: `https://account.venmo.com/pay?txn=pay&recipients=${encodeURIComponent(u)}&amount=${plain(amt)}&note=${note}`;
+  const u = (S.venmo || '').trim().replace(/^@/, ''); if (!u) return '';
+  const note = encodeURIComponent(S.note || 'Dinner');
+  return MOBILE
+    ? `venmo://paycharge?txn=pay&recipients=${encodeURIComponent(u)}&amount=${plain(amt)}&note=${note}`
+    : `https://account.venmo.com/pay?txn=pay&recipients=${encodeURIComponent(u)}&amount=${plain(amt)}&note=${note}`;
 }
 function oweRow(p, r){
-const parts = [['Items', r.sub], ['Tax', r.tax], ['Fees', r.fees], ['Tip', r.tip]].filter(([,v]) => v !== 0).map(([k,v]) => `${k} ${fmt(v)}`).join(', ');
-const h = venmoHref(r.total);
-return `<section class="owe" style="--c:${p.color}">
-<div class="otop"><span class="dot lg">${esc(initial(p.name))}</span><div class="ow"><div class="oname">${esc(p.name)}</div><div class="muted small">${parts}</div></div><div class="amt">${fmt(r.total)}</div></div>
-<div class="oact"><button class="btn ghost sm" data-act="copy" data-amt="${r.total}">Copy amount</button>
-<a class="btn pay sm" data-vp data-amt="${r.total}" href="${esc(h) || '#'}" ${MOBILE ? '' : 'target="_blank" rel="noopener"'} ${h ? '' : 'hidden'}>Pay on Venmo</a></div>
-<details><summary>See their items</summary><ul class="breakdown">${r.items.map(i => `<li><span>${esc(i.name)}${i.n > 1 ? ` <span class="muted">(split ${i.n} ways)</span>` : ''}</span><span>${fmt(i.cents)}</span></li>`).join('')}</ul></details></section>`;
+  const parts = [['Items', r.sub], ['Tax', r.tax], ['Fees', r.fees], ['Tip', r.tip]].filter(([,v]) => v !== 0).map(([k,v]) => `${k} ${fmt(v)}`).join(', ');
+  const h = venmoHref(r.total);
+  return `<section class="owe" style="--c:${p.color}">
+    <div class="otop"><span class="dot lg">${esc(initial(p.name))}</span><div class="ow"><div class="oname">${esc(p.name)}</div><div class="muted small">${parts}</div></div><div class="amt">${fmt(r.total)}</div></div>
+    <div class="oact"><button class="btn ghost sm" data-act="copy" data-amt="${r.total}">Copy amount</button>
+      <a class="btn pay sm" data-vp data-amt="${r.total}" href="${esc(h) || '#'}" ${MOBILE ? '' : 'target="_blank" rel="noopener"'} ${h ? '' : 'hidden'}>Pay on Venmo</a></div>
+    <details><summary>See their items</summary><ul class="breakdown">${r.items.map(i => `<li><span>${esc(i.name)}${i.n > 1 ? ` <span class="muted">(split ${i.n} ways)</span>` : ''}</span><span>${fmt(i.cents)}</span></li>`).join('')}</ul></details></section>`;
 }
 function stepSplit(){
-const R = calc(), payer = person(S.payer), grand = grandTotal();
-const others = S.people.filter(p => p.id !== S.payer);
-const bar = S.people.filter(p => R.per[p.id].total > 0).map(p => `<span style="flex:${R.per[p.id].total};background:${p.color}" title="${esc(p.name)}"></span>`).join('');
-return `<h1>${esc(payer.name)} paid ${fmt(grand)}</h1><p class="lede">Everyone else sends their share.</p>
-<div class="splitbar" role="img" aria-label="Each person’s share of the bill">${bar}</div>
-<div>${others.map(p => oweRow(p, R.per[p.id])).join('')}</div>
-<p class="payerline">${esc(payer.name)}’s own share is ${fmt(R.per[S.payer].total)}. The shares add up to the receipt total to the penny.</p>
-<h2 style="margin-top:12px">Venmo buttons</h2>
-<p class="muted small" style="margin:0 0 12px">Add ${esc(payer.name)}’s username to get a pay button on each person.</p>
-<div class="venmo"><div class="row"><span class="at">@</span><input class="field" type="text" value="${esc(S.venmo)}" placeholder="Venmo username" data-f="venmo" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Venmo username"></div>
-<input class="field" type="text" value="${esc(S.note)}" placeholder="Payment note" data-f="note" aria-label="Payment note"></div>
-<div style="margin-top:28px"><button class="link" data-act="reset">Start a new receipt with the same people</button></div>`;
+  const R = calc(), payer = person(S.payer), grand = grandTotal();
+  const others = S.people.filter(p => p.id !== S.payer);
+  const bar = S.people.filter(p => R.per[p.id].total > 0).map(p => `<span style="flex:${R.per[p.id].total};background:${p.color}" title="${esc(p.name)}"></span>`).join('');
+  return `<h1>${esc(payer.name)} paid ${fmt(grand)}</h1><p class="lede">Everyone else sends their share.</p>
+  <div class="splitbar" role="img" aria-label="Each person’s share of the bill">${bar}</div>
+  <div>${others.map(p => oweRow(p, R.per[p.id])).join('')}</div>
+  <p class="payerline">${esc(payer.name)}’s own share is ${fmt(R.per[S.payer].total)}. The shares add up to the receipt total to the penny.</p>
+  <h2 style="margin-top:12px">Venmo buttons</h2>
+  <p class="muted small" style="margin:0 0 12px">Add ${esc(payer.name)}’s username to get a pay button on each person.</p>
+  <div class="venmo"><div class="row"><span class="at">@</span><input class="field" type="text" value="${esc(S.venmo)}" placeholder="Venmo username" data-f="venmo" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Venmo username"></div>
+  <input class="field" type="text" value="${esc(S.note)}" placeholder="Payment note" data-f="note" aria-label="Payment note"></div>
+  <div style="margin-top:28px"><button class="link" data-act="reset">Start a new receipt with the same people</button></div>`;
 }
 
 function barHTML(){
-const s = S.step, key = getKey(), hasItems = S.items.length > 0;
-let label = 'Continue', act = 'next', dis = false, hint = '';
-if (s === 0) {
-if (ui.scanning) { label = 'Reading receipt…'; dis = true; }
-else if (hasItems) label = 'Add people';
-else if (ui.photos.length && key) { label = 'Read receipt'; act = 'scan'; }
-else if (ui.photos.length) { label = 'Read receipt'; dis = true; hint = 'Add a Gemini key below to read photos.'; }
-else { label = 'Read receipt'; dis = true; hint = 'Add a photo to get started.'; }
-} else if (s === 1) {
-label = 'Review items';
-if (S.people.length < 2) { dis = true; hint = 'Add at least two people.'; }
-} else if (s === 2) {
-label = 'Assign items';
-if (!S.items.some(i => i.cents !== 0)) { dis = true; hint = 'Add at least one item with a price.'; }
-} else if (s === 3) {
-label = 'See the split';
-const n = unassigned().length;
-if (n) { dis = true; hint = `${n} item${n === 1 ? ' still needs' : 's still need'} someone.`; }
-} else { label = 'Share summary'; act = 'shareAll'; }
-return `${hint ? `<p class="hint">${hint}</p>` : ''}<div class="in">${s > 0 ? `<button class="btn ghost round" data-act="back" aria-label="Back">${ICON.back}</button>` : ''}<button class="btn primary" data-act="${act}" ${dis ? 'disabled' : ''}>${label}</button></div>`;
+  const s = S.step, key = getKey(), hasItems = S.items.length > 0;
+  let label = 'Continue', act = 'next', dis = false, hint = '';
+  if (s === 0) {
+    if (ui.scanning) { label = 'Reading receipt…'; dis = true; }
+    else if (hasItems) label = 'Add people';
+    else if (ui.photos.length && key) { label = 'Read receipt'; act = 'scan'; }
+    else if (ui.photos.length) { label = 'Read receipt'; dis = true; hint = 'Add a Gemini key below to read photos.'; }
+    else { label = 'Read receipt'; dis = true; hint = 'Add a photo to get started.'; }
+  } else if (s === 1) {
+    label = 'Review items';
+    if (S.people.length < 2) { dis = true; hint = 'Add at least two people.'; }
+  } else if (s === 2) {
+    label = 'Assign items';
+    if (!S.items.some(i => i.cents !== 0)) { dis = true; hint = 'Add at least one item with a price.'; }
+  } else if (s === 3) {
+    label = 'See the split';
+    const n = unassigned().length;
+    if (n) { dis = true; hint = `${n} item${n === 1 ? ' still needs' : 's still need'} someone.`; }
+  } else { label = 'Share summary'; act = 'shareAll'; }
+  return `${hint ? `<p class="hint">${hint}</p>` : ''}<div class="in">${s > 0 ? `<button class="btn ghost round" data-act="back" aria-label="Back">${ICON.back}</button>` : ''}<button class="btn primary" data-act="${act}" ${dis ? 'disabled' : ''}>${label}</button></div>`;
 }
 
 /* ---------- render ---------- */
 const STEP_VIEWS = [stepReceipt, stepPeople, stepItems, stepAssign, stepSplit];
 function render(opts = {}){
-const y = window.scrollY;
-$app.innerHTML = headerHTML() + `<main class="step${opts.enter ? ' enter' : ''}">${STEP_VIEWS[S.step]()}</main>`
-+ (ui.lb != null && ui.photos[ui.lb] ? `<div class="lb" data-act="closeLb"><img src="${ui.photos[ui.lb]}" alt="Receipt photo"><button class="lbx" aria-label="Close">${ICON.x}</button></div>` : '');
-$bar.innerHTML = barHTML();
-window.scrollTo(0, opts.enter ? 0 : y);
-if (ui.focus) { const el = document.querySelector(ui.focus); ui.focus = null; if (el) el.focus(); }
+  const y = window.scrollY;
+  $app.innerHTML = headerHTML() + `<main class="step${opts.enter ? ' enter' : ''}">${STEP_VIEWS[S.step]()}</main>`
+    + (ui.lb != null && ui.photos[ui.lb] ? `<div class="lb" data-act="closeLb"><img src="${ui.photos[ui.lb]}" alt="Receipt photo"><button class="lbx" aria-label="Close">${ICON.x}</button></div>` : '');
+  $bar.innerHTML = barHTML();
+  window.scrollTo(0, opts.enter ? 0 : y);
+  if (ui.focus) { const el = document.querySelector(ui.focus); ui.focus = null; if (el) el.focus(); }
 }
 function updateLive(){
-const sb = document.getElementById('sumbox'); if (sb) sb.innerHTML = sumHTML();
-const tn = document.getElementById('tipnote'); if (tn) tn.textContent = tipNote();
-document.querySelectorAll('a[data-vp]').forEach(a => { const h = venmoHref(+a.dataset.amt); if (h) { a.href = h; a.hidden = false; } else a.hidden = true; });
-$bar.innerHTML = barHTML();
+  const sb = document.getElementById('sumbox'); if (sb) sb.innerHTML = sumHTML();
+  const tn = document.getElementById('tipnote'); if (tn) tn.textContent = tipNote();
+  document.querySelectorAll('a[data-vp]').forEach(a => { const h = venmoHref(+a.dataset.amt); if (h) { a.href = h; a.hidden = false; } else a.hidden = true; });
+  $bar.innerHTML = barHTML();
 }
 function go(n){
-if (S.step === 2 && n > 2) S.items = S.items.filter(i => (i.name || '').trim() || i.cents);
-S.step = Math.max(0, Math.min(STEPS.length - 1, n)); save(); render({ enter:true });
+  if (S.step === 2 && n > 2) S.items = S.items.filter(i => (i.name || '').trim() || i.cents);
+  S.step = Math.max(0, Math.min(STEPS.length - 1, n)); save(); render({ enter:true });
 }
 
 /* ---------- actions ---------- */
 function addPerson(name){
-name = (name || '').trim(); if (!name) return false;
-if (S.people.some(p => p.name.toLowerCase() === name.toLowerCase())) return false;
-const color = COLORS.find(c => !S.people.some(p => p.color === c)) || COLORS[S.people.length % COLORS.length];
-const p = { id:uid(), name, color };
-S.people.push(p); if (!S.payer) S.payer = p.id;
-const r = getRecent().filter(n => n.toLowerCase() !== name.toLowerCase()); r.unshift(name); lsSet(LS.recent, JSON.stringify(r.slice(0, 12)));
-save(); return true;
+  name = (name || '').trim(); if (!name) return false;
+  if (S.people.some(p => p.name.toLowerCase() === name.toLowerCase())) return false;
+  const color = COLORS.find(c => !S.people.some(p => p.color === c)) || COLORS[S.people.length % COLORS.length];
+  const p = { id:uid(), name, color };
+  S.people.push(p); if (!S.payer) S.payer = p.id;
+  const r = getRecent().filter(n => n.toLowerCase() !== name.toLowerCase()); r.unshift(name); lsSet(LS.recent, JSON.stringify(r.slice(0, 12)));
+  save(); return true;
 }
 const normWho = it => { const set = new Set(it.who); it.who = S.people.map(p => p.id).filter(id => set.has(id)); };
 function summaryText(){
-const R = calc(), payer = person(S.payer);
-const lines = [`${S.note || 'Dinner'}: ${fmt(grandTotal())} total, paid by ${payer.name}.`];
-S.people.filter(p => p.id !== S.payer).forEach(p => lines.push(`${p.name} owes ${fmt(R.per[p.id].total)}`));
-if ((S.venmo || '').trim()) lines.push(`Venmo: @${S.venmo.trim().replace(/^@/, '')}`);
-return lines.join('\n');
+  const R = calc(), payer = person(S.payer);
+  const lines = [`${S.note || 'Dinner'}: ${fmt(grandTotal())} total, paid by ${payer.name}.`];
+  S.people.filter(p => p.id !== S.payer).forEach(p => lines.push(`${p.name} owes ${fmt(R.per[p.id].total)}`));
+  if ((S.venmo || '').trim()) lines.push(`Venmo: @${S.venmo.trim().replace(/^@/, '')}`);
+  return lines.join('\n');
 }
 
 document.addEventListener('click', async e => {
-const el = e.target.closest('[data-act]'); if (!el) return;
-const a = el.dataset.act, id = el.dataset.id, p = el.dataset.p;
-switch (a) {
-case 'goto': if (+el.dataset.n <= S.step) go(+el.dataset.n); break;
-case 'next': go(S.step + 1); break;
-case 'back': go(S.step - 1); break;
-case 'scan': scan(); break;
-case 'manual': go(1); break;
-case 'rmPhoto': ui.photos.splice(+el.dataset.i, 1); render(); break;
-case 'editKey': ui.keyEdit = true; render(); break;
-case 'rmKey': lsDel(LS.key); lsDel(LS.model); ui.keyEdit = false; render(); break;
-case 'addRecent': if (addPerson(el.dataset.name)) { ui.focus = '#pname'; render(); } break;
-case 'payer': S.payer = p; save(); render(); break;
-case 'rmPerson':
-S.people = S.people.filter(x => x.id !== p);
-S.items.forEach(i => { i.who = i.who.filter(x => x !== p); });
-if (S.payer === p) S.payer = S.people[0]?.id || null;
-if (S.activePerson === p) S.activePerson = null;
-save(); render(); break;
-case 'addItem': { const it = { id:uid(), name:'', qty:1, cents:0, who:[] }; S.items.push(it); save(); ui.focus = `[data-f="iname"][data-id="${it.id}"]`; render(); break; }
-case 'rmItem': S.items = S.items.filter(i => i.id !== id); save(); render(); break;
-case 'splitQty': {
-const i = S.items.findIndex(x => x.id === id), it = S.items[i]; if (!it) break;
-const shares = allocate(it.cents, Array(it.qty).fill(1));
-S.items.splice(i, 1, ...shares.map(c => ({ id:uid(), name:it.name, qty:1, cents:c, who:[] })));
-save(); render(); break;
-}
-case 'addFee': { const f = { id:uid(), name:'', amt:0, neg:el.dataset.neg === '1' }; S.fees.push(f); save(); ui.focus = `[data-f="fname"][data-id="${f.id}"]`; render(); break; }
-case 'rmFee': S.fees = S.fees.filter(f => f.id !== id); save(); render(); break;
-case 'feeSign': { const f = fee(id); if (f) { f.neg = !f.neg; save(); render(); } break; }
-case 'tip': S.tip.mode = 'pct'; S.tip.pct = +el.dataset.v; S.tip.fromReceipt = false; save(); render(); break;
-case 'tipOther': if (S.tip.mode !== 'flat') { S.tip.flat = tipCents(); S.tip.mode = 'flat'; S.tip.fromReceipt = false; save(); render(); } break;
-case 'basis': S.tip.basis = el.dataset.v; save(); render(); break;
-case 'lb': ui.lb = +el.dataset.i; render(); break;
-case 'closeLb': ui.lb = null; render(); break;
-case 'view': S.view = el.dataset.v; save(); render(); break;
-case 'toggle': { const it = item(id); if (!it) break; const k = it.who.indexOf(p); if (k > -1) it.who.splice(k, 1); else it.who.push(p); normWho(it); save(); render(); break; }
-case 'all': { const it = item(id); if (!it) break; it.who = it.who.length === S.people.length ? [] : S.people.map(x => x.id); save(); render(); break; }
-case 'allLeft': unassigned().forEach(i => { i.who = S.people.map(x => x.id); }); save(); render(); break;
-case 'ptab': S.activePerson = p; save(); render(); document.querySelector('.ptab.on')?.scrollIntoView({ inline:'center', block:'nearest' }); break;
-case 'nextPerson': S.activePerson = p; save(); render(); document.querySelector('.ptabs')?.scrollIntoView({ block:'start' }); document.querySelector('.ptab.on')?.scrollIntoView({ inline:'center', block:'nearest' }); break;
-case 'copy': { const ok = await copyText(plain(+el.dataset.amt)); toast(ok ? `Copied ${plain(+el.dataset.amt)}` : 'Couldn’t copy. Select the amount instead.'); break; }
-case 'shareAll': {
-const text = summaryText();
-if (navigator.share) { try { await navigator.share({ text }); break; } catch (err) { if (err && err.name === 'AbortError') break; } }
-toast((await copyText(text)) ? 'Summary copied' : 'Couldn’t copy the summary.'); break;
-}
-case 'reset':
-if (confirm('Clear this receipt and start a new one? Your people stay.')) {
-const keep = { people:S.people, payer:S.payer, venmo:S.venmo, note:S.note };
-S = { ...fresh(), ...keep }; ui.photos = []; ui.error = ''; ui.lb = null; save(); render({ enter:true });
-}
-break;
-}
+  const el = e.target.closest('[data-act]'); if (!el) return;
+  const a = el.dataset.act, id = el.dataset.id, p = el.dataset.p;
+  switch (a) {
+    case 'goto': if (+el.dataset.n <= S.step) go(+el.dataset.n); break;
+    case 'next': go(S.step + 1); break;
+    case 'back': go(S.step - 1); break;
+    case 'scan': scan(); break;
+    case 'manual': go(1); break;
+    case 'rmPhoto': ui.photos.splice(+el.dataset.i, 1); render(); break;
+    case 'editKey': ui.keyEdit = true; render(); break;
+    case 'rmKey': lsDel(LS.key); lsDel(LS.model); ui.keyEdit = false; render(); break;
+    case 'addRecent': if (addPerson(el.dataset.name)) { ui.focus = '#pname'; render(); } break;
+    case 'payer': S.payer = p; save(); render(); break;
+    case 'rmPerson':
+      S.people = S.people.filter(x => x.id !== p);
+      S.items.forEach(i => { i.who = i.who.filter(x => x !== p); });
+      if (S.payer === p) S.payer = S.people[0]?.id || null;
+      if (S.activePerson === p) S.activePerson = null;
+      save(); render(); break;
+    case 'addItem': { const it = { id:uid(), name:'', qty:1, cents:0, who:[] }; S.items.push(it); save(); ui.focus = `[data-f="iname"][data-id="${it.id}"]`; render(); break; }
+    case 'rmItem': S.items = S.items.filter(i => i.id !== id); save(); render(); break;
+    case 'splitQty': {
+      const i = S.items.findIndex(x => x.id === id), it = S.items[i]; if (!it) break;
+      const shares = allocate(it.cents, Array(it.qty).fill(1));
+      S.items.splice(i, 1, ...shares.map(c => ({ id:uid(), name:it.name, qty:1, cents:c, who:[] })));
+      save(); render(); break;
+    }
+    case 'addFee': { const f = { id:uid(), name:'', amt:0, neg:el.dataset.neg === '1' }; S.fees.push(f); save(); ui.focus = `[data-f="fname"][data-id="${f.id}"]`; render(); break; }
+    case 'rmFee': S.fees = S.fees.filter(f => f.id !== id); save(); render(); break;
+    case 'feeSign': { const f = fee(id); if (f) { f.neg = !f.neg; save(); render(); } break; }
+    case 'tip': S.tip.mode = 'pct'; S.tip.pct = +el.dataset.v; S.tip.fromReceipt = false; save(); render(); break;
+    case 'tipOther': if (S.tip.mode !== 'flat') { S.tip.flat = tipCents(); S.tip.mode = 'flat'; S.tip.fromReceipt = false; save(); render(); } break;
+    case 'basis': S.tip.basis = el.dataset.v; save(); render(); break;
+    case 'lb': ui.lb = +el.dataset.i; render(); break;
+    case 'closeLb': ui.lb = null; render(); break;
+    case 'view': S.view = el.dataset.v; save(); render(); break;
+    case 'toggle': { const it = item(id); if (!it) break; const k = it.who.indexOf(p); if (k > -1) it.who.splice(k, 1); else it.who.push(p); normWho(it); save(); render(); break; }
+    case 'all': { const it = item(id); if (!it) break; it.who = it.who.length === S.people.length ? [] : S.people.map(x => x.id); save(); render(); break; }
+    case 'allLeft': unassigned().forEach(i => { i.who = S.people.map(x => x.id); }); save(); render(); break;
+    case 'ptab': S.activePerson = p; save(); render(); document.querySelector('.ptab.on')?.scrollIntoView({ inline:'center', block:'nearest' }); break;
+    case 'nextPerson': S.activePerson = p; save(); render(); document.querySelector('.ptabs')?.scrollIntoView({ block:'start' }); document.querySelector('.ptab.on')?.scrollIntoView({ inline:'center', block:'nearest' }); break;
+    case 'copy': { const ok = await copyText(plain(+el.dataset.amt)); toast(ok ? `Copied ${plain(+el.dataset.amt)}` : 'Couldn’t copy. Select the amount instead.'); break; }
+    case 'shareAll': {
+      const text = summaryText();
+      if (navigator.share) { try { await navigator.share({ text }); break; } catch (err) { if (err && err.name === 'AbortError') break; } }
+      toast((await copyText(text)) ? 'Summary copied' : 'Couldn’t copy the summary.'); break;
+    }
+    case 'startover':
+      if (confirm('Start over? This clears the receipt, photos, and people. Your API key stays.')) {
+        S = { ...fresh(), venmo:S.venmo, note:S.note }; ui.photos = []; ui.error = ''; ui.lb = null; ui.scanning = false;
+        save(); render({ enter:true });
+      }
+      break;
+    case 'reset':
+      if (confirm('Clear this receipt and start a new one? Your people stay.')) {
+        const keep = { people:S.people, payer:S.payer, venmo:S.venmo, note:S.note };
+        S = { ...fresh(), ...keep }; ui.photos = []; ui.error = ''; ui.lb = null; save(); render({ enter:true });
+      }
+      break;
+  }
 });
 
 document.addEventListener('input', e => {
-const t = e.target, f = t.dataset.f; if (!f) return;
-const id = t.dataset.id;
-switch (f) {
-case 'iname': { const it = item(id); if (it) it.name = t.value; break; }
-case 'icents': { const it = item(id); if (it) it.cents = parse(t.value); break; }
-case 'tax': S.tax = Math.max(0, parse(t.value)); break;
-case 'fname': { const x = fee(id); if (x) x.name = t.value; break; }
-case 'fcents': { const x = fee(id); if (x) x.amt = Math.abs(parse(t.value)); break; }
-case 'tipflat': S.tip.flat = Math.max(0, parse(t.value)); S.tip.fromReceipt = false; break;
-case 'venmo': S.venmo = t.value.replace(/^@/, '').trim(); break;
-case 'note': S.note = t.value; break;
-}
-save(); updateLive();
+  const t = e.target, f = t.dataset.f; if (!f) return;
+  const id = t.dataset.id;
+  switch (f) {
+    case 'iname': { const it = item(id); if (it) it.name = t.value; break; }
+    case 'icents': { const it = item(id); if (it) it.cents = parse(t.value); break; }
+    case 'tax': S.tax = Math.max(0, parse(t.value)); break;
+    case 'fname': { const x = fee(id); if (x) x.name = t.value; break; }
+    case 'fcents': { const x = fee(id); if (x) x.amt = Math.abs(parse(t.value)); break; }
+    case 'tipflat': S.tip.flat = Math.max(0, parse(t.value)); S.tip.fromReceipt = false; break;
+    case 'venmo': S.venmo = t.value.replace(/^@/, '').trim(); break;
+    case 'note': S.note = t.value; break;
+  }
+  save(); updateLive();
 });
 document.addEventListener('focusin', e => { if (e.target.classList?.contains('money')) setTimeout(() => e.target.select && e.target.select(), 0); });
 document.addEventListener('focusout', e => {
-const t = e.target;
-if (t.classList?.contains('money') && t.dataset.f) { let c = parse(t.value); if (t.dataset.f !== 'icents') c = Math.max(0, c); t.value = plain(c); }
+  const t = e.target;
+  if (t.classList?.contains('money') && t.dataset.f) { let c = parse(t.value); if (t.dataset.f !== 'icents') c = Math.max(0, c); t.value = plain(c); }
 });
 document.addEventListener('change', e => {
-if (e.target.matches('[data-file]')) { const files = [...e.target.files]; e.target.value = ''; addFiles(files); }
+  if (e.target.matches('[data-file]')) { const files = [...e.target.files]; e.target.value = ''; addFiles(files); }
 });
 document.addEventListener('submit', e => {
-e.preventDefault();
-const f = e.target.dataset.form;
-if (f === 'addPerson') {
-const inp = document.getElementById('pname');
-if (addPerson(inp.value)) { ui.focus = '#pname'; render(); } else { inp.focus(); }
-} else if (f === 'saveKey') {
-const k = document.getElementById('keyinput').value.replace(/[\s"'“”‘’]/g, '');
-if (!k) return;
-if (!/^[\x21-\x7E]+$/.test(k)) { toast('That key has odd characters. Copy it again.'); return; }
-lsSet(LS.key, k);
-const m = document.getElementById('modelinput'); if (m) { const v = m.value.trim(); if (v && v !== DEFAULT_MODEL) lsSet(LS.model, v); else lsDel(LS.model); }
-ui.keyEdit = false; render(); toast('Key saved');
-}
+  e.preventDefault();
+  const f = e.target.dataset.form;
+  if (f === 'addPerson') {
+    const inp = document.getElementById('pname');
+    if (addPerson(inp.value)) { ui.focus = '#pname'; render(); } else { inp.focus(); }
+  } else if (f === 'saveKey') {
+    const k = document.getElementById('keyinput').value.replace(/[\s"'“”‘’]/g, '');
+    if (!k) return;
+    if (!/^[\x21-\x7E]+$/.test(k)) { toast('That key has odd characters. Copy it again.'); return; }
+    lsSet(LS.key, k);
+    const m = document.getElementById('modelinput'); if (m) { const v = m.value.trim(); if (v && v !== DEFAULT_MODEL) lsSet(LS.model, v); else lsDel(LS.model); }
+    ui.keyEdit = false; render(); toast('Key saved');
+  }
 });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && ui.lb != null) { ui.lb = null; render(); } });
 
 /* ---------- tests: open index.html?test and check the console ---------- */
 function runTests(){
-const sum = a => a.reduce((x,y) => x + y, 0);
-const t = (ok, name, info) => console[ok ? 'log' : 'error']((ok ? 'pass: ' : 'FAIL: ') + name, ok ? '' : info);
-t(sum(allocate(100, [1,1,1])) === 100, 'thirds sum to 100');
-t(JSON.stringify(allocate(100, [1,1,1])) === '[34,33,33]', 'extra penny goes to the first person', allocate(100, [1,1,1]));
-const d = allocate(-200, [1000, 500]);
-t(sum(d) === -200 && d[0] === -133 && d[1] === -67, 'discount splits proportionally', d);
-t(sum(allocate(0, [3,4])) === 0, 'zero total stays zero');
-t(sum(allocate(101, [0,0])) === 101, 'zero weights fall back to an even split');
-const R = computeSplit(
-[{ name:'Shared', cents:1000, who:['a','b'] }, { name:'A only', cents:500, who:['a'] }],
-['a','b'], 150, 0, 300);
-t(R.per.a.sub === 1000 && R.per.b.sub === 500, 'shared item splits evenly', R.per);
-t(R.per.a.tax === 100 && R.per.b.tax === 50 && R.per.a.tip === 200 && R.per.b.tip === 100, 'tax and tip follow each subtotal', R.per);
-t(R.per.a.total + R.per.b.total === 1500 + 150 + 300, 'totals match the receipt exactly');
-const R2 = computeSplit([{ name:'x', cents:100, who:['a','b','c'] }, { name:'y', cents:1, who:['a','b','c'] }], ['a','b','c'], 7, -3, 11);
-t(R2.per.a.total + R2.per.b.total + R2.per.c.total === 101 + 7 - 3 + 11, 'odd cents still add up', R2.per);
-t(computeSplit([{ name:'z', cents:5, who:[] }], ['a'], 0, 0, 0).unassigned.length === 1, 'unassigned items are reported');
+  const sum = a => a.reduce((x,y) => x + y, 0);
+  const t = (ok, name, info) => console[ok ? 'log' : 'error']((ok ? 'pass: ' : 'FAIL: ') + name, ok ? '' : info);
+  t(sum(allocate(100, [1,1,1])) === 100, 'thirds sum to 100');
+  t(JSON.stringify(allocate(100, [1,1,1])) === '[34,33,33]', 'extra penny goes to the first person', allocate(100, [1,1,1]));
+  const d = allocate(-200, [1000, 500]);
+  t(sum(d) === -200 && d[0] === -133 && d[1] === -67, 'discount splits proportionally', d);
+  t(sum(allocate(0, [3,4])) === 0, 'zero total stays zero');
+  t(sum(allocate(101, [0,0])) === 101, 'zero weights fall back to an even split');
+  const R = computeSplit(
+    [{ name:'Shared', cents:1000, who:['a','b'] }, { name:'A only', cents:500, who:['a'] }],
+    ['a','b'], 150, 0, 300);
+  t(R.per.a.sub === 1000 && R.per.b.sub === 500, 'shared item splits evenly', R.per);
+  t(R.per.a.tax === 100 && R.per.b.tax === 50 && R.per.a.tip === 200 && R.per.b.tip === 100, 'tax and tip follow each subtotal', R.per);
+  t(R.per.a.total + R.per.b.total === 1500 + 150 + 300, 'totals match the receipt exactly');
+  const R2 = computeSplit([{ name:'x', cents:100, who:['a','b','c'] }, { name:'y', cents:1, who:['a','b','c'] }], ['a','b','c'], 7, -3, 11);
+  t(R2.per.a.total + R2.per.b.total + R2.per.c.total === 101 + 7 - 3 + 11, 'odd cents still add up', R2.per);
+  t(computeSplit([{ name:'z', cents:5, who:[] }], ['a'], 0, 0, 0).unassigned.length === 1, 'unassigned items are reported');
 }
 if (/[?&]test\b/.test(location.search)) runTests();
 
