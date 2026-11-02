@@ -6,6 +6,15 @@
 <meta name="theme-color" content="#f5f6f7" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#101215" media="(prefers-color-scheme: dark)">
 <title>dutch: split the bill</title>
+<meta name="description" content="Snap the receipt, tap who had what, and send everyone a link to pay you back on Venmo.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="dutch">
+<meta property="og:title" content="dutch: split the bill">
+<meta property="og:description" content="Snap the receipt, tap who had what, and send everyone a link to pay you back on Venmo.">
+<meta property="og:image" content="https://cooperwilk.com/dutch/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='14' fill='%23161a20'/%3E%3Cpath d='M16 2v28' stroke='%23ffd23f' stroke-width='3'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -183,6 +192,15 @@ summary{cursor:pointer;color:var(--muted);font-size:15px;padding:6px 0}
 .venmo .row{display:flex;gap:8px;align-items:center;margin-bottom:12px}
 .at{font-weight:700;color:var(--muted)}
 
+.keybox .seg{margin-bottom:0}
+.models{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+
+.who{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 6px}
+.owe.me{background:var(--surface);border:1.5px solid var(--ink);border-radius:14px;padding:18px;margin:8px 0 6px}
+.owe.me .amt{font-size:40px}
+.subh{font:700 17px var(--display);letter-spacing:-.02em;margin:24px 0 0;color:var(--muted)}
+.shared-top{display:flex;align-items:center;justify-content:space-between}
+
 /* overlays */
 .lb{position:fixed;inset:0;z-index:40;background:rgba(10,12,15,.92);overflow:auto;display:flex;align-items:flex-start;justify-content:center;padding:56px 12px 24px}
 .lb img{max-width:100%;height:auto;border-radius:6px;touch-action:pan-x pan-y pinch-zoom}
@@ -202,11 +220,13 @@ summary{cursor:pointer;color:var(--muted);font-size:15px;padding:6px 0}
 'use strict';
 
 /* ---------- constants ---------- */
-const LS = { key:'dutch.key', model:'dutch.model', state:'dutch.state.v1', recent:'dutch.recent' };
-const DEFAULT_MODEL = 'gemini-3.1-flash-lite';
+const LS = { key:'dutch.key', model:'dutch.model', ckey:'dutch.key.claude', cmodel:'dutch.model.claude', provider:'dutch.provider', state:'dutch.state.v1', recent:'dutch.recent' };
 const COLORS = ['#2f56e0','#d1307a','#1f8a4c','#d9581a','#0f7f86','#9a6b00','#7a3fb0','#4a5568'];
 const STEPS = ['Receipt','People','Items','Assign','Split'];
 const MOBILE = /iPhone|iPad|Android/i.test(navigator.userAgent);
+// After you deploy the Cloudflare Worker, paste its address here (no trailing slash),
+// for example 'https://dutch.yourname.workers.dev'. Leave it empty to share as plain text.
+const SHARE_API = '';
 
 /* ---------- storage ---------- */
 const lsGet = k => { try { return localStorage.getItem(k); } catch { return null; } };
@@ -217,7 +237,7 @@ const lsDel = k => { try { localStorage.removeItem(k); } catch {} };
 const fresh = () => ({
   step:0, people:[], payer:null, items:[], fees:[], tax:0,
   tip:{ mode:'pct', pct:20, flat:0, basis:'pre', fromReceipt:false },
-  receipt:null, view:'item', activePerson:null, venmo:'', note:'Dinner'
+  receipt:null, view:'item', activePerson:null, venmo:'', note:'Dinner', share:null
 });
 function load(){
   try {
@@ -233,7 +253,7 @@ function load(){
 }
 let S = load();
 const save = () => lsSet(LS.state, JSON.stringify(S));
-const ui = { photos:[], scanning:false, error:'', keyEdit:false, lb:null, focus:null };
+const ui = { photos:[], scanning:false, error:'', keyEdit:false, lb:null, focus:null, sharing:false, shared:null };
 
 /* ---------- helpers ---------- */
 const $app = document.getElementById('app');
@@ -249,7 +269,14 @@ const person = id => S.people.find(p => p.id === id);
 const item = id => S.items.find(i => i.id === id);
 const fee = id => S.fees.find(f => f.id === id);
 const iname = it => (it.name || '').trim() || 'Item';
-const getKey = () => lsGet(LS.key) || '';
+const PROVIDERS = {
+  gemini:{ name:'Gemini', vendor:'Google', keyLS:'key', modelLS:'model', model:'gemini-3.1-flash-lite', link:'https://aistudio.google.com/apikey' },
+  claude:{ name:'Claude', vendor:'Anthropic', keyLS:'ckey', modelLS:'cmodel', model:'claude-haiku-5-5', link:'https://console.anthropic.com/settings/keys' }
+};
+const getProvider = () => lsGet(LS.provider) === 'claude' ? 'claude' : 'gemini';
+const P = () => PROVIDERS[getProvider()];
+const getKey = () => lsGet(LS[P().keyLS]) || '';
+const getModel = () => lsGet(LS[P().modelLS]) || P().model;
 const getRecent = () => { try { return JSON.parse(lsGet(LS.recent) || '[]'); } catch { return []; } };
 
 const svg = (d, s = 22) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
@@ -436,6 +463,7 @@ function applyReceipt(r){
 }
 // Safari reports any blocked or failed request as "Load failed". Probe to tell why.
 async function diagnoseNetwork(key){
+  if (getProvider() === 'claude') return 'Couldn’t reach Anthropic. Check your connection, turn off any VPN or content blocker, and make sure the key is right.';
   const shape = `${key.slice(0, 4)}…, ${key.length} characters`;
   let online = true;
   try { await fetch('https://www.gstatic.com/generate_204', { mode:'no-cors', cache:'no-store' }); } catch { online = false; }
@@ -450,15 +478,16 @@ async function diagnoseNetwork(key){
   }
 }
 class ApiError extends Error {}
-async function callGemini(url, body){
+async function callGemini(url, body, headers = { 'Content-Type':'application/json' }){
+  const t0 = Date.now();
   const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 60000);
   try {
-    const res = await fetch(url, { method:'POST', headers:{ 'Content-Type':'application/json' }, body, signal:ctl.signal });
+    const res = await fetch(url, { method:'POST', headers, body, signal:ctl.signal });
     if (res.ok) return { ok:true, data:await res.json() };
     let msg = ''; try { msg = (await res.json()).error?.message || ''; } catch {}
-    return { ok:false, status:res.status, msg, transient:[500,502,503,504].includes(res.status) || /deadline|overloaded|unavailable/i.test(msg) };
+    return { ok:false, ms:Date.now() - t0, status:res.status, msg, transient:[500,502,503,504,529].includes(res.status) || /deadline|overloaded|unavailable/i.test(msg) };
   } catch (e) {
-    if (e && e.name === 'AbortError') return { ok:false, status:0, msg:'Google took too long to answer.', transient:true };
+    if (e && e.name === 'AbortError') return { ok:false, ms:Date.now() - t0, status:0, msg:P().vendor + ' took too long to answer.', transient:true };
     throw e;
   } finally { clearTimeout(timer); }
 }
@@ -466,33 +495,59 @@ async function callGemini(url, body){
 function thinkingFor(model){
   return /2\.5/.test(model) ? { thinkingBudget:0 } : { thinkingLevel:'minimal' };
 }
+const CLAUDE_TOOL = {
+  name:'record_receipt',
+  description:'Record the line items and totals read from the receipt.',
+  input_schema:{ type:'object', properties:{
+    items:{ type:'array', items:{ type:'object', properties:{ name:{type:'string'}, quantity:{type:'integer'}, price_cents:{type:'integer'} }, required:['name','price_cents'] } },
+    fees:{ type:'array', items:{ type:'object', properties:{ name:{type:'string'}, amount_cents:{type:'integer'} }, required:['name','amount_cents'] } },
+    subtotal_cents:{ type:'integer' }, tax_cents:{ type:'integer' }, tip_cents:{ type:'integer' }, total_cents:{ type:'integer' }
+  }, required:['items'] }
+};
 async function scan(){
   const key = getKey(); if (!key || !ui.photos.length || ui.scanning) return;
+  const pv = getProvider(), vendor = P().vendor, model = getModel();
   ui.scanning = true; ui.error = ''; ui.attempt = 1; render();
   try {
-    const model = lsGet(LS.model) || DEFAULT_MODEL;
-    const parts = ui.photos.map(d => ({ inline_data:{ mime_type:d.slice(5, d.indexOf(';')), data:d.split(',')[1] } }));
-    parts.push({ text:PROMPT });
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`;
-    const mk = withThinking => JSON.stringify({
-      contents:[{ parts }],
-      generationConfig:{ responseMimeType:'application/json', responseSchema:SCHEMA, temperature:0, maxOutputTokens:8192, ...(withThinking ? { thinkingConfig:thinkingFor(model) } : {}) }
-    });
-    // One request, no automatic retries: every attempt can be billed.
-    let r = await callGemini(url, mk(true));
-    // A custom model that doesn't accept the thinking setting: ask once more without it.
-    if (!r.ok && r.status === 400 && /think/i.test(r.msg)) r = await callGemini(url, mk(false));
+    let r, extract;
+    if (pv === 'claude') {
+      if (ui.photos.some(d => !/^data:image\/(jpeg|png|webp|gif);/.test(d))) throw new ApiError('Claude can’t read HEIC photos. Remove the photo and add it again as a JPEG.');
+      const content = ui.photos.map(d => ({ type:'image', source:{ type:'base64', media_type:d.slice(5, d.indexOf(';')), data:d.split(',')[1] } }));
+      content.push({ type:'text', text:PROMPT });
+      const body = JSON.stringify({ model, max_tokens:2048, tools:[CLAUDE_TOOL], tool_choice:{ type:'tool', name:CLAUDE_TOOL.name }, messages:[{ role:'user', content }] });
+      r = await callGemini('https://api.anthropic.com/v1/messages', body, {
+        'Content-Type':'application/json', 'x-api-key':key, 'anthropic-version':'2023-06-01', 'anthropic-dangerous-direct-browser-access':'true'
+      });
+      extract = d => (d.content || []).find(b => b.type === 'tool_use')?.input;
+    } else {
+      const parts = ui.photos.map(d => ({ inline_data:{ mime_type:d.slice(5, d.indexOf(';')), data:d.split(',')[1] } }));
+      parts.push({ text:PROMPT });
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`;
+      const mk = withThinking => JSON.stringify({
+        contents:[{ parts }],
+        generationConfig:{ responseMimeType:'application/json', responseSchema:SCHEMA, temperature:0, maxOutputTokens:8192, ...(withThinking ? { thinkingConfig:thinkingFor(model) } : {}) }
+      });
+      // One request, no automatic retries: every attempt can be billed.
+      r = await callGemini(url, mk(true));
+      // A custom model that doesn't accept the thinking setting: ask once more without it.
+      if (!r.ok && r.status === 400 && /think/i.test(r.msg)) r = await callGemini(url, mk(false));
+      extract = d => {
+        const t = (d.candidates?.[0]?.content?.parts || []).filter(p => !p.thought).map(p => p.text || '').join('').trim()
+          .replace(/^```(?:json)?/i, '').replace(/```$/, '').trim();
+        return t ? JSON.parse(t) : null;
+      };
+    }
     if (!r.ok) {
       if (r.status === 429) throw new ApiError('You’ve hit the rate limit. Wait a minute and try again.');
-      if (r.status === 400 || r.status === 403) throw new ApiError('Google rejected the request. Check that the key and model name are right. ' + r.msg);
+      if (r.status === 401) throw new ApiError(`${vendor} rejected the key. Check that it’s correct.`);
+      if (r.status === 400 || r.status === 403) throw new ApiError(`${vendor} rejected the request. Check that the key and model name are right. ${r.msg}`);
       if (r.status === 404) throw new ApiError('That model name doesn’t exist. Change it under the key settings.');
-      if (r.transient) throw new ApiError('Google timed out. I didn’t retry automatically, to avoid extra charges. Tap Read receipt to try again.');
+      if (r.transient) throw new ApiError(`${vendor} is busy or timed out (${r.status ? 'error ' + r.status : 'no answer'} after ${Math.round(r.ms / 1000)}s, model ${model}). I didn’t retry automatically, to avoid extra charges. Wait a minute and tap Read receipt, or switch models.`);
       throw new ApiError(r.msg || `Request failed (${r.status}).`);
     }
-    let text = (r.data.candidates?.[0]?.content?.parts || []).filter(p => !p.thought).map(p => p.text || '').join('').trim();
-    text = text.replace(/^```(?:json)?/i, '').replace(/```$/, '').trim();
-    if (!text) throw new ApiError('The model sent back nothing. Try a clearer photo.');
-    applyReceipt(JSON.parse(text));
+    const receipt = extract(r.data);
+    if (!receipt) throw new ApiError('The model sent back nothing. Try a clearer photo.');
+    applyReceipt(receipt);
     if (!S.items.length) throw new ApiError('No line items found. Try a clearer, flatter photo.');
   } catch (e) {
     if (e instanceof SyntaxError) ui.error = 'The response wasn’t readable. Tap Read receipt to try again.';
@@ -523,21 +578,27 @@ function stepReceipt(){
   if (ui.scanning) {
     h += `<div class="note" role="status"><strong>Reading your receipt…</strong><div class="muted small">${ui.attempt > 1 ? `Google is slow right now. Trying again (${ui.attempt} of 3).` : 'This takes a few seconds.'}</div><div class="ind"></div></div>`;
   } else if (ui.error) {
-    h += `<div class="note err" role="alert"><strong>Couldn’t read the receipt.</strong> ${esc(ui.error)}</div>`;
+    h += `<div class="note err" role="alert"><strong>Couldn’t read the receipt.</strong> ${esc(ui.error)}<div><button class="link" data-act="editKey" style="padding-bottom:0">Change model</button></div></div>`;
   } else if (hasItems) {
     h += `<div class="note ok"><strong>Found ${S.items.length} item${S.items.length === 1 ? '' : 's'} totaling ${fmt(itemsSum())}.</strong><div class="muted small">You can fix anything on the items step.</div>${ui.photos.length && key ? `<button class="link" data-act="scan">Read the photos again</button>` : ''}</div>`;
   }
   if (!key || ui.keyEdit) {
+    const pv = getProvider(), pr = P();
     h += `<form class="keybox" data-form="saveKey" autocomplete="off">
-      <p><strong>${key ? 'Gemini key' : 'To read photos, add a free Gemini key.'}</strong><br><span class="muted small">It’s saved only in this browser and sent only to Google. <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Get a key</a></span></p>
-      <input class="field" id="keyinput" type="password" placeholder="Paste key (starts with AIza)" value="${esc(key)}" autocomplete="off" spellcheck="false">
-      ${key ? `<div class="muted small" style="margin-top:12px">Model</div><input class="field" id="modelinput" type="text" value="${esc(lsGet(LS.model) || DEFAULT_MODEL)}" autocomplete="off" spellcheck="false" style="margin-top:6px">` : ''}
+      <div class="seg" role="group" aria-label="Reader"><button type="button" data-act="provider" data-v="gemini" class="${pv === 'gemini' ? 'on' : ''}">Gemini</button><button type="button" data-act="provider" data-v="claude" class="${pv === 'claude' ? 'on' : ''}">Claude</button></div>
+      <p style="margin-top:12px"><strong>${key ? pr.name + ' key' : 'To read photos, add a ' + pr.name + ' key.'}</strong><br><span class="muted small">${pv === 'gemini'
+        ? 'Free tier, but Google’s newest models are sometimes slow or overloaded.'
+        : 'Pays per receipt (a small amount) and is usually more consistent. Add credits in the Anthropic console first.'}
+        It’s saved only in this browser and sent only to ${pr.vendor}. <a href="${pr.link}" target="_blank" rel="noopener">Get a key</a></span></p>
+      <input class="field" id="keyinput" type="password" placeholder="Paste ${pr.name} key" value="${esc(key)}" autocomplete="off" spellcheck="false">
+      ${key ? `<div class="muted small" style="margin-top:12px">Model</div><input class="field" id="modelinput" type="text" value="${esc(getModel())}" autocomplete="off" spellcheck="false" style="margin-top:6px">` : ''}
+      ${key && pv === 'gemini' ? `<button type="button" class="link tiny" data-act="listModels">See which models your key can use</button>${ui.modelsMsg ? `<div class="muted small">${esc(ui.modelsMsg)}</div>` : ''}${ui.models && ui.models.length ? `<div class="models">${ui.models.map(m => `<button type="button" class="pill" data-act="pickModel" data-name="${esc(m)}">${esc(m)}</button>`).join('')}</div>` : ''}` : ''}
       <div class="row"><button class="btn sm" type="submit">Save key</button>${key ? `<button class="btn ghost sm" type="button" data-act="rmKey">Remove key</button>` : ''}</div></form>`;
   } else {
-    h += `<p class="muted small" style="margin-top:22px">Gemini key saved on this device (${esc(key.slice(0, 4))}…, ${key.length} characters). <button class="link tiny" data-act="editKey" style="padding:0">Change</button></p>`;
+    h += `<p class="muted small" style="margin-top:22px">${P().name} key saved on this device (${esc(key.slice(0, 4))}…, ${key.length} characters), model ${esc(getModel())}. <button class="link tiny" data-act="editKey" style="padding:0">Change</button></p>`;
   }
   if (!hasItems && !ui.scanning) h += `<div><button class="link" data-act="manual">Skip the photo and type the items instead</button></div>`;
-  h += `<p class="muted small" style="margin-top:28px">dutch v8</p>`;
+  h += `<p class="muted small" style="margin-top:28px">dutch v11</p>`;
   return h;
 }
 
@@ -643,13 +704,14 @@ function stepAssign(){
   <div style="margin-top:8px">${S.view === 'item' ? assignByItem() : assignByPerson(R)}</div>`;
 }
 
-function venmoHref(amt){
-  const u = (S.venmo || '').trim().replace(/^@/, ''); if (!u) return '';
-  const note = encodeURIComponent(S.note || 'Dinner');
+function venmoUrl(user, note, amt){
+  const u = (user || '').trim().replace(/^@/, ''); if (!u) return '';
+  const n = encodeURIComponent(note || 'Dinner');
   return MOBILE
-    ? `venmo://paycharge?txn=pay&recipients=${encodeURIComponent(u)}&amount=${plain(amt)}&note=${note}`
-    : `https://account.venmo.com/pay?txn=pay&recipients=${encodeURIComponent(u)}&amount=${plain(amt)}&note=${note}`;
+    ? `venmo://paycharge?txn=pay&recipients=${encodeURIComponent(u)}&amount=${plain(amt)}&note=${n}`
+    : `https://account.venmo.com/pay?txn=pay&recipients=${encodeURIComponent(u)}&amount=${plain(amt)}&note=${n}`;
 }
+const venmoHref = amt => venmoUrl(S.venmo, S.note, amt);
 function oweRow(p, r){
   const parts = [['Items', r.sub], ['Tax', r.tax], ['Fees', r.fees], ['Tip', r.tip]].filter(([,v]) => v !== 0).map(([k,v]) => `${k} ${fmt(v)}`).join(', ');
   const h = venmoHref(r.total);
@@ -671,7 +733,7 @@ function stepSplit(){
   <p class="muted small" style="margin:0 0 12px">Add ${esc(payer.name)}’s username to get a pay button on each person.</p>
   <div class="venmo"><div class="row"><span class="at">@</span><input class="field" type="text" value="${esc(S.venmo)}" placeholder="Venmo username" data-f="venmo" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Venmo username"></div>
   <input class="field" type="text" value="${esc(S.note)}" placeholder="Payment note" data-f="note" aria-label="Payment note"></div>
-  <div style="margin-top:28px"><button class="link" data-act="reset">Start a new receipt with the same people</button></div>`;
+  <div style="margin-top:28px">${SHARE_API ? `<button class="link" data-act="shareAll">Share as plain text instead</button><br>` : ''}<button class="link" data-act="reset">Start a new receipt with the same people</button></div>`;
 }
 
 function barHTML(){
@@ -681,7 +743,7 @@ function barHTML(){
     if (ui.scanning) { label = 'Reading receipt…'; dis = true; }
     else if (hasItems) label = 'Add people';
     else if (ui.photos.length && key) { label = 'Read receipt'; act = 'scan'; }
-    else if (ui.photos.length) { label = 'Read receipt'; dis = true; hint = 'Add a Gemini key below to read photos.'; }
+    else if (ui.photos.length) { label = 'Read receipt'; dis = true; hint = `Add a ${P().name} key below to read photos.`; }
     else { label = 'Read receipt'; dis = true; hint = 'Add a photo to get started.'; }
   } else if (s === 1) {
     label = 'Review items';
@@ -693,6 +755,10 @@ function barHTML(){
     label = 'See the split';
     const n = unassigned().length;
     if (n) { dis = true; hint = `${n} item${n === 1 ? ' still needs' : 's still need'} someone.`; }
+  } else if (SHARE_API) {
+    act = 'shareLink';
+    label = ui.sharing ? 'Saving…' : (S.share && S.share.sig !== JSON.stringify(buildSnapshot()) ? 'Update link' : 'Share link');
+    if (ui.sharing) dis = true;
   } else { label = 'Share summary'; act = 'shareAll'; }
   return `${hint ? `<p class="hint">${hint}</p>` : ''}<div class="in">${s > 0 ? `<button class="btn ghost round" data-act="back" aria-label="Back">${ICON.back}</button>` : ''}<button class="btn primary" data-act="${act}" ${dis ? 'disabled' : ''}>${label}</button></div>`;
 }
@@ -701,6 +767,12 @@ function barHTML(){
 const STEP_VIEWS = [stepReceipt, stepPeople, stepItems, stepAssign, stepSplit];
 function render(opts = {}){
   const y = window.scrollY;
+  if (ui.shared) {
+    $app.innerHTML = sharedHeader() + `<main class="step${opts.enter ? ' enter' : ''}">${stepShared()}</main>`;
+    $bar.innerHTML = barShared();
+    window.scrollTo(0, opts.enter ? 0 : y);
+    return;
+  }
   $app.innerHTML = headerHTML() + `<main class="step${opts.enter ? ' enter' : ''}">${STEP_VIEWS[S.step]()}</main>`
     + (ui.lb != null && ui.photos[ui.lb] ? `<div class="lb" data-act="closeLb"><img src="${ui.photos[ui.lb]}" alt="Receipt photo"><button class="lbx" aria-label="Close">${ICON.x}</button></div>` : '');
   $bar.innerHTML = barHTML();
@@ -729,6 +801,96 @@ function addPerson(name){
   save(); return true;
 }
 const normWho = it => { const set = new Set(it.who); it.who = S.people.map(p => p.id).filter(id => set.has(id)); };
+/* ---------- sharing ---------- */
+// What a link stores: the finished result, so the recipient sees exactly what you saw.
+function buildSnapshot(){
+  const R = calc();
+  return {
+    v:1, title:((S.note || '').trim() || 'Dinner'), venmo:(S.venmo || '').trim(), total:grandTotal(),
+    people:S.people.map(p => { const r = R.per[p.id]; return { name:p.name, color:p.color, payer:p.id === S.payer, sub:r.sub, tax:r.tax, fees:r.fees, tip:r.tip, total:r.total, items:r.items }; })
+  };
+}
+async function postShare(body){
+  const res = await fetch(SHARE_API + '/api/share', { method:'POST', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify(body) });
+  return { status:res.status, data:res.ok ? await res.json() : null };
+}
+async function shareLink(){
+  if (ui.sharing) return;
+  const snap = buildSnapshot(), sig = JSON.stringify(snap);
+  const payer = snap.people.find(p => p.payer);
+  ui.sharing = true; $bar.innerHTML = barHTML();
+  try {
+    let sh = S.share;
+    if (!sh || sh.sig !== sig) {
+      let r = await postShare({ id:sh && sh.id, key:sh && sh.key, split:snap });
+      if (sh && (r.status === 403 || r.status === 404)) r = await postShare({ split:snap });   // old link is gone: make a new one
+      if (!r.data) throw new Error('share failed: ' + r.status);
+      sh = S.share = { id:r.data.id, key:r.data.key, sig }; save();
+    }
+    const url = `${SHARE_API}/s/${sh.id}`;
+    ui.sharing = false; $bar.innerHTML = barHTML();
+    if (navigator.share) {
+      try { await navigator.share({ title:`${snap.title}: ${payer.name} paid ${fmt(snap.total)}`, url }); return; }
+      catch (err) { if (err && err.name === 'AbortError') return; }
+    }
+    toast((await copyText(url)) ? 'Link copied' : 'Couldn’t copy the link');
+  } catch (e) {
+    ui.sharing = false;
+    toast((await copyText(summaryText())) ? 'Couldn’t make a link. Copied the text instead.' : 'Couldn’t make a link.');
+  } finally { ui.sharing = false; $bar.innerHTML = barHTML(); }
+}
+
+/* ---------- viewing a shared split (?s=ID) ---------- */
+function sharedHeader(){
+  return `<header class="shared-top"><div class="brand">${LOGO}dutch</div><button class="link" data-act="ownSplit">Split your own</button></header>`;
+}
+function sharedCard(p, d, isMe){
+  const parts = [['Items', p.sub], ['Tax', p.tax], ['Fees', p.fees], ['Tip', p.tip]].filter(([,v]) => v !== 0).map(([k,v]) => `${k} ${fmt(v)}`).join(', ');
+  const h = venmoUrl(d.venmo, d.title, p.total);
+  return `<section class="owe${isMe ? ' me' : ''}" style="--c:${esc(p.color)}">
+    <div class="otop"><span class="dot lg">${esc(initial(p.name))}</span><div class="ow"><div class="oname">${esc(p.name)}</div><div class="muted small">${esc(parts)}</div></div><div class="amt">${fmt(p.total)}</div></div>
+    <div class="oact"><button class="btn ghost sm" data-act="copy" data-amt="${p.total}">Copy amount</button>${h ? `<a class="btn pay sm" href="${esc(h)}" ${MOBILE ? '' : 'target="_blank" rel="noopener"'}>Pay on Venmo</a>` : ''}</div>
+    <details><summary>See their items</summary><ul class="breakdown">${p.items.map(i => `<li><span>${esc(i.name)}${i.n > 1 ? ` <span class="muted">(split ${i.n} ways)</span>` : ''}</span><span>${fmt(i.cents)}</span></li>`).join('')}</ul></details></section>`;
+}
+function stepShared(){
+  const sh = ui.shared;
+  if (sh.status === 'loading') return `<h1>Loading the split</h1><div class="ind" style="margin-top:20px"></div>`;
+  if (sh.status === 'error') return `<h1>Couldn’t find this split</h1><p class="lede">The link may be mistyped, or the split was removed.</p>`;
+  const d = sh.data, payer = d.people.find(p => p.payer);
+  const me = d.people.find(p => p.name === sh.me) || null;
+  const bar = d.people.filter(p => p.total > 0).map(p => `<span style="flex:${p.total};background:${esc(p.color)}" title="${esc(p.name)}"></span>`).join('');
+  const others = d.people.filter(p => !p.payer && p !== me);
+  const meOwes = me && !me.payer;
+  let h = `<h1>${esc(payer.name)} paid ${fmt(d.total)}</h1><p class="lede">${esc(d.title)}. ${me ? (meOwes ? 'Here’s your share.' : 'Here’s what everyone owes you.') : 'Tap your name to see your share first.'}</p>
+  <div class="splitbar" role="img" aria-label="Each person’s share of the bill">${bar}</div>
+  <p class="muted small" style="margin:14px 0 8px">Who are you?</p>
+  <div class="who">${d.people.map(p => `<button class="chip ${me === p ? 'on' : ''}" style="--c:${esc(p.color)}" data-act="me" data-name="${esc(p.name)}" aria-pressed="${me === p}"><span class="dot">${esc(initial(p.name))}</span>${esc(p.name)}</button>`).join('')}</div>`;
+  if (meOwes) h += sharedCard(me, d, true) + (others.length ? `<div class="subh">Everyone else</div>` : '');
+  h += `<div>${others.map(p => sharedCard(p, d, false)).join('')}</div>`;
+  h += `<p class="payerline">${esc(payer.name)}’s own share is ${fmt(payer.total)}.</p>`;
+  return h;
+}
+function barShared(){
+  const sh = ui.shared, d = sh.data;
+  const payer = d && d.people.find(p => p.payer);
+  const me = d && d.people.find(p => p.name === sh.me);
+  if (sh.status === 'ok' && me && !me.payer && d.venmo) {
+    const h = venmoUrl(d.venmo, d.title, me.total);
+    return `<div class="in"><a class="btn primary" href="${esc(h)}" ${MOBILE ? '' : 'target="_blank" rel="noopener"'}>Pay ${esc(payer.name)} ${fmt(me.total)} on Venmo</a></div>`;
+  }
+  return `<div class="in"><button class="btn primary" data-act="ownSplit">Split your own receipt</button></div>`;
+}
+async function loadShared(id){
+  try {
+    const res = await fetch(`${SHARE_API}/api/split/${encodeURIComponent(id)}`);
+    if (!res.ok) throw new Error('status ' + res.status);
+    const j = await res.json();
+    if (!j.split || !Array.isArray(j.split.people)) throw new Error('bad data');
+    ui.shared.data = j.split; ui.shared.status = 'ok';
+  } catch { ui.shared.status = 'error'; }
+  render({ enter:true });
+}
+
 function summaryText(){
   const R = calc(), payer = person(S.payer);
   const lines = [`${S.note || 'Dinner'}: ${fmt(grandTotal())} total, paid by ${payer.name}.`];
@@ -748,7 +910,21 @@ document.addEventListener('click', async e => {
     case 'manual': go(1); break;
     case 'rmPhoto': ui.photos.splice(+el.dataset.i, 1); render(); break;
     case 'editKey': ui.keyEdit = true; render(); break;
-    case 'rmKey': lsDel(LS.key); lsDel(LS.model); ui.keyEdit = false; render(); break;
+    case 'rmKey': lsDel(LS[P().keyLS]); lsDel(LS[P().modelLS]); ui.keyEdit = false; ui.models = null; ui.modelsMsg = ''; render(); break;
+    case 'provider': lsSet(LS.provider, el.dataset.v); ui.models = null; ui.modelsMsg = ''; ui.keyEdit = true; render(); break;
+    case 'pickModel': lsSet(LS.model, el.dataset.name); toast('Model set to ' + el.dataset.name); ui.error = ''; render(); break;
+    case 'listModels': {
+      ui.modelsMsg = 'Looking…'; render();
+      try {
+        const rr = await fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=200&key=' + encodeURIComponent(getKey()));
+        if (!rr.ok) throw new Error('status ' + rr.status);
+        const j = await rr.json();
+        ui.models = (j.models || []).filter(m => (m.supportedGenerationMethods || []).includes('generateContent') && /flash/i.test(m.name) && !/image|tts|live|audio|embed|robotics|computer|thinking/i.test(m.name))
+          .map(m => m.name.replace(/^models\//, '')).slice(0, 12);
+        ui.modelsMsg = ui.models.length ? 'Tap one to use it.' : 'No Flash models found for this key.';
+      } catch { ui.models = null; ui.modelsMsg = 'Couldn’t load the list.'; }
+      render(); break;
+    }
     case 'addRecent': if (addPerson(el.dataset.name)) { ui.focus = '#pname'; render(); } break;
     case 'payer': S.payer = p; save(); render(); break;
     case 'rmPerson':
@@ -780,6 +956,9 @@ document.addEventListener('click', async e => {
     case 'ptab': S.activePerson = p; save(); render(); document.querySelector('.ptab.on')?.scrollIntoView({ inline:'center', block:'nearest' }); break;
     case 'nextPerson': S.activePerson = p; save(); render(); document.querySelector('.ptabs')?.scrollIntoView({ block:'start' }); document.querySelector('.ptab.on')?.scrollIntoView({ inline:'center', block:'nearest' }); break;
     case 'copy': { const ok = await copyText(plain(+el.dataset.amt)); toast(ok ? `Copied ${plain(+el.dataset.amt)}` : 'Couldn’t copy. Select the amount instead.'); break; }
+    case 'shareLink': shareLink(); break;
+    case 'me': if (ui.shared) { ui.shared.me = ui.shared.me === el.dataset.name ? '' : el.dataset.name; lsSet('dutch.me.' + ui.shared.id, ui.shared.me); render(); } break;
+    case 'ownSplit': location.href = location.pathname; break;
     case 'shareAll': {
       const text = summaryText();
       if (navigator.share) { try { await navigator.share({ text }); break; } catch (err) { if (err && err.name === 'AbortError') break; } }
@@ -833,8 +1012,8 @@ document.addEventListener('submit', e => {
     const k = document.getElementById('keyinput').value.replace(/[\s"'“”‘’]/g, '');
     if (!k) return;
     if (!/^[\x21-\x7E]+$/.test(k)) { toast('That key has odd characters. Copy it again.'); return; }
-    lsSet(LS.key, k);
-    const m = document.getElementById('modelinput'); if (m) { const v = m.value.trim(); if (v && v !== DEFAULT_MODEL) lsSet(LS.model, v); else lsDel(LS.model); }
+    lsSet(LS[P().keyLS], k);
+    const m = document.getElementById('modelinput'); if (m) { const v = m.value.trim(); if (v && v !== P().model) lsSet(LS[P().modelLS], v); else lsDel(LS[P().modelLS]); }
     ui.keyEdit = false; render(); toast('Key saved');
   }
 });
@@ -862,7 +1041,12 @@ function runTests(){
 }
 if (/[?&]test\b/.test(location.search)) runTests();
 
-render();
+const sharedId = new URLSearchParams(location.search).get('s');
+if (SHARE_API && sharedId && /^[a-z0-9]{6,20}$/i.test(sharedId)) {
+  ui.shared = { id:sharedId.toLowerCase(), status:'loading', data:null, me:lsGet('dutch.me.' + sharedId.toLowerCase()) || '' };
+  loadShared(ui.shared.id);
+}
+render({ enter:!!ui.shared });
 })();
 </script>
 </body>
