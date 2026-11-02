@@ -226,7 +226,7 @@ const STEPS = ['Receipt','People','Items','Assign','Split'];
 const MOBILE = /iPhone|iPad|Android/i.test(navigator.userAgent);
 // After you deploy the Cloudflare Worker, paste its address here (no trailing slash),
 // for example 'https://dutch.yourname.workers.dev'. Leave it empty to share as plain text.
-const SHARE_API = 'https://dutch.cooperwilktx.workers.dev';
+const SHARE_API = '';
 
 /* ---------- storage ---------- */
 const lsGet = k => { try { return localStorage.getItem(k); } catch { return null; } };
@@ -289,9 +289,9 @@ const ICON = {
 };
 const LOGO = `<svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="14" fill="currentColor"/><path d="M16 2v28" stroke="#ffd23f" stroke-width="3.5"/></svg>`;
 
-function toast(msg){
+function toast(msg, ms = 1600){
   $toast.textContent = msg; $toast.hidden = false;
-  clearTimeout(toast.t); toast.t = setTimeout(() => { $toast.hidden = true; }, 1600);
+  clearTimeout(toast.t); toast.t = setTimeout(() => { $toast.hidden = true; }, ms);
 }
 async function copyText(t){
   try { await navigator.clipboard.writeText(t); return true; } catch {}
@@ -598,7 +598,7 @@ function stepReceipt(){
     h += `<p class="muted small" style="margin-top:22px">${P().name} key saved on this device (${esc(key.slice(0, 4))}…, ${key.length} characters), model ${esc(getModel())}. <button class="link tiny" data-act="editKey" style="padding:0">Change</button></p>`;
   }
   if (!hasItems && !ui.scanning) h += `<div><button class="link" data-act="manual">Skip the photo and type the items instead</button></div>`;
-  h += `<p class="muted small" style="margin-top:28px">dutch v11</p>`;
+  h += `<p class="muted small" style="margin-top:28px">dutch v12</p>`;
   return h;
 }
 
@@ -812,7 +812,8 @@ function buildSnapshot(){
 }
 async function postShare(body){
   const res = await fetch(SHARE_API + '/api/share', { method:'POST', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify(body) });
-  return { status:res.status, data:res.ok ? await res.json() : null };
+  let j = null; try { j = await res.json(); } catch {}
+  return { status:res.status, data:res.ok ? j : null, detail:(!res.ok && j && j.detail) || '' };
 }
 async function shareLink(){
   if (ui.sharing) return;
@@ -824,7 +825,7 @@ async function shareLink(){
     if (!sh || sh.sig !== sig) {
       let r = await postShare({ id:sh && sh.id, key:sh && sh.key, split:snap });
       if (sh && (r.status === 403 || r.status === 404)) r = await postShare({ split:snap });   // old link is gone: make a new one
-      if (!r.data) throw new Error('share failed: ' + r.status);
+      if (!r.data) throw new Error(`error ${r.status}${r.detail ? ': ' + r.detail : ''}`);
       sh = S.share = { id:r.data.id, key:r.data.key, sig }; save();
     }
     const url = `${SHARE_API}/s/${sh.id}`;
@@ -836,7 +837,9 @@ async function shareLink(){
     toast((await copyText(url)) ? 'Link copied' : 'Couldn’t copy the link');
   } catch (e) {
     ui.sharing = false;
-    toast((await copyText(summaryText())) ? 'Couldn’t make a link. Copied the text instead.' : 'Couldn’t make a link.');
+    console.error('share failed', e);
+    const why = e instanceof TypeError ? 'can’t reach the Worker' : (e && e.message) || 'unknown';
+    toast(`Couldn’t make a link (${why}). ${(await copyText(summaryText())) ? 'Copied the text instead.' : ''}`, 9000);
   } finally { ui.sharing = false; $bar.innerHTML = barHTML(); }
 }
 
