@@ -12,8 +12,8 @@
 <meta property="og:title" content="dutch: split the bill">
 <meta property="og:description" content="Snap the receipt, tap who had what, and send everyone a link to pay you back on Venmo.">
 <meta property="og:image" content="https://cooperwilk.com/dutch/og.png">
-<meta property="og:image:width" content="1200">
-<meta property="og:image:height" content="630">
+<meta property="og:image:width" content="900">
+<meta property="og:image:height" content="900">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='14' fill='%23161a20'/%3E%3Cpath d='M16 2v28' stroke='%23ffd23f' stroke-width='3'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -226,7 +226,7 @@ const STEPS = ['Receipt','People','Items','Assign','Split'];
 const MOBILE = /iPhone|iPad|Android/i.test(navigator.userAgent);
 // After you deploy the Cloudflare Worker, paste its address here (no trailing slash),
 // for example 'https://dutch.yourname.workers.dev'. Leave it empty to share as plain text.
-const SHARE_API = 'https://dutch.cooperwilktx.workers.dev';
+const SHARE_API = '';
 
 /* ---------- storage ---------- */
 const lsGet = k => { try { return localStorage.getItem(k); } catch { return null; } };
@@ -598,7 +598,7 @@ function stepReceipt(){
     h += `<p class="muted small" style="margin-top:22px">${P().name} key saved on this device (${esc(key.slice(0, 4))}…, ${key.length} characters), model ${esc(getModel())}. <button class="link tiny" data-act="editKey" style="padding:0">Change</button></p>`;
   }
   if (!hasItems && !ui.scanning) h += `<div><button class="link" data-act="manual">Skip the photo and type the items instead</button></div>`;
-  h += `<p class="muted small" style="margin-top:28px">dutch v12</p>`;
+  h += `<p class="muted small" style="margin-top:28px">dutch v13</p>`;
   return h;
 }
 
@@ -801,6 +801,93 @@ function addPerson(name){
   save(); return true;
 }
 const normWho = it => { const set = new Set(it.who); it.who = S.people.map(p => p.id).filter(id => set.has(id)); };
+/* CARD-START */
+// The link-preview picture: drawn on your phone when you tap Share link, then stored with the split.
+const CARD_FONT = '"Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif';
+function rrect(ctx, x, y, w, h, r){
+  r = Math.min(r, w / 2, h / 2);
+  ctx.beginPath(); ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+}
+function fitText(ctx, text, maxW){
+  if (ctx.measureText(text).width <= maxW) return text;
+  let t = text; while (t.length > 1 && ctx.measureText(t + '…').width > maxW) t = t.slice(0, -1);
+  return t.trimEnd() + '…';
+}
+function drawShareCard(ctx, W, snap){
+  const INK = '#161a20', FG = '#f3f4f6', MUTED = '#8b93a0', LINE = '#2a2f38', YEL = '#ffd23f', PAD = 64, R = W - PAD;
+  const payer = snap.people.find(p => p.payer);
+  const others = snap.people.filter(p => !p.payer);
+  ctx.fillStyle = INK; ctx.fillRect(0, 0, W, W);
+  ctx.textBaseline = 'alphabetic';
+
+  // mark + name, and the note on the right
+  ctx.fillStyle = FG; ctx.beginPath(); ctx.arc(PAD + 22, PAD + 22, 22, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = YEL; ctx.fillRect(PAD + 20, PAD, 4, 44);
+  ctx.fillStyle = FG; ctx.textAlign = 'left'; ctx.font = `800 40px ${CARD_FONT}`;
+  ctx.fillText('dutch', PAD + 60, PAD + 34);
+  ctx.fillStyle = MUTED; ctx.textAlign = 'right'; ctx.font = `500 36px ${CARD_FONT}`;
+  ctx.fillText(fitText(ctx, snap.title, 360), R, PAD + 33);
+
+  // size things first so the whole block can be centred in the space under the header
+  const amount = fmt(snap.total);
+  let size = 150; ctx.font = `800 ${size}px ${CARD_FONT}`;
+  while (ctx.measureText(amount).width > W - PAD * 2 && size > 60) { size -= 4; ctx.font = `800 ${size}px ${CARD_FONT}`; }
+  const shown = others.length > 5 ? others.slice(0, 4) : others;
+  const more = others.length - shown.length;
+  const rows = shown.length + (more > 0 ? 1 : 0);
+  const rowH = Math.min(112, Math.floor(380 / rows)), k = Math.min(1.3, rowH / 84);
+  const barH = 18, head = 46 + 30 + size * 0.74 + 40 + barH + 36;
+  const y0 = Math.max(150, 150 + (W - PAD - 150 - (head + rows * rowH)) / 2);
+
+  // who paid, and how much
+  ctx.textAlign = 'left'; ctx.fillStyle = MUTED; ctx.font = `500 46px ${CARD_FONT}`;
+  ctx.fillText(fitText(ctx, payer.name + ' paid', W - PAD * 2), PAD, y0 + 46);
+  ctx.fillStyle = FG; ctx.font = `800 ${size}px ${CARD_FONT}`;
+  const amountY = y0 + 46 + 30 + size * 0.74;
+  ctx.fillText(amount, PAD - 4, amountY);
+
+  // everyone's share of the bill
+  const barY = amountY + 40, gap = 4;
+  const live = snap.people.filter(p => p.total > 0), sum = live.reduce((a, p) => a + p.total, 0) || 1;
+  const avail = W - PAD * 2 - gap * (live.length - 1);
+  let x = PAD;
+  for (const p of live) { const w = Math.max(10, avail * p.total / sum); ctx.fillStyle = p.color; rrect(ctx, x, barY, w, barH, barH / 2); ctx.fill(); x += w + gap; }
+
+  // what each person owes
+  const top = barY + barH + 36, fs = Math.round(42 * k), dr = Math.round(22 * k);
+  for (let i = 0; i < rows; i++) {
+    const y = top + i * rowH, cy = y + rowH / 2;
+    if (i > 0) { ctx.fillStyle = LINE; ctx.fillRect(PAD, y, W - PAD * 2, 2); }
+    if (i < shown.length) {
+      const p = shown[i];
+      ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(PAD + dr, cy, dr, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.font = `700 ${Math.round(dr * 1.25)}px ${CARD_FONT}`;
+      ctx.fillText(initial(p.name), PAD + dr, cy + dr * 0.43);
+      ctx.textAlign = 'right'; ctx.font = `800 ${fs}px ${CARD_FONT}`; ctx.fillStyle = FG;
+      const amt = fmt(p.total); ctx.fillText(amt, R, cy + fs * 0.36);
+      const aw = ctx.measureText(amt).width;
+      ctx.textAlign = 'left'; ctx.font = `700 ${fs}px ${CARD_FONT}`;
+      ctx.fillText(fitText(ctx, p.name, W - PAD * 2 - dr * 2 - 20 - aw - 24), PAD + dr * 2 + 20, cy + fs * 0.36);
+    } else {
+      ctx.textAlign = 'left'; ctx.fillStyle = MUTED; ctx.font = `500 36px ${CARD_FONT}`;
+      ctx.fillText(`+${more} more`, PAD + dr * 2 + 20, cy + 13);
+    }
+  }
+}
+async function renderShareCard(snap){
+  try {
+    if (document.fonts && document.fonts.load) await Promise.all(['500', '700', '800'].map(w => document.fonts.load(`${w} 40px "Bricolage Grotesque"`)));
+    const c = document.createElement('canvas'); c.width = c.height = 900;
+    drawShareCard(c.getContext('2d'), 900, snap);
+    let q = .8, out = '';
+    do { out = c.toDataURL('image/jpeg', q).split(',')[1]; q -= .1; } while (out.length > 85000 && q > .35);
+    return out.length <= 90000 ? out : null;   // too big for the table field: share without a picture
+  } catch { return null; }
+}
+/* CARD-END */
+
 /* ---------- sharing ---------- */
 // What a link stores: the finished result, so the recipient sees exactly what you saw.
 function buildSnapshot(){
@@ -823,8 +910,9 @@ async function shareLink(){
   try {
     let sh = S.share;
     if (!sh || sh.sig !== sig) {
-      let r = await postShare({ id:sh && sh.id, key:sh && sh.key, split:snap });
-      if (sh && (r.status === 403 || r.status === 404)) r = await postShare({ split:snap });   // old link is gone: make a new one
+      const image = await renderShareCard(snap);
+      let r = await postShare({ id:sh && sh.id, key:sh && sh.key, split:snap, image });
+      if (sh && (r.status === 403 || r.status === 404)) r = await postShare({ split:snap, image });   // old link is gone: make a new one
       if (!r.data) throw new Error(`error ${r.status}${r.detail ? ': ' + r.detail : ''}`);
       sh = S.share = { id:r.data.id, key:r.data.key, sig }; save();
     }
