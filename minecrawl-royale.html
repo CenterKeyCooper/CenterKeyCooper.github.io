@@ -251,7 +251,7 @@
 // snapshot only carries dynamic state.
 // =====================================================================
 
-const GAME_VER = 'v0.20';
+const GAME_VER = 'v0.21';
 const TILE = 32;
 let HUD_H = 64;   // grows one 16px row per teammate (party status board)
 const TICK_MS = 50, TICK_DT = TICK_MS / 1000;   // 20Hz fixed sim step
@@ -454,12 +454,29 @@ function award(id) {
 // ---- canvas ----
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
+let camMode = 'auto';   // auto | full | follow | close   ([Z] cycles it in game)
+try { camMode = localStorage.getItem('mcrogue-cam') || 'auto'; } catch (e) {}
+let camX = 0, camY = 0, camTx = 10, camTy = 10, camSnap = true, camSpec = -1, VC = 20, VR = 20;
 let COLS = 20, ROWS = 20, W = COLS * TILE, H = ROWS * TILE + HUD_H;
-function setBoardSize(cols, rows) {
+// how many tiles the camera shows: the whole board, or a window that follows you
+function viewDims() {
+  const big = Math.max(COLS, ROWS);
+  let v = 0;
+  if (camMode === 'follow') v = 21;
+  else if (camMode === 'close') v = 15;
+  else if (camMode === 'auto') v = big > 25 ? 21 : 0;
+  return v ? [Math.min(COLS, v), Math.min(ROWS, v)] : [COLS, ROWS];
+}
+function setBoardSize(cols, rows, inGame) {
   COLS = cols; ROWS = rows;
-  W = COLS * TILE; H = ROWS * TILE + HUD_H;
+  const vd = inGame ? viewDims() : [cols, rows];
+  VC = vd[0]; VR = vd[1];
+  W = VC * TILE; H = VR * TILE + HUD_H;
   canvas.width = W; canvas.height = H;
+  camSnap = true;
   fitCanvas();
+  if (inGame === true && (VC < COLS || VR < ROWS))
+    toasts.push({ text: 'CAMERA: FOLLOW — [Z] TO CHANGE', t: performance.now() });
 }
 function fitCanvas() {
   const s = Math.min(window.innerWidth / W, window.innerHeight / H) * 0.95;
@@ -668,8 +685,8 @@ function showEnd(won) {
     document.getElementById('ov-stats').innerHTML = rows.map(p => {
       const pos = p.place || (w === p ? 1 : '-');
       const tier = p.bot ? ' <span style="color:#586069">(' + DIFF_NAMES[p.iq || 0] + ')</span>' : '';
-      return (w === p ? '★ ' : '&nbsp;&nbsp;') + pos + '. ' + (p.bot ? '⚙ ' : '') +
-        esc(p.name.toUpperCase()) + tier + ' — ' + (p.kills || 0) + ' KO' +
+      return (w === p ? '★ ' : '&nbsp;&nbsp;') + pos + '. <span style="color:' + p.color + '">' + (p.bot ? '⚙ ' : '') +
+        esc(p.name.toUpperCase()) + '</span>' + tier + ' — ' + (p.kills || 0) + ' KO' +
         (sessionWins[p.name] ? ' · ' + sessionWins[p.name] + ' WIN' + (sessionWins[p.name] > 1 ? 'S' : '') : '');
     }).join('<br>');
     document.getElementById('ov-lb').innerHTML = '';
@@ -738,7 +755,7 @@ function hideOverlay() { overlay.classList.remove('show'); }
 // boom/edeath/eggdeath/burst take TILE coords; the rest take PIXELS.
 // =====================================================================
 const FXR = {
-  boom: (x, y, mega) => { emitExplosion(x, y, mega); shake.i = Math.max(shake.i, mega ? 20 : 12); },
+  boom: (x, y, mega) => { emitExplosion(x, y, mega); shakeAt(x, y, mega ? 20 : 12); },
   edeath: (x, y, type) => emitEnemyDeath(x, y, type),
   eggdeath: (x, y) => emitEggDeath(x, y),
   burst: (x, y, clr) => lootBurst(x, y, clr),
@@ -761,7 +778,7 @@ const FXR = {
         life: 0.4 + Math.random() * 0.3, ml: 0.4 + Math.random() * 0.3,
         clr: Math.random() > 0.4 ? '#ff2d55' : '#ff8888', sz: 2 + Math.random() * 3 });
     }
-    shake.i = Math.max(shake.i, 10);
+    shakeAtPx(x, y, 10);
   },
   kburst: (x, y) => {
     for (let i = 0; i < 24; i++) {
@@ -770,7 +787,7 @@ const FXR = {
         life: 0.5 + Math.random() * 0.6, ml: 0.5 + Math.random() * 0.6,
         clr: Math.random() > 0.4 ? '#00ff88' : '#ff2d55', sz: 2 + Math.random() * 4 });
     }
-    shake.i = Math.max(shake.i, 18);
+    shakeAtPx(x, y, 18);
   },
   wburst: (x, y) => {
     for (let i = 0; i < 30; i++) {
@@ -787,9 +804,9 @@ const FXR = {
       particles.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
         life: 0.5, ml: 0.5, clr: Math.random() > 0.5 ? '#2d333b' : '#21262d', sz: 3 + Math.random() * 3 });
     }
-    shake.i = Math.max(shake.i, 5);
+    shakeAtPx(x, y, 5);
   },
-  toast: (s) => toasts.push({ text: s, t: performance.now() }),
+  toast: (s, parts) => toasts.push({ text: s, parts: parts || null, t: performance.now() }),
 };
 function fx(kind, ...a) {
   if (FXR[kind]) FXR[kind](...a);
@@ -946,7 +963,7 @@ function startFloor(d) {
   const np = players.filter(p => !p.left).length;
   conf = run.arena ? arenaConf(run.cfg, np) : depthConf(d, run.seed, np);
   updateHudH();
-  setBoardSize(conf.cols, conf.rows);
+  setBoardSize(conf.cols, conf.rows, true);
   grid = []; enemies = []; eggs = []; projectiles = []; particles = [];
   explosionQueue = []; enemyBullets = []; traps = [];
   shake = { x: 0, y: 0, i: 0 };
@@ -1329,8 +1346,12 @@ function damagePlayer(pl, n, src, by) {
         pl.place = left + 1;
         const kb = pl.lastBy >= 0 && now - pl.lastByT < 12000 ? players[pl.lastBy] : null;
         if (kb && kb !== pl) kb.kills++;
-        fx('toast', (pl.name || 'PLAYER').toUpperCase() + (kb ? ' ← ' + (kb.name || '?').toUpperCase() : ' IS OUT') +
-          (run.cfg && run.cfg.hg ? ' · ' + left + ' LEFT' : ''));
+        const tail = run.cfg && run.cfg.hg ? ' · ' + left + ' LEFT' : '';
+        const vn = (pl.name || 'PLAYER').toUpperCase();
+        const parts = kb
+          ? [[vn, pl.color], [' ← ', '#ffd700'], [(kb.name || '?').toUpperCase(), kb.color], [tail, '#ffd700']]
+          : [[vn, pl.color], [' IS OUT' + tail, '#ffd700']];
+        fx('toast', parts.map(q => q[0]).join(''), parts);
         return;   // the arena tick decides the winner / draw
       }
       if (players.every(p => p.left || p.downed)) { loseRun(); return; }
@@ -2483,6 +2504,7 @@ document.addEventListener('keydown', (e) => {
       returnToLobby();
     return;
   }
+  if (k === 'z') { cycleCam(); return; }
   keys.add(k);
   const DKEY = { w: [0,-1], arrowup: [0,-1], s: [0,1], arrowdown: [0,1],
                  a: [-1,0], arrowleft: [-1,0], d: [1,0], arrowright: [1,0] };
@@ -3032,6 +3054,7 @@ function tick() {
 // ---- COSMETIC UPDATE (frame-rate, wall-clock; never touches sim state) ----
 function updateFx(dt, wall) {
   if (gameState === 'title' || gameState === 'lobby') return;
+  camUpdate(dt);
   players.forEach(pl => {
     const lp = 1 - Math.exp(-15 * dt);
     pl.fx += (pl.x - pl.fx) * lp;
@@ -3072,6 +3095,111 @@ function updateFx(dt, wall) {
   toasts = toasts.filter(t => wall - t.t < 3000);
 }
 
+// ---- CAMERA ----
+function camTarget() {
+  if (player && !player.downed && !player.left) return player;
+  const alive = players.filter(p => !p.left && !p.downed);
+  if (!alive.length) return player || { fx: COLS / 2, fy: ROWS / 2 };
+  let cur = alive.find(p => p.idx === camSpec);
+  if (!cur) {
+    let bd = 1e9;
+    alive.forEach(p => { const d = Math.hypot(p.fx - camTx, p.fy - camTy); if (d < bd) { bd = d; cur = p; } });
+    camSpec = cur.idx;                      // spectating: stick with one player until they fall
+  }
+  return cur;
+}
+function camUpdate(dt) {
+  if (!grid) return;
+  const t = camTarget();
+  camTx = t.fx + 0.5; camTy = t.fy + 0.5;
+  const wantX = Math.max(0, Math.min(COLS * TILE - W, camTx * TILE - W / 2));
+  const viewH = H - HUD_H;
+  const wantY = Math.max(0, Math.min(ROWS * TILE - viewH, camTy * TILE - viewH / 2));
+  if (camSnap) { camX = wantX; camY = wantY; camSnap = false; return; }
+  const lp = 1 - Math.exp(-12 * dt);
+  camX += (wantX - camX) * lp; camY += (wantY - camY) * lp;
+}
+function setCam(m) {
+  camMode = m;
+  try { localStorage.setItem('mcrogue-cam', camMode); } catch (e) {}
+  if (run && grid && (gameState === 'playing' || gameState === 'draft'))
+    setBoardSize(COLS, ROWS, 'cam');
+}
+function cycleCam() {
+  const order = ['auto', 'full', 'follow', 'close'];
+  setCam(order[(order.indexOf(camMode) + 1) % order.length]);
+  toasts.push({ text: 'CAMERA: ' + camMode.toUpperCase() + (camMode === 'auto' ? ' (follows on big boards)' : ''),
+    t: performance.now() });
+}
+// explosions across a big map shouldn't rattle your screen: full strength
+// within 6 tiles of the player you're watching, fading to nothing by ~22
+function shakeAt(tx, ty, amt) {
+  const d = Math.hypot(tx + 0.5 - camTx, ty + 0.5 - camTy);
+  const f = d <= 6 ? 1 : Math.max(0, 1 - (d - 6) / 16);
+  shake.i = Math.max(shake.i, amt * f * f);
+}
+function shakeAtPx(px, py, amt) { shakeAt(px / TILE - 0.5, (py - HUD_H) / TILE - 0.5, amt); }
+
+function drawCamOverlay(now) {
+  if (!grid || !(VC < COLS || VR < ROWS)) return;
+  if (gameState === 'title' || gameState === 'lobby') return;
+  const cx = W / 2, cy = HUD_H + (H - HUD_H) / 2;
+  // off-screen arrows: nearest rivals (their color) and monsters (red)
+  const items = [];
+  players.forEach(p => { if (!p.left && !p.downed && p !== player) items.push({ x: p.fx, y: p.fy, c: p.color, k: 1 }); });
+  enemies.forEach(e => items.push({ x: e.fx, y: e.fy, c: '#ff2d55', k: 0 }));
+  const cand = [];
+  for (const it of items) {
+    const sx = (it.x + 0.5) * TILE - camX, sy = (it.y + 0.5) * TILE + HUD_H - camY;
+    if (sx >= 0 && sx <= W && sy >= HUD_H && sy <= H) continue;
+    const d = Math.hypot(it.x + 0.5 - camTx, it.y + 0.5 - camTy);
+    if (d > (it.k ? 24 : 12)) continue;
+    cand.push({ it, sx, sy, d });
+  }
+  cand.sort((a, b) => a.d - b.d);
+  ctx.save();
+  cand.slice(0, 10).forEach(({ it, sx, sy }) => {
+    const dx = sx - cx, dy = sy - cy;
+    const s = Math.min((W / 2 - 14) / Math.max(1, Math.abs(dx)), ((H - HUD_H) / 2 - 14) / Math.max(1, Math.abs(dy)));
+    const ax = cx + dx * s, ay = cy + dy * s, a = Math.atan2(dy, dx), r = it.k ? 8 : 6;
+    ctx.globalAlpha = 0.9;
+    ctx.fillStyle = it.c;
+    ctx.beginPath();
+    ctx.moveTo(ax + Math.cos(a) * r, ay + Math.sin(a) * r);
+    ctx.lineTo(ax + Math.cos(a + 2.5) * r, ay + Math.sin(a + 2.5) * r);
+    ctx.lineTo(ax + Math.cos(a - 2.5) * r, ay + Math.sin(a - 2.5) * r);
+    ctx.closePath(); ctx.fill();
+  });
+  ctx.restore();
+  // minimap
+  const mp = Math.max(2, Math.floor(132 / Math.max(COLS, ROWS)));
+  const mw = COLS * mp, mh = ROWS * mp, x0 = W - mw - 8, y0 = H - mh - 8;
+  ctx.save();
+  ctx.fillStyle = '#0d1117d0';
+  ctx.fillRect(x0 - 3, y0 - 3, mw + 6, mh + 6);
+  for (let y = 0; y < ROWS; y++)
+    for (let x = 0; x < COLS; x++) {
+      const t = grid[y][x];
+      ctx.fillStyle = isVoid(x, y) ? '#5a0f1a' : t.crater ? '#07090c' : t.rev ? '#3b4654' : '#1a2028';
+      ctx.fillRect(x0 + x * mp, y0 + y * mp, mp, mp);
+    }
+  ctx.fillStyle = '#ff2d55';
+  enemies.forEach(e => ctx.fillRect(x0 + Math.round(e.fx) * mp, y0 + Math.round(e.fy) * mp, mp, mp));
+  const ds = Math.max(3, mp + 1);
+  players.forEach(p => {
+    if (p.left || p.downed) return;
+    ctx.fillStyle = p.color;
+    ctx.fillRect(x0 + p.fx * mp + mp / 2 - ds / 2, y0 + p.fy * mp + mp / 2 - ds / 2, ds, ds);
+    if (p === player) {
+      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1;
+      ctx.strokeRect(x0 + p.fx * mp + mp / 2 - ds / 2 - 1, y0 + p.fy * mp + mp / 2 - ds / 2 - 1, ds + 2, ds + 2);
+    }
+  });
+  ctx.strokeStyle = '#ffffff90'; ctx.lineWidth = 1;
+  ctx.strokeRect(x0 + (camX / TILE) * mp, y0 + (camY / TILE) * mp, VC * mp, VR * mp);
+  ctx.restore();
+}
+
 // ---- RENDER ----
 // `now` is smoothed sim time (host: simNow+acc; guest: snapshot-anchored
 // clock); `wall` is the rAF clock, used only for pure-UI animation.
@@ -3093,6 +3221,8 @@ function render(now, wall) {
   }
 
   ctx.translate(shake.x, shake.y);
+  ctx.save();
+  ctx.translate(-camX, -camY);
 
   for (let y = 0; y < ROWS; y++)
     for (let x = 0; x < COLS; x++)
@@ -3125,7 +3255,9 @@ function render(now, wall) {
   projectiles.forEach(p => drawProj(p));
   enemyBullets.forEach(b => drawEnemyBullet(b));
   particles.forEach(p => drawParticle(p));
+  ctx.restore();
   drawHUD(now);
+  drawCamOverlay(now);
   drawToasts(wall);
   if (specMode) {
     ctx.save(); ctx.fillStyle = '#8b949e'; ctx.font = 'bold 11px Courier New';
@@ -3790,7 +3922,17 @@ function drawToasts(wall) {
     ctx.textBaseline = 'middle';
     ctx.shadowBlur = 10;
     ctx.shadowColor = '#ffd700';
-    ctx.fillText(t.text, W / 2, HUD_H + 22 + i * 22);
+    if (t.parts) {
+      ctx.textAlign = 'left';
+      let tw = 0;
+      t.parts.forEach(q => { tw += ctx.measureText(q[0]).width; });
+      let tx = W / 2 - tw / 2;
+      t.parts.forEach(q => {
+        ctx.fillStyle = q[1];
+        ctx.fillText(q[0], tx, HUD_H + 22 + i * 22);
+        tx += ctx.measureText(q[0]).width;
+      });
+    } else ctx.fillText(t.text, W / 2, HUD_H + 22 + i * 22);
     ctx.restore();
   });
 }
@@ -4256,6 +4398,11 @@ function renderSetup() {
     acfgBtn('BALANCED', b.aggr === 'balanced', 'aggr', 'balanced') +
     acfgBtn('BLOODTHIRSTY', b.aggr === 'bloodthirsty', 'aggr', 'bloodthirsty') +
     acfgBtn('MIXED', b.aggr === 'mixed', 'aggr', 'mixed');
+  h += row('CAMERA (press Z in game):') +
+    acfgBtn('AUTO', camMode === 'auto', 'cam', 'auto') +
+    acfgBtn('FULL BOARD', camMode === 'full', 'cam', 'full') +
+    acfgBtn('FOLLOW 21', camMode === 'follow', 'cam', 'follow') +
+    acfgBtn('CLOSE 15', camMode === 'close', 'cam', 'close');
   if (mode !== 'coop') {
     const sizes = mode === 'hg'
       ? [['TIGHT 35×35', 35], ['CRAZY 41×41', 41], ['VAST 51×51', 51]]
@@ -4310,6 +4457,7 @@ function renderSetup() {
     else if (act === 'hp') c.hp = +v;
     else if (act === 'ammo') c.ammo = +v;
     else if (act === 'feast') c.feast = v === '1';
+    else if (act === 'cam') setCam(v);
     else if (act === 'perk') {
       const ix = c.perks.indexOf(v);
       if (ix >= 0) c.perks.splice(ix, 1);
@@ -4579,7 +4727,7 @@ function applySnap(s) {
     if (!run.arena && conf.gladiator)
       toasts.push({ text: '⚔ GLADIATOR DEPTH — SOLE SURVIVOR DRAFTS ×3', t: performance.now() });
     updateHudH();
-    setBoardSize(s.cols, s.rows);
+    setBoardSize(s.cols, s.rows, true);
     grid = [];
     for (let y = 0; y < s.rows; y++) {
       grid[y] = [];
@@ -4814,6 +4962,12 @@ window.__mc = {
   get BK() { return BK; },
   get net() { return net; },
   get specMode() { return specMode; },
+  get cam() { return { camX, camY, VC, VR, W, H, camTx, camTy, camMode }; },
+  get shakeI() { return shake.i; },
+  resetShake() { shake.i = 0; },
+  fx: (...a) => fx(...a),
+  cycleCam,
+  get toasts() { return toasts; },
 };
 })();
   </script>
