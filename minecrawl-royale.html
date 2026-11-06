@@ -251,7 +251,7 @@
 // snapshot only carries dynamic state.
 // =====================================================================
 
-const GAME_VER = 'v0.22';
+const GAME_VER = 'v0.25';
 const TILE = 32;
 let HUD_H = 64;   // grows one 16px row per teammate (party status board)
 const TICK_MS = 50, TICK_DT = TICK_MS / 1000;   // 20Hz fixed sim step
@@ -261,7 +261,7 @@ const CLEAR_R = 2;
 const BULLET_SPEED = 18;
 const EXPLODE_EGG = 0.04;
 const MAX_PLAYERS = 8;           // human connections
-const MAX_TOTAL = 24;             // humans + bots (Hunger Games)
+const MAX_TOTAL = 100;            // humans + bots
 const ARENA_DROP_AT = 90;      // seconds into a round before ammo starts dropping
 const ARENA_DROP_EVERY = 10000; // ms between supply drops after that
 const NUM_CLR = ['','#4a9eff','#4aff7a','#ff4a6a','#9a4aff','#ff8a4a','#4affff','#ff4aff','#c0c0c0'];
@@ -269,6 +269,17 @@ const COLORS = ['#00ff88', '#4a9eff', '#ff8a3d', '#ff4aff',
   '#ffd700', '#4affff', '#ff4a6a', '#c0ff4a',
   '#ff7a7a', '#7aff7a', '#7a7aff', '#ffb347', '#b347ff', '#47ffb3', '#ff47b3', '#b3ff47',
   '#47b3ff', '#ffe347', '#e3a0ff', '#a0ffe3', '#ffa0c0', '#c0a060', '#60c0a0', '#a060c0'];
+function hslHex(h, s, l) {
+  s /= 100; l /= 100;
+  const k = n => (n + h / 30) % 12, a = s * Math.min(l, 1 - l);
+  const f = n => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+  const x = v => Math.round(255 * v).toString(16).padStart(2, '0');
+  return '#' + x(f(0)) + x(f(8)) + x(f(4));
+}
+const COLOR_BASE = COLORS.length;   // the colors a human can pick in the lobby
+for (let i = COLORS.length; i < MAX_TOTAL; i++)      // bigger tables get generated hues
+  COLORS.push(hslHex((i * 137.508) % 360, 78, 52 + (i % 4) * 6));
+function teamHex(t) { return hslHex((t * 137.508 + 40) % 360, 88, 62); }
 const SPAWN_OFFS = [[0, 0], [-1, -1], [1, -1], [-1, 1],
   [1, 1], [0, -2], [0, 2], [-2, 0]];   // all inside the 5×5 safe spawn zone
 const ENEMY_COLORS = {
@@ -457,6 +468,8 @@ const ctx = canvas.getContext('2d');
 let camMode = 'auto';   // auto | full | follow | close   ([Z] cycles it in game)
 try { camMode = localStorage.getItem('mcrogue-cam') || 'auto'; } catch (e) {}
 let camHinted = false;
+let camFree = null, specFast = true;   // spectating: free camera / ×4 fast-forward
+let mmCache = null, mmStamp = 0;
 let camX = 0, camY = 0, camTx = 10, camTy = 10, camSnap = true, camSpec = -1, VC = 20, VR = 20;
 let COLS = 20, ROWS = 20, W = COLS * TILE, H = ROWS * TILE + HUD_H;
 // how many tiles the camera shows: the whole board, or a window that follows you
@@ -491,7 +504,7 @@ setBoardSize(20, 20);
 
 // ---- state ----
 let grid = null, enemies = [], eggs = [], projectiles = [], enemyBullets = [], traps = [];
-let particles = [], toasts = [];
+let particles = [], toasts = [], floaters = [];
 let players = [], myIdx = 0, player = null;
 let tilesLeft = 0, totalSafe = 0, gameState, shake = { x: 0, y: 0, i: 0 }, lastTime = 0;
 let explosionQueue = [];
@@ -510,7 +523,7 @@ let lobbyCfg = null, lobbyColors = [], lobbyWins = [];
 let lobbyBots = { n: 0, diff: 'mixed', aggr: 'mixed' };
 let sessionWins = {};        // arena wins per player name (room-session scoped)
 let myColorIdx = 0;
-try { myColorIdx = (parseInt(localStorage.getItem('mcrogue-color') || '0', 10) || 0) % COLORS.length; } catch (e) {}
+try { myColorIdx = (parseInt(localStorage.getItem('mcrogue-color') || '0', 10) || 0) % COLOR_BASE; } catch (e) {}
 function saveColorPref(color) {
   const ix = COLORS.indexOf(color);
   if (ix >= 0) { myColorIdx = ix; try { localStorage.setItem('mcrogue-color', String(ix)); } catch (e) {} }
@@ -548,7 +561,7 @@ function makePlayer(idx) {
     hp: 3, maxHp: 3, bullets: 3, perks: {}, sapperLeft: 0,
     iframeUntil: 0, adrenalineUntil: 0, moveBudget: 1,
     taps: [], acts: [], lastSeq: 0,
-    bot: false, iq: 0, agg: 0.5, botWake: 0, botMove: null, stall: 0,
+    team: 0, bot: false, iq: 0, agg: 0.5, botWake: 0, botMove: null, stall: 0,
     kills: 0, place: 0, lastBy: -1, lastByT: 0,
     fleeGoal: -1, fleeUntil: 0, goalI: -1, goalUntil: 0, lootI: -1, lootUntil: 0, huntUntil: 0 };
 }
@@ -563,7 +576,11 @@ function resetPlayerRun(pl) {
 function updateHudH() {
   const n = players.filter(p => !p.left).length;
   // big tables get one compact roster strip instead of a row per player
-  HUD_H = n > 5 ? 64 + 20 : 64 + Math.max(0, n - 1) * 16;
+  if (teamsOn()) {                       // team mode: a row per teammate (plus the strip on big tables)
+    const me = players[myIdx];
+    const allies = me ? players.filter(p => !p.left && p.idx !== myIdx && p.team === me.team).length : 0;
+    HUD_H = 64 + (n > 5 ? 20 : 0) + allies * 16;
+  } else HUD_H = n > 5 ? 64 + 20 : 64 + Math.max(0, n - 1) * 16;
 }
 function livePlayers() { return players.filter(p => !p.left && !p.downed); }
 // en (optional): in arena mode enemies are LOYAL to whoever uncovered them
@@ -571,7 +588,7 @@ function livePlayers() { return players.filter(p => !p.left && !p.downed); }
 function nearestPlayer(x, y, en) {
   let best = null, bd = Infinity;
   for (const p of livePlayers()) {
-    if (en && run && run.arena && en.owner === p.idx) continue;
+    if (en && run && run.arena && allyOf(en.owner, p)) continue;
     const d = Math.abs(p.x - x) + Math.abs(p.y - y);
     if (d < bd) { bd = d; best = p; }
   }
@@ -675,24 +692,38 @@ function showEnd(won) {
     box.classList.remove('lost');
     const w = run.winner >= 0 && players[run.winner] ? players[run.winner] : null;
     const hgRun = !!(run.cfg && run.cfg.hg);
+    const tmN = teamsOn() && w ? players.filter(p => !p.left && p.team === w.team) : null;
     document.getElementById('ov-title').textContent =
-      w ? (w.name + ' WINS').toUpperCase() : 'DRAW';
+      w ? (tmN && tmN.length > 1 ? tmN.map(p => p.name).join(' + ') + ' WIN' : w.name + ' WINS').toUpperCase() : 'DRAW';
     document.getElementById('ov-sub').textContent = hgRun
       ? '- the cannon fires one last time -' : '- the arena falls silent -';
     document.getElementById('ov-time').textContent =
       (hgRun ? 'HUNGER GAMES' : 'ARENA') + ' // ' + fmtTime(finalTime);
     const live = players.filter(p => !p.left);
-    const ranked = live.slice().sort((p, q) => (p.place || 99) - (q.place || 99));
-    const rows = ranked.slice(0, 8);
-    const me2 = players[myIdx];
-    if (me2 && !rows.includes(me2)) rows.push(me2);
-    document.getElementById('ov-stats').innerHTML = rows.map(p => {
-      const pos = p.place || (w === p ? 1 : '-');
-      const tier = p.bot ? ' <span style="color:#586069">(' + DIFF_NAMES[p.iq || 0] + ')</span>' : '';
-      return (w === p ? '★ ' : '&nbsp;&nbsp;') + pos + '. <span style="color:' + p.color + '">' + (p.bot ? '⚙ ' : '') +
-        esc(p.name.toUpperCase()) + '</span>' + tier + ' — ' + (p.kills || 0) + ' KO' +
-        (sessionWins[p.name] ? ' · ' + sessionWins[p.name] + ' WIN' + (sessionWins[p.name] > 1 ? 'S' : '') : '');
-    }).join('<br>');
+    const nameSpan = p => '<span style="color:' + p.color + '">' + (p.bot ? '⚙ ' : '') + esc(p.name.toUpperCase()) + '</span>';
+    if (teamsOn()) {
+      const groups = {};
+      live.forEach(p => { (groups[p.team] = groups[p.team] || []).push(p); });
+      const ranked = Object.values(groups).map(m => ({ m, place: Math.min(...m.map(q => q.place || 99)),
+        ko: m.reduce((s, q) => s + (q.kills || 0), 0) })).sort((p, q) => p.place - q.place);
+      const meT = players[myIdx] ? players[myIdx].team : -1;
+      const rows = ranked.slice(0, 8);
+      const mine = ranked.find(g => g.m[0].team === meT);
+      if (mine && !rows.includes(mine)) rows.push(mine);
+      document.getElementById('ov-stats').innerHTML = rows.map(g =>
+        (g.place === 1 ? '★ ' : '&nbsp;&nbsp;') + g.place + '. ' + g.m.map(nameSpan).join(' + ') + ' — ' + g.ko + ' KO').join('<br>');
+    } else {
+      const ranked = live.slice().sort((p, q) => (p.place || 99) - (q.place || 99));
+      const rows = ranked.slice(0, 8);
+      const me2 = players[myIdx];
+      if (me2 && !rows.includes(me2)) rows.push(me2);
+      document.getElementById('ov-stats').innerHTML = rows.map(p => {
+        const pos = p.place || (w === p ? 1 : '-');
+        const tier = p.bot ? ' <span style="color:#586069">(' + DIFF_NAMES[p.iq || 0] + ')</span>' : '';
+        return (w === p ? '★ ' : '&nbsp;&nbsp;') + pos + '. ' + nameSpan(p) + tier + ' — ' + (p.kills || 0) + ' KO' +
+          (sessionWins[p.name] ? ' · ' + sessionWins[p.name] + ' WIN' + (sessionWins[p.name] > 1 ? 'S' : '') : '');
+      }).join('<br>');
+    }
     document.getElementById('ov-lb').innerHTML = '';
     document.getElementById('ov-name-row').style.display = 'none';
     document.getElementById('ov-hint').textContent =
@@ -810,7 +841,12 @@ const FXR = {
     }
     shakeAtPx(x, y, 5);
   },
-  toast: (s, parts) => toasts.push({ text: s, parts: parts || null, t: performance.now(), life: parts ? 5000 : 3000 }),
+  ptext: (x, y, text, clr) => floaters.push({ x: (x + 0.5) * TILE, y: y * TILE + HUD_H, text, clr, t: performance.now() }),
+  toast: (s, parts) => {
+    const l = toasts[toasts.length - 1];
+    if (!parts && l && !l.parts && l.text === s && performance.now() - l.t < 2000) return;   // no stacked duplicates
+    toasts.push({ text: s, parts: parts || null, t: performance.now(), life: parts ? 5000 : 3000 });
+  },
 };
 function fx(kind, ...a) {
   if (FXR[kind]) FXR[kind](...a);
@@ -926,6 +962,7 @@ function newArena(seed, cfg) {
   players.forEach(pl => {
     resetPlayerRun(pl);
     pl.maxHp = (cfg && cfg.hp) || 3; pl.hp = pl.maxHp;
+    pl.team = Math.floor(pl.idx / Math.max(1, (cfg && cfg.teamSize) || 1));   // consecutive slots = a team
     pl.bullets = (cfg && cfg.ammo) || 5;
     ((cfg && cfg.perks) || []).forEach(id => {
       pl.perks[id] = 1;
@@ -982,7 +1019,7 @@ function startFloor(d) {
   const spawns = [];
   if (run.arena) {
     const hgRun = !!(run.cfg && run.cfg.hg);
-    const sp = arenaSpawns(players.length, COLS, hgRun);
+    const sp = arenaSpawns(players.length, COLS, hgRun, (run.cfg && run.cfg.teamSize) || 1);
     players.forEach((pl, i) => {
       const c2 = sp[i % sp.length];
       pl.x = c2.x; pl.y = c2.y;
@@ -1020,6 +1057,7 @@ function startFloor(d) {
     run.regenList = [];
     run.feastAt = simNow + 75000;
     run.feastDone = false;
+    spawnArenaCrates();
     if (run.cfg && run.cfg.hg) {
       // cornucopia loot piled in the plaza
       const mx = COLS >> 1, my = ROWS >> 1;
@@ -1030,6 +1068,11 @@ function startFloor(d) {
           const corner = Math.abs(dx) === 2 && Math.abs(dy) === 2;
           t.loot = corner ? 'heart' : (Math.random() < 0.75 ? 'bullet' : null);
         }
+      if ((run.cfg.crates || 'normal') !== 'off')      // a few of the best crates sit in the plaza
+        [[-1, -1], [1, -1], [0, 1]].forEach(o => {
+          const t = grid[my + o[1]][mx + o[0]];
+          if (!t.mine) { t.loot = 'perk'; t.perk = randCratePerk(true); }
+        });
       toasts.push({ text: 'THE GAMES BEGIN', t: performance.now(), life: 2200 });
     }
   }
@@ -1169,6 +1212,7 @@ function recomputeNums() {
     for (let x = 0; x < COLS; x++) {
       const t = grid[y][x];
       t.nearMega = false;
+      if (t.crater && !t.stale) { t.stale = true; t.staleT = simNow; }
       if (t.mine) continue;
       let n = 0;
       for (let dy = -1; dy <= 1; dy++)
@@ -1209,7 +1253,7 @@ function doExplosion(mx, my, byPl) {
   if (chainCount >= 5 && (!byPl || byPl.idx === myIdx)) award('chain5');
   const isMega = mt.mega;
   const rad = isMega ? 2 : 1;
-  mt.cv = numsVer; mt.crater = true; mt.rev = true; mt.mine = false; mt.mega = false; mt.loot = null; mt.marked = false;
+  mt.cv = numsVer; mt.stale = false; mt.crater = true; mt.rev = true; mt.mine = false; mt.mega = false; mt.loot = null; mt.marked = false;
 
   const hitPlayers = [];
   for (let dy = -rad; dy <= rad; dy++)
@@ -1348,9 +1392,17 @@ function damagePlayer(pl, n, src, by) {
       if (run.arena) {
         const left = players.filter(p => !p.left && !p.downed).length;
         pl.place = left + 1;
+        let teamsLeft = left;
+        if (teamsOn()) {
+          teamsLeft = new Set(players.filter(p => !p.left && !p.downed).map(p => p.team)).size;
+          // the last member down takes the whole team out together
+          if (!players.some(p => !p.left && !p.downed && p.team === pl.team))
+            players.forEach(p => { if (p.team === pl.team) p.place = teamsLeft + 1; });
+        }
         const kb = pl.lastBy >= 0 && now - pl.lastByT < 12000 ? players[pl.lastBy] : null;
-        if (kb && kb !== pl) kb.kills++;
-        const tail = run.cfg && run.cfg.hg ? ' · ' + left + ' LEFT' : '';
+        if (kb && kb !== pl && !(teamsOn() && kb.team === pl.team)) kb.kills++;   // no credit for team kills
+        dropKillLoot(pl);
+        const tail = run.cfg && run.cfg.hg ? (teamsOn() ? ' · ' + teamsLeft + (teamsLeft === 1 ? ' TEAM' : ' TEAMS') : ' · ' + left) + ' LEFT' : '';
         const vn = (pl.name || 'PLAYER').toUpperCase();
         const parts = kb
           ? [[vn, pl.color], [' ← ', '#ffd700'], [(kb.name || '?').toUpperCase(), kb.color], [tail, '#ffd700']]
@@ -1436,11 +1488,9 @@ function floorCleared() {
 function arenaEnd(winnerIdx) {
   if (gameState !== 'playing') return;
   run.winner = winnerIdx;
-  if (winnerIdx >= 0 && players[winnerIdx]) {
-    const wn = players[winnerIdx].name;
-    sessionWins[wn] = (sessionWins[wn] || 0) + 1;
-  }
-  if (winnerIdx >= 0 && players[winnerIdx]) players[winnerIdx].place = 1;
+  const winners = winnerIdx >= 0 && players[winnerIdx]
+    ? (teamsOn() ? players.filter(p => !p.left && p.team === players[winnerIdx].team) : [players[winnerIdx]]) : [];
+  winners.forEach(p => { sessionWins[p.name] = (sessionWins[p.name] || 0) + 1; p.place = 1; });
   gameState = 'won';
   finalTime = gameTime;
   showEnd(true);
@@ -1630,7 +1680,7 @@ function movePlayer(pl, dx, dy) {
     pl.hp = Math.min(pl.maxHp, pl.hp + 1);
     t.loot = null;
     fx('burst', nx, ny, '#ff6b6b');
-  }
+  } else if (t.loot === 'perk') takeCrate(pl, t, nx, ny);
 }
 
 function poll(pl) {
@@ -1803,6 +1853,41 @@ const BOT_PERK_W = { vest: 8, medic: 7, swift: 6, bandolier: 6, pierce: 3, slaye
   omelette: 2, bloodlust: 4, bombsquad: 3, dms: 5, magnet: 5 };
 const BK = { tick: -99, grid: null, N: 0, lv: [], d0: 0.16, claim: new Map(), unk: [], loots: [] };
 
+// ---- teams (arena modes): teammates never hurt each other with shots, and
+// a monster loyal to one of them is loyal to the whole team
+function teamsOn() { return !!(run && run.arena && run.cfg && (run.cfg.teamSize || 1) > 1); }
+function allyOf(owner, pl) {
+  if (owner === pl.idx) return true;
+  if (owner === undefined || owner < 0 || !teamsOn()) return false;
+  const o = players[owner];
+  return !!o && o.team === pl.team;
+}
+function allyInLine(allies, pl, sx, sy, dist) {
+  for (const a of allies) {
+    const dx = a.x - pl.x, dy = a.y - pl.y;
+    if (sx !== 0 ? (dy === 0 && Math.sign(dx) === sx && Math.abs(dx) < dist)
+                 : (dx === 0 && Math.sign(dy) === sy && Math.abs(dy) < dist)) return true;
+  }
+  return false;
+}
+// players near a bot, split into rivals / teammates. Big tables use an 8-tile hash
+// grid built once per tick so a decision costs O(neighbours), not O(everyone).
+function nearbyPlayers(pl) {
+  const opps = [], allies = [], tm = teamsOn();
+  const take = (o) => {
+    if (o === pl || o.left || o.downed) return;
+    if (tm && o.team === pl.team) allies.push(o); else opps.push(o);
+  };
+  if (!BK.hash) { for (const o of players) take(o); return { opps, allies }; }
+  const cx = pl.x >> 3, cy = pl.y >> 3;
+  for (let gy = cy - 3; gy <= cy + 3; gy++)
+    for (let gx = cx - 3; gx <= cx + 3; gx++) {
+      const cell = BK.hash.get(gy * 512 + gx);
+      if (cell) for (const o of cell) take(o);
+    }
+  return { opps, allies };
+}
+
 function isVoid(x, y) {
   return !!(run && run.arena && run.cfg && run.cfg.pressure !== 'regen' &&
     run.shrinkLevel > 0 && edgeOf(x, y) < run.shrinkLevel);
@@ -1832,7 +1917,7 @@ function addBots() {
     b.bot = true;
     const taken = new Set(players.map(p => p.color));
     b.color = COLORS.find(c => !taken.has(c)) || COLORS[b.idx % COLORS.length];
-    b.name = (COLOR_NAMES[b.color] || ('Bot' + (i + 1))).slice(0, 10);
+    b.name = (COLOR_NAMES[b.color] || ('Bot' + b.idx)).slice(0, 10);
     const lv = botLevels(cfgB.diff, cfgB.aggr);
     b.iq = lv.iq; b.agg = lv.agg;
     players.push(b);
@@ -1842,7 +1927,7 @@ function addBots() {
 // bigger tables need bigger boards; also keeps guests in sync (cfg is sent)
 function effectiveCfg(cfg, n) {
   const c = JSON.parse(JSON.stringify(cfg));
-  const minSize = n <= 3 ? 11 : n <= 6 ? 15 : n <= 10 ? 19 : n <= 16 ? 27 : 35;
+  const minSize = n <= 3 ? 11 : n <= 6 ? 15 : n <= 10 ? 19 : n <= 16 ? 27 : n <= 24 ? 35 : n <= 48 ? 55 : n <= 64 ? 65 : 85;
   c.size = Math.max(c.size || 15, minSize);
   return c;
 }
@@ -1854,27 +1939,53 @@ function shrinkTimes(cfg) {
   return { slow: [45000, 38000], normal: [30000, 25000], fast: [20000, 15000] }[sp] || [30000, 25000];
 }
 
-// arena spawn points: the classic 8 corners/edges, or concentric rings for
-// bigger tables (Hunger Games always uses rings around the cornucopia)
-function arenaSpawns(n, C, hg) {
+// concentric rings of points (slot 0 at the bottom of the board); each point
+// also knows its angle so teams can fan out along the tangent
+function ringPoints(n, C) {
+  const M = C >> 1, R1 = M - 4;
+  const radii = n <= 10 ? [1] : n <= 48 ? [1, 0.52] : [1, 0.68, 0.36];
+  const wsum = radii.reduce((s, r) => s + r, 0);
+  let left = n;
+  const out = [];
+  radii.forEach((f, ri) => {
+    const cnt = ri === radii.length - 1 ? left : Math.min(left, Math.round(n * f / wsum));
+    left -= cnt;
+    const r = Math.max(4, Math.round(R1 * f));
+    for (let i = 0; i < cnt; i++) {
+      const a = (Math.PI * 2 * i) / cnt + Math.PI / 2 + (ri ? Math.PI / cnt : 0);
+      out.push({ a,
+        x: Math.min(C - 3, Math.max(2, Math.round(M + Math.cos(a) * r))),
+        y: Math.min(C - 3, Math.max(2, Math.round(M + Math.sin(a) * r))) });
+    }
+  });
+  return out;
+}
+
+// arena spawn points: the classic 8 spots, rings for bigger tables (Hunger Games
+// always), or — in team modes — one cluster per team so teammates start together
+function arenaSpawns(n, C, hg, ts) {
   const M = C >> 1;
+  if (ts > 1) {
+    const nt = Math.ceil(n / ts);
+    const anchors = ringPoints(nt, C);
+    const out = [];
+    for (let t = 0; t < nt; t++) {
+      const a = anchors[t], k = Math.min(ts, n - t * ts);
+      const tx = -Math.sin(a.a), ty = Math.cos(a.a);          // tangent to the ring
+      for (let m = 0; m < k; m++) {
+        const off = (m - (k - 1) / 2) * 3;
+        out.push({ x: Math.min(C - 3, Math.max(2, Math.round(a.x + tx * off))),
+          y: Math.min(C - 3, Math.max(2, Math.round(a.y + ty * off))) });
+      }
+    }
+    return out;
+  }
   if (!hg && n <= 8) {
     // slot 0 (you / the host) is bottom-center; slot 1 faces you across the board
     return [[M, C - 3], [M, 2], [2, M], [C - 3, M],
       [2, C - 3], [C - 3, C - 3], [2, 2], [C - 3, 2]].slice(0, n).map(a => ({ x: a[0], y: a[1] }));
   }
-  const R1 = M - 4;
-  const inner = n > 10 ? Math.floor(n / 3) : 0;
-  const rings = inner ? [[n - inner, R1], [inner, Math.max(4, Math.round(R1 * 0.52))]] : [[n, R1]];
-  const out = [];
-  rings.forEach(([cnt, r], ri) => {
-    for (let i = 0; i < cnt; i++) {
-      const a = (Math.PI * 2 * i) / cnt + Math.PI / 2 + (ri ? Math.PI / cnt : 0);   // slot 0 at the bottom
-      out.push({ x: Math.min(C - 3, Math.max(2, Math.round(M + Math.cos(a) * r))),
-        y: Math.min(C - 3, Math.max(2, Math.round(M + Math.sin(a) * r))) });
-    }
-  });
-  return out;
+  return ringPoints(n, C).map(p => ({ x: p.x, y: p.y }));
 }
 
 // ---------------------------------------------------------------------
@@ -1983,17 +2094,19 @@ function botSolve() {
 // ---------------------------------------------------------------------
 // pathing helpers
 // ---------------------------------------------------------------------
-function botBfs(pl, allowVoid, blocked) {
+function botBfs(pl, allowVoid, blocked, maxD) {
   const N = COLS * ROWS;
+  const lim = maxD || 40;               // bots only plan within ~40 steps: cost no longer grows with the board
   const dist = new Int16Array(N).fill(-1);
   const par = new Int32Array(N).fill(-1);
-  const q = new Int32Array(N);
+  const q = new Int32Array(Math.min(N, 2 * lim * lim + 4 * lim + 8));
   let qh = 0, qt = 0;
   const s = pl.y * COLS + pl.x;
   dist[s] = 0; q[qt++] = s;
   const lvl = (run && run.arena && run.cfg && run.cfg.pressure !== 'regen') ? run.shrinkLevel : 0;
   while (qh < qt) {
     const c = q[qh++];
+    if (dist[c] >= lim) continue;
     const cx = c % COLS, cy = (c / COLS) | 0;
     for (let d = 0; d < 4; d++) {
       const nx = cx + DX4[d], ny = cy + DY4[d];
@@ -2002,10 +2115,11 @@ function botBfs(pl, allowVoid, blocked) {
       if (dist[ni] >= 0 || !grid[ny][nx].rev) continue;
       if (!allowVoid && edgeOf(nx, ny) < lvl) continue;
       if (blocked && blocked.has(ni)) continue;
+      if (qt >= q.length) continue;
       dist[ni] = dist[c] + 1; par[ni] = c; q[qt++] = ni;
     }
   }
-  return { dist, par, s };
+  return { dist, par, s, q, n: qt };
 }
 
 function firstStep(m, target) {
@@ -2030,8 +2144,9 @@ function botIdle(pl, dm) {
   if (!(run && run.arena)) return null;
   const myEdge = edgeOf(pl.x, pl.y);
   let best = -1, be = myEdge + 1, bd = 1e9;
-  for (let i = 0; i < dm.dist.length; i++) {
-    if (dm.dist[i] < 0 || dm.dist[i] > 16) continue;
+  for (let qi = 0; qi < dm.n; qi++) {
+    const i = dm.q[qi];
+    if (dm.dist[i] > 16) continue;
     const e = edgeOf(i % COLS, (i / COLS) | 0);
     if (e > be || (e === be && dm.dist[i] < bd)) { be = e; best = i; bd = dm.dist[i]; }
   }
@@ -2130,7 +2245,7 @@ function botThink(pl, now) {
 
   // --- monsters ---------------------------------------------------------
   const foes = [];
-  for (const e of enemies) if (!e.dead && !(arena && e.owner === pl.idx)) foes.push(e);
+  for (const e of enemies) if (!e.dead && !(arena && allyOf(e.owner, pl))) foes.push(e);
   let near = null, nd = 99;
   for (const e of foes) {
     const d = Math.abs(e.x - pl.x) + Math.abs(e.y - pl.y);
@@ -2149,8 +2264,10 @@ function botThink(pl, now) {
         }
     blocked.delete(pl.y * COLS + pl.x);
   }
-  const dm = botBfs(pl, false, blocked);
-  const opps = arena ? players.filter(o => o !== pl && !o.left && !o.downed) : [];
+  const dm = botBfs(pl, false, blocked, iq === 0 ? 24 : iq === 1 ? 36 : 48);
+  const near2 = arena ? nearbyPlayers(pl) : null;
+  const opps = near2 ? near2.opps : [];
+  const allies = near2 ? near2.allies : [];
 
   if (near && nd <= 6) pl.urgent = true;
   if (near && !(agg > 0.75 && pl.hp > 1)) {
@@ -2177,11 +2294,12 @@ function botThink(pl, now) {
     safeEdge = run.shrinkLevel + (zoneSoon ? 1 : 0) + (iq >= 2 ? 1 : 0);
     if (edgeOf(pl.x, pl.y) < safeEdge) {
       if (edgeOf(pl.x, pl.y) <= run.shrinkLevel) pl.urgent = true;
-      const dv = botBfs(pl, true, blocked);
+      const dv = botBfs(pl, true, blocked, 60);
       let bt = -1, bd = 1e9;
       for (const buf of [2, 0]) {
-        for (let i = 0; i < dv.dist.length; i++) {
-          if (dv.dist[i] < 0 || dv.dist[i] >= bd) continue;
+        for (let qi = 0; qi < dv.n; qi++) {
+          const i = dv.q[qi];
+          if (dv.dist[i] >= bd) continue;
           if (edgeOf(i % COLS, (i / COLS) | 0) >= safeEdge + buf) { bt = i; bd = dv.dist[i]; }
         }
         if (bt >= 0) break;
@@ -2219,6 +2337,7 @@ function botThink(pl, now) {
         if (dist > (iq === 0 ? 5 : iq === 1 ? 9 : 14)) continue;
         const sx = Math.sign(dx), sy = Math.sign(dy);
         if (!clearLine(pl.x, pl.y, sx, sy, dist)) continue;
+        if (cfgA.ff && allies.length && allyInLine(allies, pl, sx, sy, dist)) continue;   // teammate in the way
         sawAim = true;
         // human-ish fire discipline: reaction delay, trigger cooldown, fumbles
         if (!pl.aim || pl.aim.idx !== o.idx) pl.aim = { idx: o.idx, t: now };
@@ -2257,6 +2376,8 @@ function botThink(pl, now) {
           if (mt.rev || mt.crater) continue;
           const mi = ny * COLS + nx;
           if (!K.mine[mi] && !mt.marked) continue;
+          // never blow up a mine next to a teammate
+          if (allies.length && allies.some(a => Math.max(Math.abs(a.x - nx), Math.abs(a.y - ny)) <= 2)) continue;
           const dx = nx - pl.x, dy = ny - pl.y;
           if ((dx !== 0) === (dy !== 0)) continue;
           const dist = Math.abs(dx) + Math.abs(dy);
@@ -2320,6 +2441,9 @@ function botThink(pl, now) {
       if (t.loot === 'heart') {
         if (pl.hp >= pl.maxHp) continue;
         val = pl.hp <= 1 ? 14 : 7;
+      } else if (t.loot === 'perk') {
+        if (!crateVerdict(pl, t.perk).ok) continue;
+        val = 5 + perkValue(t.perk) * 0.8;
       } else val = pl.bullets < 3 ? 7 : pl.bullets < 7 ? 4 : 2;
       val *= 1.5 - agg * 0.6;                       // chill bots love loot
       if (li === pl.lootI && now < pl.lootUntil) val *= 1.5;   // stick with the pile you're walking to
@@ -2343,7 +2467,25 @@ function botThink(pl, now) {
   let bMine = null, bMineC = 1e9;
   const mineList = [];
   let bGuess = null, bGuessS = 1e9, bGuessR = 1;
-  for (const i of BK.unk) {
+  // candidates = unknown tiles bordering ground this bot can walk to (not every unknown tile on the board)
+  if (!BK.seen || BK.seen.length !== COLS * ROWS) { BK.seen = new Int32Array(COLS * ROWS); BK.stamp = 0; }
+  const stamp = ++BK.stamp;
+  const cands = [];
+  for (let qi = 0; qi < dm.n; qi++) {
+    const c = dm.q[qi], cx = c % COLS, cy = (c / COLS) | 0;
+    for (let d = 0; d < 4; d++) {
+      const nx = cx + DX4[d], ny = cy + DY4[d];
+      if (nx < 0 || ny < 0 || nx >= COLS || ny >= ROWS) continue;
+      const ni = ny * COLS + nx;
+      if (BK.seen[ni] === stamp) continue;
+      const nt = grid[ny][nx];
+      if (nt.rev || nt.crater) continue;
+      BK.seen[ni] = stamp;
+      if (isVoid(nx, ny)) continue;
+      cands.push(ni);
+    }
+  }
+  for (const i of cands) {
     const tx = i % COLS, ty = (i / COLS) | 0;
     const t = grid[ty][tx];
     if (t.rev || t.crater) continue;
@@ -2428,10 +2570,19 @@ function botThink(pl, now) {
 function botThinkMs(pl) { return BOT_THINK[pl.iq] || 170; }
 
 function botPhase(now) {
-  let any = false;
-  for (const p of players) if (p.bot && !p.left && !p.downed) { any = true; break; }
+  let any = false, live = 0;
+  for (const p of players) { if (p.left || p.downed) continue; live++; if (p.bot) any = true; }
   if (!any) return;
   botRefresh();
+  if (live > 12) {
+    BK.hash = new Map();
+    for (const p of players) {
+      if (p.left || p.downed) continue;
+      const k = (p.y >> 3) * 512 + (p.x >> 3);
+      const cell = BK.hash.get(k);
+      if (cell) cell.push(p); else BK.hash.set(k, [p]);
+    }
+  } else BK.hash = null;
   for (const pl of players) {
     if (!pl.bot || pl.left || pl.downed) continue;
     pl.moveBudget = Math.min(1, pl.moveBudget + TICK_MS / moveCd(pl, now));
@@ -2503,6 +2654,103 @@ function botsDraft() {
   });
 }
 
+
+// =====================================================================
+// PERK CRATES (arena modes) — v0.24
+// Perks that make sense in a last-one-standing match are lootable: scattered
+// crates on the board, the feast / cornucopia, and a drop from every kill
+// (the victim's best perk; their ammo stash scatters as before). A configurable cap limits builds;
+// at the cap a crate swaps out your weakest perk only if it's better.
+// =====================================================================
+const CRATE_POOL = ['vest', 'medic', 'swift', 'bandolier', 'adrenaline', 'lucky', 'sixth',
+  'pierce', 'demo', 'ricochet', 'blastsuit', 'secondwind', 'magnet'];
+const CRATE_RARE = new Set(['pierce', 'demo', 'ricochet', 'blastsuit', 'secondwind', 'magnet']);
+function perkById(id) { return PERKS.find(p => p.id === id) || null; }
+function perkValue(id) { return (BOT_PERK_W[id] || 3) + (CRATE_RARE.has(id) ? 4 : 0); }
+function arenaPerkCap() { return (run && run.arena && run.cfg && run.cfg.perkCap) || MAX_PERKS; }
+function randCratePerk(rareBias) {
+  const rare = Math.random() < (rareBias ? 0.7 : 0.38);
+  const pool = CRATE_POOL.filter(id => CRATE_RARE.has(id) === rare);
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+// can this player take that crate right now? (and which perk would it replace)
+function crateVerdict(pl, id) {
+  const p = perkById(id);
+  if (!p) return { ok: false, why: '?' };
+  if (!p.stack && pl.perks[id]) return { ok: false, why: 'HAVE IT' };
+  if (perkCount(pl) < arenaPerkCap()) return { ok: true, drop: null };
+  let wid = null, wv = 1e9;
+  for (const k of Object.keys(pl.perks)) { const v = perkValue(k); if (v < wv) { wv = v; wid = k; } }
+  if (!wid || perkValue(id) <= wv) return { ok: false, why: 'BUILD FULL' };
+  return { ok: true, drop: wid };
+}
+function takeCrate(pl, t, nx, ny) {
+  const id = t.perk, v = crateVerdict(pl, id), p = perkById(id);
+  if (!v.ok) { if (!pl.bot) fx('ptext', nx, ny, v.why, '#8b949e'); return; }
+  if (v.drop) { removePerk(pl, v.drop); fx('ptext', nx, ny - 0.5, '-' + perkById(v.drop).tag, '#8b949e'); }
+  pl.perks[id] = (pl.perks[id] || 0) + 1;
+  if (id === 'vest') { pl.maxHp++; pl.hp = Math.min(pl.hp + 1, pl.maxHp); }
+  if (id === 'medic') pl.hp = pl.maxHp;
+  if (id === 'bandolier') pl.bullets += 4;
+  t.loot = null; t.perk = null;
+  fx('burst', nx, ny, p.clr);
+  fx('ptext', nx, ny, '+' + p.tag, p.clr);
+}
+// put loot on the nearest free, open, non-void tile within 2 of (x, y)
+function placeLoot(x, y, loot, perk) {
+  for (let r = 0; r <= 2; r++)
+    for (let dy = -r; dy <= r; dy++)
+      for (let dx = -r; dx <= r; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+        const nx = x + dx, ny = y + dy;
+        if (!ib(nx, ny)) continue;
+        const t = grid[ny][nx];
+        if (!t.rev || t.crater || t.loot || t.mine || isVoid(nx, ny)) continue;
+        t.loot = loot; t.perk = perk || null;
+        fx('burst', nx, ny, loot === 'perk' ? perkById(perk).clr : '#ffd700');
+        return true;
+      }
+  return false;
+}
+function dropKillLoot(pl) {
+  if (!run || !run.arena || !run.cfg || run.cfg.killDrops === false) return;
+  if (isVoid(pl.x, pl.y)) return;
+  let best = null, bv = -1;
+  for (const id of Object.keys(pl.perks)) {
+    if (!CRATE_POOL.includes(id)) continue;
+    const v = perkValue(id);
+    if (v > bv) { bv = v; best = id; }
+  }
+  if (best) placeLoot(pl.x, pl.y, 'perk', best);   // (their ammo stash already scatters on death)
+}
+function spawnArenaCrates() {
+  const cfg = (run && run.cfg) || {};
+  const lv = cfg.crates || 'normal';
+  const rate = { off: 0, few: 0.005, normal: 0.011, lots: 0.02 }[lv];
+  if (!rate) return;
+  // scale with the table too: roughly 0.5 / 1 / 2 crates per player (or by area, if bigger)
+  const perPlayer = { few: 0.5, normal: 1, lots: 2 }[lv] * players.filter(p => !p.left).length;
+  const cand = [];
+  for (let y = 0; y < ROWS; y++)
+    for (let x = 0; x < COLS; x++) {
+      const t = grid[y][x];
+      if (!t.mine && !t.rev && !t.loot) cand.push(t);
+    }
+  const n = Math.min(cand.length, Math.max(3, Math.round(COLS * ROWS * rate), Math.round(perPlayer)));
+  for (let k = 0; k < n; k++) {
+    const t = cand.splice(Math.floor(Math.random() * cand.length), 1)[0];
+    t.loot = 'perk'; t.perk = randCratePerk(false);
+  }
+}
+function encodeCrates() {
+  const out = [];
+  for (let y = 0; y < ROWS; y++)
+    for (let x = 0; x < COLS; x++) {
+      const t = grid[y][x];
+      if (t.loot === 'perk') out.push([x, y, PERKS.findIndex(p => p.id === t.perk)]);
+    }
+  return out;
+}
 
 // ---- INPUT ----
 function heldDir() {
@@ -2580,6 +2828,15 @@ document.addEventListener('keydown', (e) => {
     return;
   }
   if (k === 'z') { cycleCam(); return; }
+  if (player && player.downed) {                      // spectating
+    if (k === 'f') { camFree = camFree ? null : { fx: camTx - 0.5, fy: camTy - 0.5 }; return; }
+    if (k === 'x') { specFast = !specFast; return; }
+    if (!camFree) {
+      if (k === 'arrowright' || k === 'd' || k === '.') { specStep(1); return; }
+      if (k === 'arrowleft' || k === 'a' || k === ',') { specStep(-1); return; }
+      if (k === 'tab') { e.preventDefault(); specStep(e.shiftKey ? -1 : 1); return; }
+    }
+  }
   keys.add(k);
   const DKEY = { w: [0,-1], arrowup: [0,-1], s: [0,1], arrowdown: [0,1],
                  a: [-1,0], arrowleft: [-1,0], d: [1,0], arrowright: [1,0] };
@@ -2653,7 +2910,8 @@ function tick() {
       } else { p.active = false; return; }
     }
     if (run.arena && run.cfg && run.cfg.pvp) {
-      const hitP = livePlayers().find(pl2 => pl2.idx !== p.owner && pl2.x === gx && pl2.y === gy);
+      const hitP = livePlayers().find(pl2 => pl2.idx !== p.owner && pl2.x === gx && pl2.y === gy &&
+        !(teamsOn() && !run.cfg.ff && players[p.owner] && players[p.owner].team === pl2.team));
       if (hitP) { damagePlayer(hitP, 1, 'bullet', p.owner); p.active = false; return; }
     }
     if (p.slayer) {
@@ -2828,7 +3086,7 @@ function tick() {
     }
     if (now - en.lastShot < 2500) return;
     for (const pl of livePlayers()) {
-      if (run.arena && en.owner === pl.idx) continue;
+      if (run.arena && allyOf(en.owner, pl)) continue;
       const dx = pl.x - en.x, dy = pl.y - en.y;
       if ((dx !== 0 && dy !== 0) || (dx === 0 && dy === 0)) continue;
       en.shootState = 'charging';
@@ -2846,7 +3104,7 @@ function tick() {
     const gx = Math.floor(b.x), gy = Math.floor(b.y);
     if (!ib(gx, gy)) { b.active = false; return; }
     const hit = livePlayers().find(pl => pl.x === gx && pl.y === gy &&
-      !(run.arena && b.own === pl.idx));
+      !(run.arena && allyOf(b.own, pl)));
     if (hit) { damagePlayer(hit, 1, 'bullet', b.own); b.active = false; return; }
     if (!grid[gy][gx].rev && !grid[gy][gx].crater) {
       reveal(gx, gy); b.active = false;
@@ -2892,7 +3150,7 @@ function tick() {
     // Charger: check alignment to start winding
     if (en.type === 'charger' && !en.chargeState) {
       for (const pl of livePlayers()) {
-        if (run.arena && en.owner === pl.idx) continue;
+        if (run.arena && allyOf(en.owner, pl)) continue;
         const dx = pl.x - en.x, dy = pl.y - en.y;
         if ((dx === 0) !== (dy === 0)) {
           en.chargeState = 'winding';
@@ -2941,7 +3199,7 @@ function tick() {
         const nx = pl.x + mdx, ny = pl.y + mdy;
         if (!ib(nx, ny)) continue;
         const t = grid[ny][nx];
-        if (!t.rev || !t.loot) continue;
+        if (!t.rev || !t.loot || t.loot === 'perk') continue;
         if (t.loot === 'heart' && pl.hp >= pl.maxHp) continue;
         const loot = t.loot;
         t.loot = null;
@@ -2960,7 +3218,7 @@ function tick() {
     if (e.dead) return;
     for (const pl of livePlayers()) {
       if (e.x !== pl.x || e.y !== pl.y) continue;
-      if (run.arena && e.owner === pl.idx) continue;   // loyal to its uncoverer
+      if (run.arena && allyOf(e.owner, pl)) continue;   // loyal to its uncoverer (and its team)
       if (e.type === 'magpie') {
         if (now >= e.stealCd) {
           e.stealCd = now + 2000;
@@ -3094,7 +3352,9 @@ function tick() {
         }
       for (let k = 0; k < 14 && fc.length; k++) {
         const pick = fc.splice(Math.floor(Math.random() * fc.length), 1)[0];
-        grid[pick.y][pick.x].loot = k < 3 ? 'heart' : 'bullet';
+        if ((cfgA.crates || 'normal') !== 'off' && k >= 3 && k < 7) {
+          grid[pick.y][pick.x].loot = 'perk'; grid[pick.y][pick.x].perk = randCratePerk(true);
+        } else grid[pick.y][pick.x].loot = k < 3 ? 'heart' : 'bullet';
         fx('burst', pick.x, pick.y, k < 3 ? '#ff6b6b' : '#ffd700');
       }
       fx('toast', 'THE FEAST BEGINS AT THE CORNUCOPIA');
@@ -3122,7 +3382,8 @@ function tick() {
     }
 
     const alive = players.filter(p => !p.left && !p.downed);
-    if (alive.length <= 1) arenaEnd(alive.length ? alive[0].idx : -1);
+    if (teamsOn() ? new Set(alive.map(p => p.team)).size <= 1 : alive.length <= 1)
+      arenaEnd(alive.length ? alive[0].idx : -1);
   }
 }
 
@@ -3170,21 +3431,120 @@ function updateFx(dt, wall) {
   toasts = toasts.filter(t => wall - t.t < (t.life || 3000));
 }
 
+// ---- PERK CRATE DRAWING / RIVAL INFO ----
+function drawCrate(x, y, now, t) {
+  const p = perkById(t.perk);
+  if (!p) return;
+  const cx = x * TILE + TILE / 2, cy = y * TILE + TILE / 2 + HUD_H;
+  // "close only" mode: from afar every crate is an anonymous '?'
+  const hidden = !!(run && run.cfg && run.cfg.crateMode === 'near' &&
+    Math.hypot(x + 0.5 - camTx, y + 0.5 - camTy) > 3.5);
+  const rare = !hidden && CRATE_RARE.has(p.id);
+  const clr = hidden ? '#d9c27a' : p.clr;
+  const pulse = 0.75 + Math.sin(now / 260 + x * 1.3 + y) * 0.25;
+  ctx.save();
+  ctx.translate(cx, cy);
+  if (rare) { ctx.shadowBlur = 8 + 8 * pulse; ctx.shadowColor = clr; }
+  ctx.fillStyle = '#0d1117';
+  ctx.fillRect(-10, -10, 20, 20);
+  ctx.strokeStyle = clr;
+  ctx.lineWidth = rare ? 2.5 : 1.5;
+  ctx.strokeRect(-10, -10, 20, 20);
+  if (rare) { ctx.strokeStyle = '#ffffff55'; ctx.lineWidth = 1; ctx.strokeRect(-7, -7, 14, 14); }
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = clr;
+  ctx.font = 'bold 10px Courier New';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(hidden ? '?' : p.tag, 0, 1);
+  ctx.restore();
+}
+function drawFloaters(wall) {
+  floaters = floaters.filter(f => wall - f.t < 1300);
+  if (!floaters.length) return;
+  ctx.save();
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = 'bold 12px Courier New';
+  floaters.forEach(f => {
+    const a = (wall - f.t) / 1300;
+    ctx.globalAlpha = Math.max(0, 1 - a * a);
+    ctx.fillStyle = f.clr;
+    ctx.fillText(f.text, f.x, f.y - 8 - a * 26);
+  });
+  ctx.restore();
+}
+// the nearest rival's loadout, spelled out (pips on the board show it at a glance)
+function drawRivalPanel(now) {
+  if (!run || !run.arena || gameState !== 'playing' || !grid) return;
+  let best = null, bd = 9;
+  players.forEach(p => {
+    if (p.left || p.downed || p === player) return;
+    const d = Math.hypot(p.fx + 0.5 - camTx, p.fy + 0.5 - camTy);
+    if (d < bd) { bd = d; best = p; }
+  });
+  if (!best) return;
+  const lines = Object.keys(best.perks).slice(0, 6).map(id => {
+    const pk = perkById(id);
+    return { c: pk ? pk.clr : '#aaa', t: (pk ? pk.tag + ' ' + pk.name : id) + (best.perks[id] > 1 ? ' ×' + best.perks[id] : '') };
+  });
+  if (!lines.length) lines.push({ c: '#586069', t: 'NO UPGRADES' });
+  const wpx = 200, hpx = 24 + lines.length * 12, x0 = 8, y0 = H - hpx - 8;
+  ctx.save();
+  ctx.fillStyle = '#0d1117d8'; ctx.fillRect(x0, y0, wpx, hpx);
+  ctx.strokeStyle = best.color; ctx.lineWidth = 1; ctx.strokeRect(x0 + 0.5, y0 + 0.5, wpx - 1, hpx - 1);
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  ctx.font = 'bold 11px Courier New';
+  ctx.fillStyle = best.color; ctx.fillText((best.bot ? '⚙' : '') + best.name.toUpperCase(), x0 + 8, y0 + 11);
+  ctx.fillStyle = '#ff6b6b'; ctx.fillText('♥' + Math.ceil(best.hp) + '/' + best.maxHp, x0 + 118, y0 + 11);
+  ctx.fillStyle = '#ffd700'; ctx.fillText('◆' + best.bullets, x0 + 164, y0 + 11);
+  ctx.font = '10px Courier New';
+  lines.forEach((l, i) => { ctx.fillStyle = l.c; ctx.fillText(l.t, x0 + 8, y0 + 27 + i * 12); });
+  ctx.restore();
+}
+
 // ---- CAMERA ----
+// who you can watch once you're out: teammates first, then other humans, then bots
+function spectateList() {
+  const rank = p => (teamsOn() && player && p.team === player.team) ? 0 : p.bot ? 2 : 1;
+  return players.filter(p => !p.left && !p.downed && p !== player)
+    .sort((a, b) => (rank(a) - rank(b)) || (a.idx - b.idx));
+}
+function specStep(dir) {
+  const list = spectateList();
+  if (!list.length) return;
+  camFree = null;
+  const i = list.findIndex(p => p.idx === camSpec);
+  camSpec = list[(i + dir + list.length) % list.length].idx;
+}
 function camTarget() {
-  if (player && !player.downed && !player.left) return player;
-  const alive = players.filter(p => !p.left && !p.downed);
+  if (player && !player.downed && !player.left) { camFree = null; return player; }
+  if (camFree) return camFree;
+  const alive = spectateList();
   if (!alive.length) return player || { fx: COLS / 2, fy: ROWS / 2 };
   let cur = alive.find(p => p.idx === camSpec);
   if (!cur) {
+    // default: the best-ranked group (teammates, else humans, else bots), nearest first
+    const rank = p => (teamsOn() && player && p.team === player.team) ? 0 : p.bot ? 2 : 1;
+    const r0 = rank(alive[0]);
     let bd = 1e9;
-    alive.forEach(p => { const d = Math.hypot(p.fx - camTx, p.fy - camTy); if (d < bd) { bd = d; cur = p; } });
-    camSpec = cur.idx;                      // spectating: stick with one player until they fall
+    alive.filter(p => rank(p) === r0).forEach(p => {
+      const d = Math.hypot(p.fx - camTx, p.fy - camTy);
+      if (d < bd) { bd = d; cur = p; }
+    });
+    camSpec = cur.idx;
   }
   return cur;
 }
 function camUpdate(dt) {
   if (!grid) return;
+  if (camFree && player && player.downed) {          // free camera: WASD / arrows pan
+    const sp = 16 * dt;
+    if (keys.has('w') || keys.has('arrowup')) camFree.fy -= sp;
+    if (keys.has('s') || keys.has('arrowdown')) camFree.fy += sp;
+    if (keys.has('a') || keys.has('arrowleft')) camFree.fx -= sp;
+    if (keys.has('d') || keys.has('arrowright')) camFree.fx += sp;
+    camFree.fx = Math.max(0, Math.min(COLS - 1, camFree.fx));
+    camFree.fy = Math.max(0, Math.min(ROWS - 1, camFree.fy));
+  }
   const t = camTarget();
   camTx = t.fx + 0.5; camTy = t.fy + 0.5;
   const wantX = Math.max(0, Math.min(COLS * TILE - W, camTx * TILE - W / 2));
@@ -3221,22 +3581,26 @@ function drawCamOverlay(now) {
   const cx = W / 2, cy = HUD_H + (H - HUD_H) / 2;
   // off-screen arrows: nearest rivals (their color) and monsters (red)
   const items = [];
-  players.forEach(p => { if (!p.left && !p.downed && p !== player) items.push({ x: p.fx, y: p.fy, c: p.color, k: 1 }); });
+  players.forEach(p => {
+    if (p.left || p.downed || p === player) return;
+    const al = teamsOn() && player && p.team === player.team;     // teammates: white, and always findable
+    items.push({ x: p.fx, y: p.fy, c: al ? '#ffffff' : p.color, k: al ? 2 : 1 });
+  });
   enemies.forEach(e => items.push({ x: e.fx, y: e.fy, c: '#ff2d55', k: 0 }));
   const cand = [];
   for (const it of items) {
     const sx = (it.x + 0.5) * TILE - camX, sy = (it.y + 0.5) * TILE + HUD_H - camY;
     if (sx >= 0 && sx <= W && sy >= HUD_H && sy <= H) continue;
     const d = Math.hypot(it.x + 0.5 - camTx, it.y + 0.5 - camTy);
-    if (d > (it.k ? 24 : 12)) continue;
+    if (d > (it.k === 2 ? 90 : it.k ? 24 : 12)) continue;
     cand.push({ it, sx, sy, d });
   }
-  cand.sort((a, b) => a.d - b.d);
+  cand.sort((a, b) => ((b.it.k === 2) - (a.it.k === 2)) || (a.d - b.d));
   ctx.save();
   cand.slice(0, 10).forEach(({ it, sx, sy }) => {
     const dx = sx - cx, dy = sy - cy;
     const s = Math.min((W / 2 - 14) / Math.max(1, Math.abs(dx)), ((H - HUD_H) / 2 - 14) / Math.max(1, Math.abs(dy)));
-    const ax = cx + dx * s, ay = cy + dy * s, a = Math.atan2(dy, dx), r = it.k ? 8 : 6;
+    const ax = cx + dx * s, ay = cy + dy * s, a = Math.atan2(dy, dx), r = it.k === 2 ? 10 : it.k ? 8 : 6;
     ctx.globalAlpha = 0.9;
     ctx.fillStyle = it.c;
     ctx.beginPath();
@@ -3247,17 +3611,27 @@ function drawCamOverlay(now) {
   });
   ctx.restore();
   // minimap
-  const mp = Math.max(2, Math.floor(132 / Math.max(COLS, ROWS)));
+  const mp = Math.max(1, Math.floor(132 / Math.max(COLS, ROWS)));
   const mw = COLS * mp, mh = ROWS * mp, x0 = W - mw - 8, y0 = H - mh - 8;
   ctx.save();
   ctx.fillStyle = '#0d1117d0';
   ctx.fillRect(x0 - 3, y0 - 3, mw + 6, mh + 6);
-  for (let y = 0; y < ROWS; y++)
-    for (let x = 0; x < COLS; x++) {
-      const t = grid[y][x];
-      ctx.fillStyle = isVoid(x, y) ? '#5a0f1a' : t.crater ? '#07090c' : t.rev ? '#3b4654' : '#1a2028';
-      ctx.fillRect(x0 + x * mp, y0 + y * mp, mp, mp);
-    }
+  const wallNow = performance.now();
+  if (!mmCache || mmCache.width !== mw || mmCache.height !== mh) {
+    mmCache = document.createElement('canvas'); mmCache.width = mw; mmCache.height = mh; mmStamp = 0;
+  }
+  if (wallNow - mmStamp > 200) {          // repaint ~5x/s instead of every frame
+    mmStamp = wallNow;
+    const mc2 = mmCache.getContext('2d');
+    for (let y = 0; y < ROWS; y++)
+      for (let x = 0; x < COLS; x++) {
+        const t = grid[y][x];
+        mc2.fillStyle = t.rev && t.loot === 'perk' ? '#ffd700'
+          : isVoid(x, y) ? '#5a0f1a' : t.crater && !t.stale ? '#07090c' : t.rev ? '#3b4654' : '#1a2028';
+        mc2.fillRect(x * mp, y * mp, mp, mp);
+      }
+  }
+  ctx.drawImage(mmCache, x0, y0);
   ctx.fillStyle = '#ff2d55';
   enemies.forEach(e => ctx.fillRect(x0 + Math.round(e.fx) * mp, y0 + Math.round(e.fy) * mp, mp, mp));
   const ds = Math.max(3, mp + 1);
@@ -3265,8 +3639,8 @@ function drawCamOverlay(now) {
     if (p.left || p.downed) return;
     ctx.fillStyle = p.color;
     ctx.fillRect(x0 + p.fx * mp + mp / 2 - ds / 2, y0 + p.fy * mp + mp / 2 - ds / 2, ds, ds);
-    if (p === player) {
-      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1;
+    if (p === player || (teamsOn() && player && p.team === player.team)) {
+      ctx.strokeStyle = p === player ? '#ffffff' : '#ffffffaa'; ctx.lineWidth = 1;
       ctx.strokeRect(x0 + p.fx * mp + mp / 2 - ds / 2 - 1, y0 + p.fy * mp + mp / 2 - ds / 2 - 1, ds + 2, ds + 2);
     }
   });
@@ -3298,9 +3672,12 @@ function render(now, wall) {
   ctx.translate(shake.x, shake.y);
   ctx.save();
   ctx.translate(-camX, -camY);
+  // only draw what the camera can see (huge boards would otherwise cost a frame per tile)
+  const vx0 = Math.max(0, Math.floor(camX / TILE) - 2), vx1 = Math.min(COLS - 1, Math.ceil((camX + W) / TILE) + 2);
+  const vy0 = Math.max(0, Math.floor(camY / TILE) - 2), vy1 = Math.min(ROWS - 1, Math.ceil((camY + H - HUD_H) / TILE) + 2);
 
-  for (let y = 0; y < ROWS; y++)
-    for (let x = 0; x < COLS; x++)
+  for (let y = vy0; y <= vy1; y++)
+    for (let x = vx0; x <= vx1; x++)
       drawTile(x, y, now);
 
   if (gameState === 'playing' && player && !player.downed) {
@@ -3316,11 +3693,12 @@ function render(now, wall) {
     }
   }
 
-  for (let y = 0; y < ROWS; y++)
-    for (let x = 0; x < COLS; x++) {
+  for (let y = vy0; y <= vy1; y++)
+    for (let x = vx0; x <= vx1; x++) {
       const t = grid[y][x];
       if (t.rev && t.loot === 'bullet') drawLoot(x, y, now);
       else if (t.rev && t.loot === 'heart') drawHeart(x, y, now);
+      else if (t.rev && t.loot === 'perk') drawCrate(x, y, now, t);
     }
 
   traps.forEach(t => drawTrap(t, now));
@@ -3330,14 +3708,28 @@ function render(now, wall) {
   projectiles.forEach(p => drawProj(p));
   enemyBullets.forEach(b => drawEnemyBullet(b));
   particles.forEach(p => drawParticle(p));
+  drawFloaters(wall);
   ctx.restore();
   drawHUD(now);
   drawCamOverlay(now);
+  drawRivalPanel(now);
   drawToasts(wall);
-  if (specMode) {
-    ctx.save(); ctx.fillStyle = '#8b949e'; ctx.font = 'bold 11px Courier New';
+  if (player && player.downed && gameState === 'playing') {
+    const tgt = camFree ? null : players[camSpec];
+    ctx.save();
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText('SPECTATING ▸▸ ×4', W / 2, H - 12); ctx.restore();
+    ctx.font = 'bold 12px Courier New';
+    const label = camFree ? 'FREE CAMERA' : tgt ? (tgt.bot ? '⚙' : '') + tgt.name.toUpperCase() : '';
+    const ally = tgt && teamsOn() && player && tgt.team === player.team;
+    const full = '◂  ' + label + (ally ? ' · TEAMMATE' : '') + '  ▸';
+    const tw = ctx.measureText(full).width;
+    ctx.fillStyle = '#0d1117c8'; ctx.fillRect(W / 2 - tw / 2 - 10, H - 40, tw + 20, 32);
+    ctx.fillStyle = camFree ? '#c9d1d9' : tgt ? tgt.color : '#c9d1d9';
+    ctx.fillText(full, W / 2, H - 31);
+    ctx.fillStyle = '#8b949e'; ctx.font = '10px Courier New';
+    ctx.fillText((camFree ? 'WASD pan · F follow' : '←/→ switch · F free cam') +
+      (specMode ? ' · X speed ' + (specFast ? '×4' : '×1') : ''), W / 2, H - 16);
+    ctx.restore();
   }
 
   if (gameState === 'lost') {
@@ -3399,6 +3791,13 @@ function drawTile(x, y, now) {
     ctx.beginPath();
     ctx.arc(px + TILE / 2, py + TILE / 2, TILE * 0.35, 0, Math.PI * 2);
     ctx.fill();
+    if (t.stale) {
+      // the numbers have reset, so this crater no longer counts toward them:
+      // let it sink back into the floor so it can't be mistaken for fresh damage
+      const k = Math.min(1, Math.max(0, (now - (t.staleT || 0)) / 900));
+      ctx.fillStyle = 'rgba(22,27,34,' + (0.9 * k).toFixed(3) + ')';
+      ctx.fillRect(px, py, TILE, TILE);
+    }
   } else if (t.rev) {
     ctx.fillStyle = '#161b22';
     ctx.fillRect(px, py, TILE, TILE);
@@ -3727,6 +4126,16 @@ function drawPlayer(pl, now, isMe) {
   const pulse = 1 + Math.sin(now / 500) * 0.04;
   ctx.save();
   if (blinking) ctx.globalAlpha = 0.35;
+  if (teamsOn()) {
+    // allies (you included) wear a white ring; every other team has its own hue
+    const ally = player && pl.team === player.team;
+    ctx.save();
+    ctx.strokeStyle = ally ? '#ffffff' : teamHex(pl.team);
+    ctx.lineWidth = ally ? 2.5 : 1.8;
+    ctx.globalAlpha *= ally ? 0.9 : 0.7;
+    ctx.beginPath(); ctx.arc(cx, cy, 15.5, 0, Math.PI * 2); ctx.stroke();
+    ctx.restore();
+  }
   ctx.fillStyle = pl.color + '12';
   ctx.beginPath();
   ctx.arc(cx, cy, 18 * pulse, 0, Math.PI * 2);
@@ -3762,7 +4171,33 @@ function drawPlayer(pl, now, isMe) {
       ctx.font = 'bold 9px Courier New';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText((pl.bot ? '⚙' : '') + pl.name.toUpperCase(), cx, cy - 28);
+      const label = (pl.bot ? '⚙' : '') + pl.name.toUpperCase();
+      ctx.fillText(label, cx, cy - 28);
+      // shooting-changing perks flag a rival as dangerous
+      if (pl.perks.demo || pl.perks.pierce || pl.perks.ricochet) {
+        const nw = ctx.measureText(label).width;
+        ctx.fillStyle = '#ff3355'; ctx.textAlign = 'left';
+        ctx.fillText('!', cx + nw / 2 + 3, cy - 28);
+        ctx.textAlign = 'center';
+      }
+    }
+    // one colored pip per perk (a digit beside stacked ones)
+    const ids = Object.keys(pl.perks);
+    if (ids.length) {
+      let tw = 0;
+      const items = ids.map(id => { const n = pl.perks[id], w = 7 + (n > 1 ? 6 : 0); tw += w; return { id, n, w }; });
+      let px = cx - tw / 2;
+      items.forEach(it => {
+        const pk = perkById(it.id);
+        ctx.fillStyle = pk ? pk.clr : '#aaaaaa';
+        ctx.fillRect(px, cy + 15, 5, 5);
+        if (it.n > 1) {
+          ctx.fillStyle = '#ffffff'; ctx.font = 'bold 7px Courier New'; ctx.textAlign = 'left';
+          ctx.fillText(String(it.n), px + 6, cy + 18);
+        }
+        px += it.w;
+      });
+      ctx.textAlign = 'center';
     }
   }
   ctx.restore();
@@ -3872,7 +4307,7 @@ function drawHUD(now) {
     const nxt = run.cfg && run.cfg.pressure === 'regen' ? run.regenNext : run.shrinkNext;
     const rem = Math.max(0, (nxt - now) / 1000);
     ctx.fillStyle = '#ff2d55';
-    ctx.fillText('⚔ ' + alive + ' ALIVE · ' +
+    ctx.fillText('⚔ ' + (teamsOn() ? new Set(players.filter(p => !p.left && !p.downed).map(p => p.team)).size + ' TEAMS · ' + alive : alive) + ' ALIVE · ' +
       (run.cfg && run.cfg.pressure === 'regen' ? 'REGROW ' : 'COLLAPSE ') + fmtTime(rem), W / 2, y1);
   } else if (run.depth > MAX_DEPTH) {
     ctx.fillStyle = '#c77dff';
@@ -3921,11 +4356,14 @@ function drawHUD(now) {
   }
 
   // party status board: one row per teammate (name · hearts · ammo · build)
-  if (players.filter(p => !p.left).length > 5) { drawRosterStrip(); return; }
+  const bigTable = players.filter(p => !p.left).length > 5;
+  if (bigTable) { drawRosterStrip(); if (!teamsOn()) return; }
   let row = 0;
+  const myTeam = players[myIdx] ? players[myIdx].team : 0;
   players.forEach(pl => {
     if (pl.idx === myIdx || pl.left) return;
-    const y = 72 + row * 16;
+    if (teamsOn() && pl.team !== myTeam) return;          // team mode: rows are for teammates
+    const y = 72 + (bigTable ? 20 : 0) + row * 16;
     row++;
     ctx.textAlign = 'left';
     ctx.font = 'bold 11px Courier New';
@@ -3965,13 +4403,15 @@ function drawHUD(now) {
 function drawRosterStrip() {
   const list = players.filter(p => !p.left);
   const n = list.length;
-  const sz = Math.max(6, Math.min(14, Math.floor((W - 28 - 70) / n) - 2));
+  const sz = Math.max(3, Math.min(14, Math.floor((W - 28 - 70) / n) - 2));
   let x = 14;
   const y = 66;
   list.forEach(p => {
     ctx.fillStyle = p.downed ? '#2a2f36' : p.color;
     ctx.fillRect(x, y, sz, sz);
-    if (p.idx === myIdx) { ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5; ctx.strokeRect(x - 1, y - 1, sz + 2, sz + 2); }
+    if (p.idx === myIdx || (teamsOn() && players[myIdx] && p.team === players[myIdx].team)) {
+      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5; ctx.strokeRect(x - 1, y - 1, sz + 2, sz + 2);
+    }
     if (p.downed) {
       ctx.strokeStyle = '#ff2d55'; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + sz, y + sz); ctx.moveTo(x + sz, y); ctx.lineTo(x, y + sz); ctx.stroke();
@@ -4211,6 +4651,7 @@ function drawLobby(now) {
       ctx.fillText(c3.size + '×' + c3.size + ' · shots ' + (c3.pvp ? 'HURT' : 'SAFE') +
         ' · ' + (c3.pressure === 'regen' ? 'mines regrow' : 'board shrinks') +
         ' · monsters ' + (c3.enemies === false ? 'OFF' : 'ON') +
+        ((c3.teamSize || 1) > 1 ? ' · ' + ['', '', 'DUOS', 'TRIOS', 'SQUADS'][c3.teamSize] : '') +
         ' · ' + ((c3.perks || []).length ? c3.perks.length + ' shared perks' : 'no perks'), cx2, H * 0.63);
     }
   }
@@ -4295,7 +4736,8 @@ const net = {
   lastSnapWall: 0,     // guest: wall time of latest snapshot (host-pause detection)
   arenaOn: false,      // host lobby: versus mode selected
   arenaCfg: { size: 15, pvp: true, pressure: 'shrink', enemies: true, perks: [],
-    hg: false, loot: 'normal', shrink: 'normal', hp: 3, ammo: 5, feast: true },
+    hg: false, loot: 'normal', shrink: 'normal', hp: 3, ammo: 5, feast: true,
+    crates: 'normal', crateMode: 'shown', killDrops: true, perkCap: 4, teamSize: 1, ff: false },
   botCfg: { n: 0, diff: 'mixed', aggr: 'mixed' },
   botMatch: false,     // offline [B] match (solo player + bots)
   sendAll(m) { this.conns.forEach(c => { try { c.send(m); } catch (e) {} }); },
@@ -4382,8 +4824,8 @@ function cycleColor(idx) {
   if (!pl) return;
   const used = new Set(players.filter(p => p.idx !== idx).map(p => p.color));
   const ci = Math.max(0, COLORS.indexOf(pl.color));
-  for (let k = 1; k <= COLORS.length; k++) {
-    const c = COLORS[(ci + k) % COLORS.length];
+  for (let k = 1; k <= COLOR_BASE; k++) {
+    const c = COLORS[(ci + k) % COLOR_BASE];
     if (!used.has(c)) { pl.color = c; break; }
   }
   if (idx === myIdx) saveColorPref(pl.color);
@@ -4434,15 +4876,16 @@ function setMode(m) {
   const c = net.arenaCfg, b = net.botCfg;
   if (m === 'coop') { net.arenaOn = false; c.hg = false; b.n = Math.min(b.n, 7); }
   else if (m === 'arena') {
+    const wasHg = c.hg;
     net.arenaOn = true; c.hg = false;
-    if (c.size > 31) c.size = 19;
+    if (wasHg) c.size = 19;
     if (c.hp === 4 && c.ammo === 4) { c.hp = 3; c.ammo = 5; }
     if (b.n < 1) b.n = 7;
   } else {
     net.arenaOn = true; c.hg = true;
     if (c.size < 35) c.size = 41;
     c.pvp = true; c.pressure = 'shrink'; c.enemies = true;
-    c.hp = 4; c.ammo = 4;
+    if (c.hp === 3 && c.ammo === 5) { c.hp = 4; c.ammo = 4; }   // keep a custom hearts/ammo choice
     b.n = 23;
   }
 }
@@ -4471,7 +4914,7 @@ function renderSetup() {
     acfgBtn('CO-OP DESCENT', mode === 'coop', 'mode', 'coop') +
     acfgBtn('BATTLE ROYALE', mode === 'arena', 'mode', 'arena') +
     acfgBtn('HUNGER GAMES (24)', mode === 'hg', 'mode', 'hg');
-  const counts = mode === 'coop' ? [0, 1, 2, 3, 5, 7] : mode === 'arena' ? [1, 3, 5, 7, 11, 15, 23] : [11, 15, 19, 23];
+  const counts = mode === 'coop' ? [0, 1, 2, 3, 5, 7] : mode === 'arena' ? [1, 3, 5, 7, 11, 15, 23, 47, 63, 99] : [11, 15, 19, 23, 47, 63, 99];
   h += row('BOTS' + (mode === 'hg' ? ' (you + bots = tributes)' : '') + ':') +
     counts.map(n => acfgBtn(String(n), b.n === n, 'bots', n)).join('');
   h += row('BOT INTELLIGENCE:') +
@@ -4491,8 +4934,8 @@ function renderSetup() {
     acfgBtn('CLOSE 15', camMode === 'close', 'cam', 'close');
   if (mode !== 'coop') {
     const sizes = mode === 'hg'
-      ? [['TIGHT 35×35', 35], ['CRAZY 41×41', 41], ['VAST 51×51', 51]]
-      : [['SMALL 11×11', 11], ['MEDIUM 15×15', 15], ['LARGE 19×19', 19], ['HUGE 25×25', 25], ['MASSIVE 31×31', 31]];
+      ? [['TIGHT 35×35', 35], ['CRAZY 41×41', 41], ['VAST 51×51', 51], ['ENORMOUS 71×71', 71], ['COLOSSAL 101×101', 101]]
+      : [['SMALL 11×11', 11], ['MEDIUM 15×15', 15], ['LARGE 19×19', 19], ['HUGE 25×25', 25], ['MASSIVE 31×31', 31], ['GIGANTIC 41×41', 41], ['EPIC 61×61', 61], ['ABSURD 85×85', 85]];
     h += row('BOARD SIZE (grows to fit the table):') +
       sizes.map(s => acfgBtn(s[0], c.size === s[1], 'size', s[1])).join('');
     h += row('DIRECT SHOTS HURT PLAYERS:') +
@@ -4512,8 +4955,24 @@ function renderSetup() {
       acfgBtn('NORMAL', (c.loot || 'normal') === 'normal', 'loot', 'normal') +
       acfgBtn('RICH', c.loot === 'rich', 'loot', 'rich');
     h += row('STARTING HEARTS / AMMO:') +
-      [2, 3, 4, 5].map(n => acfgBtn('♥' + n, (c.hp || 3) === n, 'hp', n)).join('') + ' ' +
+      [1, 2, 3, 4, 5].map(n => acfgBtn('♥' + n + (n === 1 ? ' ONE LIFE' : ''), (c.hp || 3) === n, 'hp', n)).join('') + ' ' +
       [3, 5, 8, 12].map(n => acfgBtn('◆' + n, (c.ammo || 5) === n, 'ammo', n)).join('');
+    h += row('TEAMS (last team standing wins):') +
+      [[1, 'SOLO'], [2, 'DUOS'], [3, 'TRIOS'], [4, 'SQUADS (4)']]
+        .map(o => acfgBtn(o[1], (c.teamSize || 1) === o[0], 'teams', o[0])).join('');
+    if ((c.teamSize || 1) > 1)
+      h += row('FRIENDLY FIRE (teammates can shoot each other):') +
+        acfgBtn('OFF', !c.ff, 'ff', 0) + acfgBtn('ON', !!c.ff, 'ff', 1);
+    h += row('PERK CRATES (upgrades lying on the board):') +
+      [['OFF', 'off'], ['FEW', 'few'], ['NORMAL', 'normal'], ['LOTS', 'lots']]
+        .map(o => acfgBtn(o[0], (c.crates || 'normal') === o[1], 'crates', o[1])).join('');
+    h += row('CRATE CONTENTS:') +
+      acfgBtn('ALWAYS SHOWN', (c.crateMode || 'shown') === 'shown', 'cratemode', 'shown') +
+      acfgBtn('ONLY WHEN CLOSE (3 tiles)', c.crateMode === 'near', 'cratemode', 'near');
+    h += row('KILLS DROP THE VICTIM\'S BEST PERK (their ammo always drops):') +
+      acfgBtn('ON', c.killDrops !== false, 'killdrops', 1) + acfgBtn('OFF', c.killDrops === false, 'killdrops', 0);
+    h += row('PERK CAP (most upgrades you can hold; crates swap out your weakest):') +
+      [1, 2, 3, 4, 5, 6, 8].map(n => acfgBtn(n === 8 ? 'NO CAP' : String(n), (c.perkCap || 4) === n, 'perkcap', n)).join('');
     if (mode === 'hg')
       h += row('THE FEAST (mid-game loot drop at the cornucopia):') +
         acfgBtn('ON', c.feast !== false, 'feast', 1) + acfgBtn('OFF', c.feast === false, 'feast', 0);
@@ -4544,6 +5003,12 @@ function renderSetup() {
     else if (act === 'ammo') c.ammo = +v;
     else if (act === 'feast') c.feast = v === '1';
     else if (act === 'cam') setCam(v);
+    else if (act === 'teams') c.teamSize = +v;
+    else if (act === 'ff') c.ff = v === '1';
+    else if (act === 'crates') c.crates = v;
+    else if (act === 'cratemode') c.crateMode = v;
+    else if (act === 'killdrops') c.killDrops = v === '1';
+    else if (act === 'perkcap') c.perkCap = +v;
     else if (act === 'perk') {
       const ix = c.perks.indexOf(v);
       if (ix >= 0) c.perks.splice(ix, 1);
@@ -4763,9 +5228,9 @@ function encodeGrid() {
   for (let y = 0; y < ROWS; y++)
     for (let x = 0; x < COLS; x++) {
       const t = grid[y][x];
-      const st = t.crater ? 2 : t.rev ? 1 : 0;
+      const st = t.crater ? (t.stale ? 3 : 2) : t.rev ? 1 : 0;
       const lo = t.loot === 'bullet' ? 1 : t.loot === 'heart' ? 2 : t.loot === 'egg' ? 3 : 0;
-      const v = st + 3 * (lo + 4 * ((t.marked ? 1 : 0) + 2 * ((t.nearMega ? 1 : 0) +
+      const v = st + 4 * (lo + 4 * ((t.marked ? 1 : 0) + 2 * ((t.nearMega ? 1 : 0) +
         2 * (t.num + 9 * ((t.mine ? 1 : 0) + 2 * (t.mega ? 1 : 0))))));
       s += String.fromCharCode(48 + v);
     }
@@ -4777,6 +5242,7 @@ function buildSnap() {
     t: 'snap', tick: simTick, gs: gameState, depth: run.depth,
     cols: COLS, rows: ROWS,
     grid: encodeGrid(),
+    cr: encodeCrates(),
     tl: tilesLeft, ts: totalSafe, gt: gameTime, ft: finalTime,
     dp: draftPicked, ds: draftSeq,
     bc: borderCrack ? { x: borderCrack.x, y: borderCrack.y, t: borderCrack.t } : null,
@@ -4785,7 +5251,7 @@ function buildSnap() {
       dn: p.downed ? 1 : 0, nd: p.noDraft ? 1 : 0, dl: p.draftLeft || 0,
       iu: p.iframeUntil, au: p.adrenalineUntil,
       pk: p.perks, sl: p.sapperLeft, ls: p.lastSeq, lf: p.left ? 1 : 0,
-      bt: p.bot ? 1 : 0, iq: p.iq, ag: Math.round(p.agg * 100), k: p.kills, pc: p.place })),
+      tm: p.team, bt: p.bot ? 1 : 0, iq: p.iq, ag: Math.round(p.agg * 100), k: p.kills, pc: p.place })),
     aw: run.arena ? run.winner : -1,
     wn: sessionWins,
     sh: run.shrinkLevel || 0, sn: run.shrinkNext || 0,
@@ -4812,6 +5278,7 @@ function applySnap(s) {
     conf = run.arena ? arenaConf(run.cfg, np2) : depthConf(s.depth, run.seed, np2);
     if (!run.arena && conf.gladiator)
       toasts.push({ text: '⚔ GLADIATOR DEPTH — SOLE SURVIVOR DRAFTS ×3', t: performance.now() });
+    s.pl.forEach(sp => { if (players[sp.i]) players[sp.i].team = sp.tm | 0; });
     updateHudH();
     setBoardSize(s.cols, s.rows, true);
     grid = [];
@@ -4837,7 +5304,7 @@ function applySnap(s) {
     for (let x = 0; x < COLS; x++, i++) {
       let v = s.grid.charCodeAt(i) - 48;
       const t = grid[y][x];
-      const st = v % 3; v = (v - st) / 3;
+      const st = v % 4; v = (v - st) / 4;
       const lo = v % 4; v = (v - lo) / 4;
       const mk = v % 2; v = (v - mk) / 2;
       const nm = v % 2; v = (v - nm) / 2;
@@ -4845,12 +5312,18 @@ function applySnap(s) {
       const mine = v % 2; v = (v - mine) / 2;
       const mega = v % 2;
       const wasOpen = t.rev || t.crater;
-      t.rev = st >= 1; t.crater = st === 2;
+      t.rev = st >= 1; t.crater = st >= 2;
+      const wasStale = t.stale; t.stale = st === 3;
+      if (t.stale && !wasStale) t.staleT = gn;
       if (!wasOpen && st >= 1) t.rt = gn;
       t.loot = lo === 1 ? 'bullet' : lo === 2 ? 'heart' : lo === 3 ? 'egg' : null;
       t.marked = !!mk; t.nearMega = !!nm; t.num = num;
       t.mine = !!mine; t.mega = !!mega;
     }
+  (s.cr || []).forEach(c => {
+    const t = grid[c[1]] && grid[c[1]][c[0]], pk = PERKS[c[2]];
+    if (t && pk) { t.loot = 'perk'; t.perk = pk.id; }
+  });
 
   s.pl.forEach(sp => {
     let pl = players[sp.i];
@@ -4864,7 +5337,7 @@ function applySnap(s) {
     pl.perks = sp.pk || {}; pl.sapperLeft = sp.sl;
     pl.left = !!sp.lf; pl.color = sp.c; pl.lastSeq = sp.ls;
     pl.bot = !!sp.bt; pl.iq = sp.iq || 0; pl.agg = (sp.ag || 0) / 100;
-    pl.kills = sp.k || 0; pl.place = sp.pc || 0;
+    pl.kills = sp.k || 0; pl.place = sp.pc || 0; pl.team = sp.tm | 0;
     if (sp.nm) pl.name = sp.nm;
   });
   player = players[myIdx];
@@ -4964,7 +5437,7 @@ function loop(ts) {
     specMode = !!(run && run.arena && gameState === 'playing' &&
       players.some(p => p.bot && !p.left && !p.downed) &&
       !players.some(p => !p.bot && !p.left && !p.downed));
-    acc += dt * 1000 * (specMode ? 4 : 1);
+    acc += dt * 1000 * (specMode && specFast ? 4 : 1);
     let ticked = false;
     while (acc >= TICK_MS) {
       acc -= TICK_MS;
@@ -5040,6 +5513,7 @@ window.__mc = {
     net.botCfg = { n: nBots, diff: diff || 'mixed', aggr: aggr || 'mixed' };
     Object.assign(net.arenaCfg, cfg || {});
     setMode(mode);
+    net.botCfg.n = nBots;      // (the HG preset would otherwise force 23)
     if (cfg) Object.assign(net.arenaCfg, cfg);
     startRunShared();
   },
@@ -5048,6 +5522,9 @@ window.__mc = {
   get BK() { return BK; },
   get net() { return net; },
   get specMode() { return specMode; },
+  get spec() { return { camSpec, camFree, specFast }; },
+  renderNow() { camUpdate(0.05); render(simNow + 25, performance.now()); },
+  movePlayerBy(i, dx, dy) { movePlayer(players[i], dx, dy); },
   get cam() { return { camX, camY, VC, VR, W, H, camTx, camTy, camMode }; },
   get shakeI() { return shake.i; },
   resetShake() { shake.i = 0; },
