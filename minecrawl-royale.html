@@ -261,7 +261,7 @@
 // snapshot only carries dynamic state.
 // =====================================================================
 
-const GAME_VER = 'v0.26';
+const GAME_VER = 'v0.27';
 const TILE = 32;
 let HUD_H = 64;   // grows one 16px row per teammate (party status board)
 const TICK_MS = 50, TICK_DT = TICK_MS / 1000;   // 20Hz fixed sim step
@@ -703,9 +703,8 @@ function showEnd(won) {
     box.classList.remove('lost');
     const w = run.winner >= 0 && players[run.winner] ? players[run.winner] : null;
     const hgRun = !!(run.cfg && run.cfg.hg);
-    const tmN = teamsOn() && w ? players.filter(p => !p.left && p.team === w.team) : null;
     document.getElementById('ov-title').textContent =
-      w ? (tmN && tmN.length > 1 ? tmN.map(p => p.name).join(' + ') + ' WIN' : w.name + ' WINS').toUpperCase() : 'DRAW';
+      w ? (teamsOn() ? teamLabel(w) + ' WINS' : (w.name + ' WINS').toUpperCase()) : 'DRAW';
     document.getElementById('ov-sub').textContent = hgRun
       ? '- the cannon fires one last time -' : '- the arena falls silent -';
     document.getElementById('ov-time').textContent =
@@ -721,8 +720,12 @@ function showEnd(won) {
       const rows = ranked.slice(0, 8);
       const mine = ranked.find(g => g.m[0].team === meT);
       if (mine && !rows.includes(mine)) rows.push(mine);
-      document.getElementById('ov-stats').innerHTML = rows.map(g =>
-        (g.place === 1 ? '★ ' : '&nbsp;&nbsp;') + g.place + '. ' + g.m.map(nameSpan).join(' + ') + ' — ' + g.ko + ' KO').join('<br>');
+      document.getElementById('ov-stats').innerHTML = rows.map(g => {
+        const hum = g.m.filter(q => !q.bot).map(q => esc(q.name.toUpperCase())).join(', ');
+        return (g.place === 1 ? '★ ' : '&nbsp;&nbsp;') + g.place + '. <span style="color:' + g.m[0].color + '">' +
+          esc(teamLabel(g.m[0])) + '</span>' + (hum ? ' <span style="color:#586069">(' + hum + ')</span>' : '') +
+          ' — ' + g.ko + ' KO';
+      }).join('<br>');
     } else {
       const ranked = live.slice().sort((p, q) => (p.place || 99) - (q.place || 99));
       const rows = ranked.slice(0, 8);
@@ -1925,6 +1928,11 @@ function botLevels(diff, aggr) {
 const PAT_WORD = ['', 'Str', 'Chk', 'Zig', 'Dot'];
 function slotLook(i) { return { color: COLORS[i % COLORS.length], pat: Math.floor(i / COLORS.length) % PAT_WORD.length }; }
 function lookKey(l) { return l.color + '|' + (l.pat | 0); }
+const PAT_FULL = ['', 'Striped', 'Checkered', 'Zigzag', 'Dotted'];
+// "Tan team" / "Striped magenta team" — a team is announced by its look, not its members
+function teamLabel(p) {
+  return ((PAT_FULL[p.pat | 0] ? PAT_FULL[p.pat | 0] + ' ' : '') + (COLOR_NAMES[p.color] || 'Mystery') + ' team').toUpperCase();
+}
 function lookName(color, pat) {
   const base = COLOR_NAMES[color] || 'Bot';
   return pat ? (base.length > 8 ? base.slice(0, 8) : base) + ' ' + PAT_WORD[pat] : base;
@@ -3317,7 +3325,7 @@ function tick() {
   // ---- arena pressure + last-one-standing ----
   if (run.arena && gameState === 'playing') {
     const cfgA = run.cfg || {};
-    if (cfgA.pressure === 'regen') {
+    if (cfgA.pressure === 'regen' || cfgA.pressure === 'both') {
       // re-bury batches of cleared ground (telegraphed 3s ahead)
       if (!run.regenList.length && now >= run.regenNext - 3000) {
         const rcand = [];
@@ -3325,6 +3333,7 @@ function tick() {
           for (let x = 0; x < COLS; x++) {
             const t = grid[y][x];
             if (!t.rev || t.crater || t.loot) continue;
+            if (cfgA.pressure === 'both' && edgeOf(x, y) < run.shrinkLevel + 1) continue;   // not on the collapsing rim
             if (players.some(p => !p.left && !p.downed &&
               Math.max(Math.abs(p.x - x), Math.abs(p.y - y)) <= 2)) continue;
             if (enemies.some(e => e.x === x && e.y === y)) continue;
@@ -3377,7 +3386,8 @@ function tick() {
         run.regenNext = now + 18000;
         fx('toast', 'THE MINES REGROW');
       }
-    } else {
+    }
+    if (cfgA.pressure !== 'regen') {
       // the arena collapses ring by ring (telegraphed 3s ahead)
       const maxShrink = (Math.min(COLS, ROWS) >> 1) - 1;
       if (run.shrinkLevel < maxShrink && now >= run.shrinkNext) {
@@ -4092,8 +4102,9 @@ function drawTile(x, y, now) {
         ctx.lineWidth = 2;
         ctx.strokeRect(px + 2, py + 2, TILE - 4, TILE - 4);
       }
-    } else if (run.regenList && run.regenList.some(c2 => c2.x === x && c2.y === y) &&
-               Math.sin(now / 150) > 0) {
+    }
+    if ((run.cfg.pressure === 'regen' || run.cfg.pressure === 'both') && run.regenList &&
+        run.regenList.some(c2 => c2.x === x && c2.y === y) && Math.sin(now / 150) > 0) {
       ctx.fillStyle = '#ff8a4a30';
       ctx.fillRect(px, py, TILE, TILE);
     }
@@ -4495,11 +4506,14 @@ function drawHUD(now) {
   ctx.font = 'bold 14px Courier New';
   if (run.arena) {
     const alive = players.filter(p => !p.left && !p.downed).length;
-    const nxt = run.cfg && run.cfg.pressure === 'regen' ? run.regenNext : run.shrinkNext;
+    const pr = (run.cfg && run.cfg.pressure) || 'shrink';
+    const nxt = pr === 'regen' ? run.regenNext : run.shrinkNext;
     const rem = Math.max(0, (nxt - now) / 1000);
+    if (pr === 'both') ctx.font = 'bold 12px Courier New';
     ctx.fillStyle = '#ff2d55';
     ctx.fillText('⚔ ' + (teamsOn() ? new Set(players.filter(p => !p.left && !p.downed).map(p => p.team)).size + ' TEAMS · ' + alive : alive) + ' ALIVE · ' +
-      (run.cfg && run.cfg.pressure === 'regen' ? 'REGROW ' : 'COLLAPSE ') + fmtTime(rem), W / 2, y1);
+      (pr === 'regen' ? 'REGROW ' : 'COLLAPSE ') + fmtTime(rem) +
+      (pr === 'both' ? ' · REGROW ' + fmtTime(Math.max(0, (run.regenNext - now) / 1000)) : ''), W / 2, y1);
   } else if (run.depth > MAX_DEPTH) {
     ctx.fillStyle = '#c77dff';
     ctx.fillText('ABYSS ' + run.depth + (conf.mod ? ' · ' + conf.mod : ''), W / 2, y1);
@@ -4842,7 +4856,7 @@ function drawLobby(now) {
       ctx.fillStyle = '#8b949e';
       ctx.font = '11px Courier New';
       ctx.fillText(c3.size + '×' + c3.size + ' · shots ' + (c3.pvp ? 'HURT' : 'SAFE') +
-        ' · ' + (c3.pressure === 'regen' ? 'mines regrow' : 'board shrinks') +
+        ' · ' + (c3.pressure === 'regen' ? 'mines regrow' : c3.pressure === 'both' ? 'shrinks + regrows' : 'board shrinks') +
         ' · monsters ' + (c3.enemies === false ? 'OFF' : 'ON') +
         ((c3.teamSize || 1) > 1 ? ' · ' + ['', '', 'DUOS', 'TRIOS', 'SQUADS'][c3.teamSize] : '') +
         ' · ' + ((c3.perks || []).length ? c3.perks.length + ' shared perks' : 'no perks'), cx2, H * 0.63);
@@ -5144,7 +5158,8 @@ function renderSetup() {
       acfgBtn('ON', c.pvp, 'pvp', 1) + acfgBtn('OFF', !c.pvp, 'pvp', 0);
     h += row('PRESSURE:') +
       acfgBtn('BOARD SHRINKS', c.pressure === 'shrink', 'pressure', 'shrink') +
-      acfgBtn('MINES REGROW', c.pressure === 'regen', 'pressure', 'regen');
+      acfgBtn('MINES REGROW', c.pressure === 'regen', 'pressure', 'regen') +
+      acfgBtn('BOTH AT ONCE', c.pressure === 'both', 'pressure', 'both');
     h += row('SHRINK SPEED:') +
       acfgBtn('SLOW', c.shrink === 'slow', 'shrinkspd', 'slow') +
       acfgBtn('NORMAL', (c.shrink || 'normal') === 'normal', 'shrinkspd', 'normal') +
