@@ -37,7 +37,7 @@
       box-shadow: 0 0 60px rgba(0, 255, 136, 0.08);
       touch-action: none;
     }
-    #overlay, #draft, #join, #acfg {
+    #overlay, #draft, #join, #acfg, #inv {
       position: fixed; inset: 0;
       display: none;
       justify-content: center;
@@ -45,7 +45,8 @@
       z-index: 10;
       background: #00000088;
     }
-    #overlay.show, #draft.show, #join.show, #acfg.show { display: flex; }
+    #overlay.show, #draft.show, #join.show, #acfg.show, #inv.show { display: flex; }
+  #inv .ob { max-height: 92vh; overflow-y: auto; }
   #acfg .ob { max-height: 92vh; overflow-y: auto; }
   #acfg .swap-btn { margin: 2px; }
     .acfg-row {
@@ -231,6 +232,15 @@
     </div>
   </div>
 
+  <div id="inv">
+    <div class="ob" style="max-width:520px;min-width:340px;text-align:left">
+      <h1 style="font-size:16px;text-align:center">INVENTORY</h1>
+      <div id="inv-stats" style="text-align:center;font:bold 12px 'Courier New',monospace;margin-bottom:6px"></div>
+      <div id="inv-body"></div>
+      <p class="hint" id="inv-hint" style="text-align:center"></p>
+    </div>
+  </div>
+
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <script>
 (() => {
@@ -251,7 +261,7 @@
 // snapshot only carries dynamic state.
 // =====================================================================
 
-const GAME_VER = 'v0.25';
+const GAME_VER = 'v0.26';
 const TILE = 32;
 let HUD_H = 64;   // grows one 16px row per teammate (party status board)
 const TICK_MS = 50, TICK_DT = TICK_MS / 1000;   // 20Hz fixed sim step
@@ -262,6 +272,7 @@ const BULLET_SPEED = 18;
 const EXPLODE_EGG = 0.04;
 const MAX_PLAYERS = 8;           // human connections
 const MAX_TOTAL = 100;            // humans + bots
+const PERF_TICK_MS = 35, PERF_FRAME_MS = 55;   // slow-machine warning thresholds
 const ARENA_DROP_AT = 90;      // seconds into a round before ammo starts dropping
 const ARENA_DROP_EVERY = 10000; // ms between supply drops after that
 const NUM_CLR = ['','#4a9eff','#4aff7a','#ff4a6a','#9a4aff','#ff8a4a','#4affff','#ff4aff','#c0c0c0'];
@@ -277,8 +288,6 @@ function hslHex(h, s, l) {
   return '#' + x(f(0)) + x(f(8)) + x(f(4));
 }
 const COLOR_BASE = COLORS.length;   // the colors a human can pick in the lobby
-for (let i = COLORS.length; i < MAX_TOTAL; i++)      // bigger tables get generated hues
-  COLORS.push(hslHex((i * 137.508) % 360, 78, 52 + (i % 4) * 6));
 function teamHex(t) { return hslHex((t * 137.508 + 40) % 360, 88, 62); }
 const SPAWN_OFFS = [[0, 0], [-1, -1], [1, -1], [-1, 1],
   [1, 1], [0, -2], [0, 2], [-2, 0]];   // all inside the 5×5 safe spawn zone
@@ -468,7 +477,8 @@ const ctx = canvas.getContext('2d');
 let camMode = 'auto';   // auto | full | follow | close   ([Z] cycles it in game)
 try { camMode = localStorage.getItem('mcrogue-cam') || 'auto'; } catch (e) {}
 let camHinted = false;
-let camFree = null, specFast = true;   // spectating: free camera / ×4 fast-forward
+let camFree = null, specFast = true;
+let perkFlash = null, invOpen = false, invSig = '', invTimer = null;   // spectating: free camera / ×4 fast-forward
 let mmCache = null, mmStamp = 0;
 let camX = 0, camY = 0, camTx = 10, camTy = 10, camSnap = true, camSpec = -1, VC = 20, VR = 20;
 let COLS = 20, ROWS = 20, W = COLS * TILE, H = ROWS * TILE + HUD_H;
@@ -512,6 +522,7 @@ let conf = depthConf(1);
 let run = null;
 let gameTime = 0, finalTime = 0;
 let acc = 0, simTick = 0, simNow = 0, playTicks = 0, specMode = false;
+let perfAvg = 0, perfFrame = 16, perfSlowT = 0;
 let nextEid = 1;
 let shotsThisFloor = 0, damagedThisFloor = false, killsThisFloor = 0;
 let chainCount = 0, lastBoom = -1e9;
@@ -561,7 +572,7 @@ function makePlayer(idx) {
     hp: 3, maxHp: 3, bullets: 3, perks: {}, sapperLeft: 0,
     iframeUntil: 0, adrenalineUntil: 0, moveBudget: 1,
     taps: [], acts: [], lastSeq: 0,
-    team: 0, bot: false, iq: 0, agg: 0.5, botWake: 0, botMove: null, stall: 0,
+    team: 0, pat: 0, bot: false, iq: 0, agg: 0.5, botWake: 0, botMove: null, stall: 0,
     kills: 0, place: 0, lastBy: -1, lastByT: 0,
     fleeGoal: -1, fleeUntil: 0, goalI: -1, goalUntil: 0, lootI: -1, lootUntil: 0, huntUntil: 0 };
 }
@@ -842,6 +853,7 @@ const FXR = {
     shakeAtPx(x, y, 5);
   },
   ptext: (x, y, text, clr) => floaters.push({ x: (x + 0.5) * TILE, y: y * TILE + HUD_H, text, clr, t: performance.now() }),
+  pflash: (idx, id, extra) => { if (idx === myIdx) perkFlash = { id, extra: extra || '', t: performance.now() }; },
   toast: (s, parts) => {
     const l = toasts[toasts.length - 1];
     if (!parts && l && !l.parts && l.text === s && performance.now() - l.t < 2000) return;   // no stacked duplicates
@@ -970,6 +982,7 @@ function newArena(seed, cfg) {
       if (id === 'bandolier') pl.bullets += 4;
     });
   });
+  if (((cfg && cfg.teamSize) || 1) > 1) assignTeamLooks();      // teammates share one color
   player = players[myIdx];
   startFloor(1);
 }
@@ -1907,6 +1920,41 @@ function botLevels(diff, aggr) {
   return { iq, agg };
 }
 
+// ---- looks: the 24 named colors first; once they run out the same colors come
+// back with a pattern overlay (stripes, checks, zigzag, dots) — 120 distinct looks
+const PAT_WORD = ['', 'Str', 'Chk', 'Zig', 'Dot'];
+function slotLook(i) { return { color: COLORS[i % COLORS.length], pat: Math.floor(i / COLORS.length) % PAT_WORD.length }; }
+function lookKey(l) { return l.color + '|' + (l.pat | 0); }
+function lookName(color, pat) {
+  const base = COLOR_NAMES[color] || 'Bot';
+  return pat ? (base.length > 8 ? base.slice(0, 8) : base) + ' ' + PAT_WORD[pat] : base;
+}
+// team mode: every member of a team wears the same look. A human's own lobby
+// color becomes their team's color; the other teams take the next free looks.
+function assignTeamLooks() {
+  const teams = [...new Set(players.filter(p => !p.left).map(p => p.team))].sort((a, c) => a - c);
+  const used = new Set(), look = {};
+  players.forEach(p => {
+    if (p.left || p.bot || look[p.team]) return;
+    look[p.team] = { color: p.color, pat: 0 };
+    used.add(lookKey(look[p.team]));
+  });
+  let slot = 0;
+  teams.forEach(t => {
+    if (look[t]) return;
+    while (used.has(lookKey(slotLook(slot))) && slot < 400) slot++;
+    look[t] = slotLook(slot); used.add(lookKey(look[t]));
+  });
+  const seen = {};
+  players.forEach(p => {
+    if (p.left) return;
+    const lk = look[p.team];
+    p.color = lk.color; p.pat = lk.pat;
+    seen[p.team] = (seen[p.team] || 0) + 1;
+    if (p.bot) p.name = (lookName(lk.color, lk.pat) + (seen[p.team] > 1 ? ' ' + seen[p.team] : '')).slice(0, 14);
+  });
+}
+
 function addBots() {
   const cfgB = net.botCfg;
   const cap = net.arenaOn ? MAX_TOTAL : 8;
@@ -1915,9 +1963,12 @@ function addBots() {
   for (let i = 0; i < want; i++) {
     const b = makePlayer(players.length);
     b.bot = true;
-    const taken = new Set(players.map(p => p.color));
-    b.color = COLORS.find(c => !taken.has(c)) || COLORS[b.idx % COLORS.length];
-    b.name = (COLOR_NAMES[b.color] || ('Bot' + b.idx)).slice(0, 10);
+    const taken = new Set(players.map(p => lookKey({ color: p.color, pat: p.pat })));
+    let slot = 0;
+    while (taken.has(lookKey(slotLook(slot))) && slot < 400) slot++;
+    const lk = slotLook(slot);
+    b.color = lk.color; b.pat = lk.pat;
+    b.name = lookName(lk.color, lk.pat).slice(0, 14);
     const lv = botLevels(cfgB.diff, cfgB.aggr);
     b.iq = lv.iq; b.agg = lv.agg;
     players.push(b);
@@ -2695,6 +2746,7 @@ function takeCrate(pl, t, nx, ny) {
   t.loot = null; t.perk = null;
   fx('burst', nx, ny, p.clr);
   fx('ptext', nx, ny, '+' + p.tag, p.clr);
+  fx('pflash', pl.idx, id, v.drop ? perkById(v.drop).name : '');   // the owner sees the description
 }
 // put loot on the nearest free, open, non-void tile within 2 of (x, y)
 function placeLoot(x, y, loot, perk) {
@@ -2750,6 +2802,32 @@ function encodeCrates() {
       if (t.loot === 'perk') out.push([x, y, PERKS.findIndex(p => p.id === t.perk)]);
     }
   return out;
+}
+
+// de-equip a perk (inventory screen). In arena modes it drops as a crate you can
+// grab again (or a rival can steal); in co-op it's simply removed.
+function unequipPerk(idx, id) {
+  const pl = players[idx];
+  if (gameState !== 'playing' || !pl || pl.downed || pl.left || !pl.perks[id]) return;
+  removePerk(pl, id);
+  if (run && run.arena && CRATE_POOL.includes(id)) placeLoot(pl.x, pl.y, 'perk', id);
+  fx('ptext', pl.x, pl.y, '-' + (perkById(id) ? perkById(id).tag : '?'), '#8b949e');
+}
+
+// ---- performance warning for very high player counts / board sizes
+function loadWarning() {
+  if (!net.arenaOn) return null;
+  const humans = net.mode === 'host' ? Math.max(1, players.length) : 1;
+  const T = Math.min(MAX_TOTAL, humans + (net.botCfg.n | 0));
+  const S = effectiveCfg(net.arenaCfg, T).size;
+  if (T < 48 && S < 71) return null;
+  const heavy = T >= 80 || S >= 91;
+  const guests = Math.max(0, humans - 1);
+  return { lvl: heavy ? 2 : 1,
+    short: (heavy ? 'VERY HEAVY: ' : 'HEAVY: ') + T + ' PLAYERS · ' + S + '×' + S + ' MAP',
+    text: (heavy ? 'VERY HEAVY' : 'HEAVY') + ' — ' + T + ' players on a ' + S + '×' + S + ' board. Fine on a modern desktop; ' +
+      'older laptops and phones may stutter. If it does, use fewer bots or a smaller map.' +
+      (guests ? ' Each online guest costs the host about ' + Math.round(T * 5.6) + ' KB/s of upload.' : '') };
 }
 
 // ---- INPUT ----
@@ -2827,6 +2905,8 @@ document.addEventListener('keydown', (e) => {
       returnToLobby();
     return;
   }
+  if (invOpen) { if (k === 'escape' || k === 'i') toggleInv(); return; }
+  if (k === 'escape' || k === 'i') { toggleInv(); return; }
   if (k === 'z') { cycleCam(); return; }
   if (player && player.downed) {                      // spectating
     if (k === 'f') { camFree = camFree ? null : { fx: camTx - 0.5, fy: camTy - 0.5 }; return; }
@@ -3501,6 +3581,113 @@ function drawRivalPanel(now) {
   ctx.restore();
 }
 
+// ---- PATTERNS / PERK FLASH / INVENTORY ----
+// once the named colors run out, players reuse them with a pattern over the body
+function drawPattern(pat, cx, cy, r) {
+  ctx.save();
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.clip();
+  ctx.strokeStyle = '#000000a8'; ctx.fillStyle = '#000000a8'; ctx.lineWidth = 2;
+  if (pat === 1) {                                   // diagonal stripes
+    for (let k = -2 * r; k <= 2 * r; k += 5) {
+      ctx.beginPath(); ctx.moveTo(cx + k - r, cy + r); ctx.lineTo(cx + k + r, cy - r); ctx.stroke();
+    }
+  } else if (pat === 2) {                            // checkerboard
+    const s = 5;
+    for (let yy = -3; yy <= 3; yy++) for (let xx = -3; xx <= 3; xx++)
+      if ((xx + yy) & 1) ctx.fillRect(cx + xx * s - s / 2, cy + yy * s - s / 2, s, s);
+  } else if (pat === 3) {                            // zigzag
+    ctx.lineWidth = 1.8;
+    for (let yy = -r; yy <= r; yy += 5) {
+      ctx.beginPath();
+      for (let xx = -r - 2, i = 0; xx <= r + 2; xx += 4, i++) {
+        const py = cy + yy + (i & 1 ? 2.5 : -2.5);
+        if (i === 0) ctx.moveTo(cx + xx, py); else ctx.lineTo(cx + xx, py);
+      }
+      ctx.stroke();
+    }
+  } else {                                           // dots
+    for (let yy = -3; yy <= 3; yy++) for (let xx = -3; xx <= 3; xx++) {
+      ctx.beginPath(); ctx.arc(cx + xx * 5 + (yy & 1 ? 2.5 : 0), cy + yy * 5, 1.5, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+  ctx.restore();
+}
+// a card with the perk you just picked up, and what it does
+function drawPerkFlash(wall) {
+  if (!perkFlash) return;
+  const age = wall - perkFlash.t, life = 4200;
+  const p = perkById(perkFlash.id);
+  if (age > life || !p) { perkFlash = null; return; }
+  const a = age < 200 ? age / 200 : age > life - 700 ? (life - age) / 700 : 1;
+  ctx.save();
+  ctx.globalAlpha = Math.max(0, a) * 0.97;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.font = '11px Courier New';
+  const w = Math.min(W - 40, 380);
+  const lines = [];
+  let cur = '';
+  p.desc.split(' ').forEach(wd => {
+    const t = cur ? cur + ' ' + wd : wd;
+    if (ctx.measureText(t).width > w - 24 && cur) { lines.push(cur); cur = wd; } else cur = t;
+  });
+  if (cur) lines.push(cur);
+  const extra = perkFlash.extra ? 1 : 0;
+  const h = 32 + lines.length * 14 + extra * 14;
+  const x = W / 2 - w / 2, y = H - h - 84 - (player && player.downed ? 44 : 0);   // above the rival panel
+  ctx.fillStyle = '#0d1117ee'; ctx.fillRect(x, y, w, h);
+  ctx.strokeStyle = p.clr; ctx.lineWidth = 2; ctx.strokeRect(x + 1, y + 1, w - 2, h - 2);
+  ctx.font = 'bold 13px Courier New'; ctx.fillStyle = p.clr;
+  ctx.fillText('+ ' + p.tag + ' ' + p.name, W / 2, y + 15);
+  ctx.font = '11px Courier New'; ctx.fillStyle = '#c9d1d9';
+  lines.forEach((l, i) => ctx.fillText(l, W / 2, y + 34 + i * 14));
+  if (extra) { ctx.fillStyle = '#8b949e'; ctx.fillText('replaced ' + perkFlash.extra, W / 2, y + 34 + lines.length * 14); }
+  ctx.restore();
+}
+function perkSig(me) { return JSON.stringify([me.perks, me.hp, me.maxHp, me.bullets, me.downed]); }
+function requestUnequip(id) {
+  if (net.mode === 'guest') net.sendHost({ t: 'unequip', id });
+  else unequipPerk(myIdx, id);
+}
+function renderInv() {
+  const me = players[myIdx];
+  if (!me) return;
+  invSig = perkSig(me);
+  const cap = run && run.arena ? arenaPerkCap() : MAX_PERKS;
+  document.getElementById('inv-stats').innerHTML =
+    '<span style="color:#ff6b6b">♥ ' + Math.ceil(me.hp) + '/' + me.maxHp + '</span> &nbsp; ' +
+    '<span style="color:#ffd700">◆ ' + me.bullets + '</span> &nbsp; ' +
+    '<span style="color:#8b949e">UPGRADES ' + perkCount(me) + '/' + cap + '</span>';
+  const owned = PERKS.filter(p => me.perks[p.id]);
+  document.getElementById('inv-body').innerHTML = owned.length ? owned.map(p => {
+    const n = me.perks[p.id];
+    return '<div style="border-left:3px solid ' + p.clr + ';background:#0d1117;padding:8px 10px;margin:8px 0;display:flex;gap:10px;align-items:center">' +
+      '<div style="flex:1"><div style="color:' + p.clr + ';font:bold 13px Courier New">' + esc(p.tag + ' ' + p.name) + (n > 1 ? ' ×' + n : '') + '</div>' +
+      '<div style="color:#8b949e;font:11px Courier New;margin-top:3px">' + esc(p.desc) + '</div></div>' +
+      (me.downed ? '' : '<span class="swap-btn cancel" data-id="' + p.id + '">UNEQUIP' + (n > 1 ? ' ONE' : '') + '</span>') + '</div>';
+  }).join('') : '<p style="color:#586069;text-align:center;font:12px Courier New;margin:18px 0">NO UPGRADES YET' +
+    (run && run.arena ? ' — look for tagged crates' : '') + '</p>';
+  document.getElementById('inv-hint').textContent =
+    (net.mode === null ? 'GAME PAUSED' : 'THE MATCH KEEPS RUNNING') +
+    (run && run.arena ? ' · UNEQUIPPED PERKS DROP AS CRATES' : '') + ' · [ESC] CLOSE';
+  document.querySelectorAll('#inv-body [data-id]').forEach(btn => btn.addEventListener('click', () => {
+    requestUnequip(btn.dataset.id);
+    setTimeout(renderInv, 120);
+  }));
+}
+function toggleInv() {
+  const el = document.getElementById('inv');
+  invOpen = !invOpen;
+  if (invOpen) {
+    keys.clear();
+    renderInv();
+    el.classList.add('show');
+    invTimer = setInterval(() => { const me = players[myIdx]; if (me && perkSig(me) !== invSig) renderInv(); }, 300);
+  } else {
+    el.classList.remove('show');
+    clearInterval(invTimer); invTimer = null;
+  }
+}
+
 // ---- CAMERA ----
 // who you can watch once you're out: teammates first, then other humans, then bots
 function spectateList() {
@@ -3714,6 +3901,7 @@ function render(now, wall) {
   drawCamOverlay(now);
   drawRivalPanel(now);
   drawToasts(wall);
+  drawPerkFlash(wall);
   if (player && player.downed && gameState === 'playing') {
     const tgt = camFree ? null : players[camSpec];
     ctx.save();
@@ -4130,10 +4318,12 @@ function drawPlayer(pl, now, isMe) {
     // allies (you included) wear a white ring; every other team has its own hue
     const ally = player && pl.team === player.team;
     ctx.save();
-    ctx.strokeStyle = ally ? '#ffffff' : teamHex(pl.team);
-    ctx.lineWidth = ally ? 2.5 : 1.8;
-    ctx.globalAlpha *= ally ? 0.9 : 0.7;
-    ctx.beginPath(); ctx.arc(cx, cy, 15.5, 0, Math.PI * 2); ctx.stroke();
+    if (ally) {              // (other teams are told apart by their shared color / pattern)
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2.5;
+      ctx.globalAlpha *= 0.9;
+      ctx.beginPath(); ctx.arc(cx, cy, 15.5, 0, Math.PI * 2); ctx.stroke();
+    }
     ctx.restore();
   }
   ctx.fillStyle = pl.color + '12';
@@ -4144,6 +4334,7 @@ function drawPlayer(pl, now, isMe) {
   ctx.beginPath();
   ctx.arc(cx, cy, 10 * pulse, 0, Math.PI * 2);
   ctx.fill();
+  if (pl.pat) drawPattern(pl.pat, cx, cy, 10 * pulse);
   ctx.fillStyle = '#00000030';
   ctx.beginPath();
   ctx.arc(cx, cy, 6, 0, Math.PI * 2);
@@ -4324,10 +4515,12 @@ function drawHUD(now) {
   const rev = totalSafe - tilesLeft;
   ctx.fillStyle = '#7a828a';
   ctx.textAlign = 'left';
-  ctx.fillText('TILES ' + rev + '/' + totalSafe, 14, y2);
+  const tilesTxt = 'TILES ' + rev + '/' + totalSafe;
+  ctx.fillText(tilesTxt, 14, y2);
+  const tilesW = ctx.measureText(tilesTxt).width;
 
   // perk badges (truncated with +n if they'd run into the right-side counters)
-  let px = 118;
+  let px = Math.max(118, 14 + tilesW + 16);       // never run into the tile counter
   ctx.font = 'bold 11px Courier New';
   let hidden = 0;
   for (const p of PERKS) {
@@ -4656,6 +4849,12 @@ function drawLobby(now) {
     }
   }
 
+  const lwn = net.mode === 'host' ? loadWarning() : null;
+  if (lwn) {
+    ctx.fillStyle = lwn.lvl > 1 ? '#ff7a45' : '#ffb347';
+    ctx.font = 'bold 11px Courier New';
+    ctx.fillText('⚠ ' + lwn.short, cx2, H * 0.67);
+  }
   if (lobbyMsg) {
     ctx.fillStyle = '#4a9eff';
     ctx.font = 'bold 13px Courier New';
@@ -4917,6 +5116,9 @@ function renderSetup() {
   const counts = mode === 'coop' ? [0, 1, 2, 3, 5, 7] : mode === 'arena' ? [1, 3, 5, 7, 11, 15, 23, 47, 63, 99] : [11, 15, 19, 23, 47, 63, 99];
   h += row('BOTS' + (mode === 'hg' ? ' (you + bots = tributes)' : '') + ':') +
     counts.map(n => acfgBtn(String(n), b.n === n, 'bots', n)).join('');
+  const lw = loadWarning();
+  if (lw) h += '<div style="margin:8px 0;padding:6px 10px;border-left:3px solid ' + (lw.lvl > 1 ? '#ff7a45' : '#ffb347') +
+    ';background:#161b22;color:' + (lw.lvl > 1 ? '#ff7a45' : '#ffb347') + ';font:11px Courier New">⚠ ' + esc(lw.text) + '</div>';
   h += row('BOT INTELLIGENCE:') +
     acfgBtn('ROOKIE', b.diff === 'rookie', 'diff', 'rookie') +
     acfgBtn('VETERAN', b.diff === 'veteran', 'diff', 'veteran') +
@@ -5141,6 +5343,8 @@ function hostOnData(conn, m) {
   } else if (m.t === 'pick') {
     if (gameState === 'draft')
       applyPick(conn._idx, m.i | 0, typeof m.drop === 'string' ? m.drop : null);
+  } else if (m.t === 'unequip') {
+    if (typeof m.id === 'string') unequipPerk(conn._idx, m.id);
   }
 }
 
@@ -5251,7 +5455,7 @@ function buildSnap() {
       dn: p.downed ? 1 : 0, nd: p.noDraft ? 1 : 0, dl: p.draftLeft || 0,
       iu: p.iframeUntil, au: p.adrenalineUntil,
       pk: p.perks, sl: p.sapperLeft, ls: p.lastSeq, lf: p.left ? 1 : 0,
-      tm: p.team, bt: p.bot ? 1 : 0, iq: p.iq, ag: Math.round(p.agg * 100), k: p.kills, pc: p.place })),
+      tm: p.team, pt: p.pat | 0, bt: p.bot ? 1 : 0, iq: p.iq, ag: Math.round(p.agg * 100), k: p.kills, pc: p.place })),
     aw: run.arena ? run.winner : -1,
     wn: sessionWins,
     sh: run.shrinkLevel || 0, sn: run.shrinkNext || 0,
@@ -5337,7 +5541,7 @@ function applySnap(s) {
     pl.perks = sp.pk || {}; pl.sapperLeft = sp.sl;
     pl.left = !!sp.lf; pl.color = sp.c; pl.lastSeq = sp.ls;
     pl.bot = !!sp.bt; pl.iq = sp.iq || 0; pl.agg = (sp.ag || 0) / 100;
-    pl.kills = sp.k || 0; pl.place = sp.pc || 0; pl.team = sp.tm | 0;
+    pl.kills = sp.k || 0; pl.place = sp.pc || 0; pl.team = sp.tm | 0; pl.pat = sp.pt | 0;
     if (sp.nm) pl.name = sp.nm;
   });
   player = players[myIdx];
@@ -5437,14 +5641,27 @@ function loop(ts) {
     specMode = !!(run && run.arena && gameState === 'playing' &&
       players.some(p => p.bot && !p.left && !p.downed) &&
       !players.some(p => !p.bot && !p.left && !p.downed));
-    acc += dt * 1000 * (specMode && specFast ? 4 : 1);
-    let ticked = false;
+    if (invOpen && gameState !== 'playing') toggleInv();
+    if (invOpen && net.mode === null) acc = 0;          // solo / bot match: the inventory pauses the game
+    else acc += dt * 1000 * (specMode && specFast ? 4 : 1);
+    let ticked = false, nTicks = 0;
+    const tk0 = performance.now();
     while (acc >= TICK_MS) {
       acc -= TICK_MS;
       simTick++; simNow = simTick * TICK_MS;
       tick();
-      ticked = true;
+      ticked = true; nTicks++;
     }
+    if (nTicks) perfAvg = perfAvg * 0.9 + ((performance.now() - tk0) / nTicks) * 0.1;
+    perfFrame = perfFrame * 0.95 + dt * 1000 * 0.05;
+    if (run && gameState === 'playing' && !run.perfWarned && players.length > 30 &&
+        (perfAvg > PERF_TICK_MS || (!specMode && perfFrame > PERF_FRAME_MS))) {
+      perfSlowT += dt;
+      if (perfSlowT > 4) {
+        run.perfWarned = true;
+        toasts.push({ text: '⚠ RUNNING SLOW — FEWER BOTS OR A SMALLER MAP WILL HELP', t: performance.now(), life: 7000 });
+      }
+    } else perfSlowT = Math.max(0, perfSlowT - dt);
     if (net.mode === 'host' && ticked && run && gameState !== 'lobby' && gameState !== 'title')
       net.sendAll(buildSnap());
     updateFx(dt, ts);
@@ -5523,6 +5740,8 @@ window.__mc = {
   get net() { return net; },
   get specMode() { return specMode; },
   get spec() { return { camSpec, camFree, specFast }; },
+  get ui() { return { perkFlash, invOpen, perfAvg, perfSlowT }; },
+  toggleInv, unequipPerk,
   renderNow() { camUpdate(0.05); render(simNow + 25, performance.now()); },
   movePlayerBy(i, dx, dy) { movePlayer(players[i], dx, dy); },
   get cam() { return { camX, camY, VC, VR, W, H, camTx, camTy, camMode }; },
