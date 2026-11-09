@@ -281,7 +281,7 @@
   <div id="iotitle">
     <div class="iobox">
       <h1>MINECRAWL<span>.IO</span></h1>
-      <div class="tag">minesweeper × battle royale × endless · <span id="io-live"></span></div>
+      <div class="tag">minesweeper × battle royale × endless · <span id="io-live"></span><span id="io-ver" style="float:right;color:#586069"></span></div>
       <div class="tag" id="io-net" style="color:#ffb347;margin-top:-8px;min-height:14px"></div>
       <div class="iogrid">
         <div>
@@ -298,6 +298,8 @@
           <h2>LIVE BOARD</h2><div id="io-board"></div>
           <h2 style="margin-top:16px">YOUR RECORD</h2><div id="io-stats"></div>
           <p class="hint">ONLINE: the first person to press PLAY hosts the room (keep that tab open and in front); everyone after joins them. If nobody can be reached you play offline against bots.</p>
+          <p class="hint"><a href="#" id="io-logtoggle" style="color:#586069">network log</a></p>
+          <pre id="io-log" style="display:none;max-height:150px;overflow:auto;font-size:10px;line-height:1.4;color:#8b949e;background:#0d1117;padding:6px;margin:4px 0 0;white-space:pre-wrap"></pre>
         </div>
       </div>
     </div>
@@ -323,7 +325,7 @@
 // snapshot only carries dynamic state.
 // =====================================================================
 
-const GAME_VER = 'io-0.5';
+const GAME_VER = 'io-0.6';
 const TILE = 32;
 let HUD_H = 64;   // grows one 16px row per teammate (party status board)
 const TICK_MS = 50, TICK_DT = TICK_MS / 1000;   // 20Hz fixed sim step
@@ -4044,6 +4046,14 @@ function ioPlayLocal() {
 
 // ---- title screen UI (skins, board, record)
 function ioBuildUI() {
+  document.getElementById('io-ver').textContent = GAME_VER;
+  ioLog('minecrawl.io ' + GAME_VER + ' · protocol ' + IO_PROTO);
+  document.getElementById('io-logtoggle').onclick = (e) => {
+    e.preventDefault();
+    const el = document.getElementById('io-log');
+    el.style.display = el.style.display === 'none' ? 'block' : 'none';
+    el.textContent = ioLogBuf.join('\n'); el.scrollTop = el.scrollHeight;
+  };       // so you can see at a glance that everyone has the same version
   const mk = (host, key) => {
     COLORS.slice(0, COLOR_BASE).forEach(c => {
       const d = document.createElement('div');
@@ -4333,12 +4343,25 @@ function ioRegrow(now) {
 //    gets there first hosts a fresh world (host migration comes later)
 // =====================================================================
 const IO_ROOM_ID = 'mcio-room-main-v1';
+const IO_PROTO = 6;                      // bump whenever the host<->guest messages change shape
 const IO_SNAP_EVERY = 2;                 // sim ticks between snapshots (20Hz sim -> 10Hz)
 const IO_INTEREST = 48;                  // tiles around a guest's camera that get entity updates
-const ioNet = { state: 'offline', peer: null, busy: false, cb: null, timer: null, viewTimer: null,
+const ioNet = { dbg: { welcome: false, fp: 0, full: false }, state: 'offline', peer: null, busy: false, cb: null, timer: null, viewTimer: null,
   reTries: 0, wasPlaying: false, seen: { k: 0, d: 0 } };
 
+const ioLogBuf = [];
+// every step of connecting/joining is recorded (title screen: "network log") so a failure can be pinned down
+function ioLog(msg) {
+  ioLogBuf.push('[' + (performance.now() / 1000).toFixed(1) + 's] ' + msg);
+  if (ioLogBuf.length > 80) ioLogBuf.shift();
+  console.info('[io] ' + msg);
+  const el = document.getElementById('io-log');
+  if (el && el.style.display !== 'none') { el.textContent = ioLogBuf.join('\n'); el.scrollTop = el.scrollHeight; }
+}
+let ioLastStatus = '';
 function ioStatus(msg, hold) {
+  if (msg && msg !== ioLastStatus) ioLog('status: ' + msg);
+  ioLastStatus = msg;
   const el = document.getElementById('io-net');
   if (el) el.textContent = msg || '';
   ioNet.msgUntil = hold ? performance.now() + hold : 0;            // `hold` ms: don't overwrite with the room label
@@ -4410,6 +4433,7 @@ function ioConnect(cb) {
   if (ioNet.busy) return;
   if (typeof Peer === 'undefined') { cb('offline'); return; }
   ioNet.busy = true; ioNet.cb = cb; ioNet.tries = 0;
+  ioLog('PLAY: looking for the room (' + IO_ROOM_ID + ')');
   ioNet.timer = setTimeout(() => { ioTeardownPeer(); ioFinish('offline'); }, 20000);
   ioTryGuest();
 }
@@ -4430,10 +4454,12 @@ function ioTryGuest() {
   let settled = false;
   p.on('open', () => {
     if (ioNet.peer !== p) return;                 // abandoned attempt (timed out / superseded)
+    ioLog('signaling server reached; connecting to the room');
     const c = p.connect(IO_ROOM_ID, { reliable: true });
     const onOpen = () => {
       if (settled) return;
       settled = true;
+      ioLog('data channel to the host is open');
       ioBecomeGuest(p, c);
       ioFinish('guest');
     };
@@ -4445,6 +4471,7 @@ function ioTryGuest() {
   p.on('error', (err) => {
     if (settled || ioNet.peer !== p) return;
     settled = true;
+    ioLog('guest connection error: ' + err.type);
     try { p.destroy(); } catch (e) {}
     ioNet.peer = null;
     if (err.type === 'peer-unavailable') ioTryHost();          // nobody is hosting: that's us
@@ -4456,12 +4483,13 @@ function ioTryHost() {
   const p = new Peer(IO_ROOM_ID, peerOpts());
   ioNet.peer = p;
   let settled = false;
-  p.on('open', () => { if (ioNet.peer !== p) return; settled = true; ioBecomeHost(p); ioFinish('host'); });
+  p.on('open', () => { if (ioNet.peer !== p) return; settled = true; ioLog('nobody was hosting: the room is yours — you are the HOST'); ioBecomeHost(p); ioFinish('host'); });
   p.on('error', (err) => {
     if (settled || ioNet.peer !== p) return;
     settled = true;
     try { p.destroy(); } catch (e) {}
     ioNet.peer = null;
+    ioLog('host attempt error: ' + err.type);
     if (err.type === 'unavailable-id' && ++ioNet.tries < 5)    // somebody just beat us to it: join them
       setTimeout(ioTryGuest, 500 + Math.random() * 700);
     else ioFinish('offline');
@@ -4484,6 +4512,7 @@ function ioBecomeHost(p) {
   ioStatus(ioNetLabel());
 }
 function ioHostAccept(conn) {
+  ioLog('a guest connected');
   conn._idx = -1; conn._ready = false;
   conn.on('data', m => ioHostOnData(conn, m));
   conn.on('close', () => ioHostDrop(conn));
@@ -4566,10 +4595,34 @@ function ioHostOnData(conn, m) {
 }
 // send a long array as several small messages (real data channels cap message size)
 function ioSendChunks(conn, type, arr, per) {
-  for (let i = 0; i < arr.length; i += per) conn.send({ t: type, d: arr.slice(i, i + per) });
+  let k = 0;
+  for (let i = 0; i < arr.length; i += per) { conn.send({ t: type, d: arr.slice(i, i + per) }); k++; }
+  return k;
+}
+// (re)send the world to a guest that already has a slot — used when its first copy got lost
+function ioSendWorld(conn) {
+  conn._ready = false;
+  ioSnap();                                    // flush so the baseline we send matches the diff stream
+  const codes = ioRle(net.prevCodes || ioCodes());
+  conn.send({ t: 'welcome', idx: conn._idx, cfg: run.cfg, proto: IO_PROTO, ver: GAME_VER });
+  const nf = ioSendChunks(conn, 'fp', codes, 1800);                         // the board, in small pieces
+  const nr = ioSendChunks(conn, 'fr', (run.regenList || []).map(c => [c.x, c.y]), 600);
+  conn.send({ t: 'full', nf, nr, cols: COLS, rows: ROWS, tick: simTick, gt: gameTime,
+    pi: players.map(ioInfo), pk: players.map(p => p.perks) });
+  conn._ready = true;
+  ioLog('world sent to slot ' + conn._idx + ': ' + nf + ' board parts + ' + nr + ' regrow parts');
 }
 function ioHostPlay(conn, m) {
-  if (conn._idx >= 0) return;
+  ioLog('join request from ' + JSON.stringify(m && m.name) + ' | their version ' + (m && m.ver) + ' (protocol ' + (m && m.proto) + '), mine ' + GAME_VER + ' (protocol ' + IO_PROTO + ')');
+  if (!m || m.proto !== IO_PROTO) {            // different build: say so instead of failing silently
+    try { conn.send({ t: 'version', proto: IO_PROTO, ver: GAME_VER }); } catch (e) {}
+    setTimeout(() => ioHostDrop(conn), 150);
+    return;
+  }
+  if (conn._idx >= 0) {                        // they asked again: their first copy of the world didn't arrive
+    try { ioSendWorld(conn); } catch (err) { console.error('[io] resync failed', err); ioHostDrop(conn); }
+    return;
+  }
   // a frozen world is no place to join: tell them to wait for a new room
   if (net.conns.some(c => c._ready) && performance.now() - ioNet.lastTick > ioNet.staleMs / 2) {
     try { conn.send({ t: 'stalled' }); } catch (e) {}
@@ -4583,21 +4636,13 @@ function ioHostPlay(conn, m) {
   const idx = ioClaimSlot(name, color, pat, c2);
   if (idx < 0) { try { conn.send({ t: 'busy' }); } catch (e) {} setTimeout(() => { try { conn.close(); } catch (e) {} }, 200); return; }
   conn._idx = idx;
-  ioSnap();                              // flush pending diffs so the newcomer's baseline lines up
-  const codes = ioRle(net.prevCodes || ioCodes());
-  try {
-    conn.send({ t: 'welcome', idx, cfg: run.cfg });
-    ioSendChunks(conn, 'fp', codes, 1800);                                  // the board, in small pieces
-    ioSendChunks(conn, 'fr', (run.regenList || []).map(c => [c.x, c.y]), 600);
-    conn.send({ t: 'full', cols: COLS, rows: ROWS, tick: simTick, gt: gameTime,
-      pi: players.map(ioInfo), pk: players.map(p => p.perks) });
-  } catch (err) {
+  try { ioSendWorld(conn); }
+  catch (err) {
     console.error('[io] join sync failed — dropping the joiner so no ghost avatar is left behind:', err);
     try { conn.send({ t: 'failed' }); } catch (e2) {}
     setTimeout(() => ioHostDrop(conn), 100);
     return;
   }
-  conn._ready = true;
   // an idle host can't tell "resting" from "frozen" until someone is watching: once they are, the world must
   // start ticking within moments, or the newcomer is told to wait for a new room
   setTimeout(() => {
@@ -4704,26 +4749,58 @@ function ioBecomeGuest(p, c) {
   }, 400);
   ioSendPlay();
 }
+function ioAskPlay() {
+  net.sendHost({ t: 'play', proto: IO_PROTO, ver: GAME_VER, name: ioSkin.name || 'PLAYER',
+    col: ioSkin.color, pat: ioSkin.pat, c2: ioSkin.c2 || '' });
+}
 function ioSendPlay() {
   ioStatus('JOINING THE ARENA…');
   ioNet.fp = []; ioNet.fr = [];
-  clearTimeout(ioNet.joinTimer);
+  ioNet.dbg = { welcome: false, fp: 0, full: false };
+  clearTimeout(ioNet.joinTimer); clearTimeout(ioNet.retry1); clearTimeout(ioNet.retry2);
+  const ask = ioAskPlay;
+  ask();
+  // if nothing comes back the request (or the answer) may have been lost: ask again, twice
+  const again = () => { if (ioNet.state === 'guest' && ioDemo && !ioNet.dbg.full) { ioNet.fp = []; ioNet.fr = []; ask(); } };
+  ioNet.retry1 = setTimeout(again, 3500);
+  ioNet.retry2 = setTimeout(again, 7000);
   ioNet.joinTimer = setTimeout(() => {
-    if (ioNet.state === 'guest' && ioDemo) { ioStatus('COULDN\'T GET THE WORLD FROM THE HOST — PRESS PLAY TO TRY AGAIN', 12000); ioLeaveRoom(); }
+    if (ioNet.state === 'guest' && ioDemo) {
+      const d = ioNet.dbg;
+      ioLog('join timed out. Received: ' + JSON.stringify(d));
+      ioStatus('THE HOST DIDN\'T SEND THE WORLD (' + (d.welcome ? 'welcome ✓' : 'no reply') + (d.fp ? ', ' + d.fp + ' parts' : '') +
+        '). IT MAY BE AN OLDER VERSION OR ITS TAB IS ASLEEP — REFRESH BOTH PAGES AND PRESS PLAY', 25000);
+      ioLeaveRoom();
+    }
   }, 12000);
-  net.sendHost({ t: 'play', name: ioSkin.name || 'PLAYER', col: ioSkin.color, pat: ioSkin.pat, c2: ioSkin.c2 || '' });
 }
 function ioGuestOnData(m) {
   if (!m || typeof m !== 'object') return;
-  if (m.t === 'welcome') { myIdx = m.idx; ioNet.cfg = m.cfg; }
+  if (m.t === 'welcome') {
+    myIdx = m.idx; ioNet.cfg = m.cfg; ioNet.fp = []; ioNet.fr = []; ioNet.dbg.welcome = true;
+    ioLog('host welcomed us: slot ' + m.idx + ', host version ' + m.ver);
+  }
+  else if (m.t === 'version') {
+    ioStatus('THE HOST IS ON A DIFFERENT VERSION (' + m.ver + ', YOURS IS ' + GAME_VER + ') — REFRESH BOTH PAGES, THEN PRESS PLAY', 25000);
+    ioLeaveRoom();
+  }
   else if (m.t === 'stalled') ioGuestRetryLater();
   else if (m.t === 'failed') { ioStatus('THE HOST COULDN\'T SEND YOU THE WORLD — PRESS PLAY TO TRY AGAIN', 12000); ioLeaveRoom(); }
   else if (m.t === 'busy') { ioStatus('THE ROOM IS FULL — TRY AGAIN SOON'); ioLeaveRoom(); }
-  else if (m.t === 'fp') ioNet.fp = (ioNet.fp || []).concat(m.d);
+  else if (m.t === 'fp') { ioNet.fp = (ioNet.fp || []).concat(m.d); ioNet.dbg.fp++; }
   else if (m.t === 'fr') ioNet.fr = (ioNet.fr || []).concat(m.d);
   else if (m.t === 'gd') ioApplyTiles(m.d);
   else if (m.t === 'rg') { if (m.first) { if (run) run.regenList = []; } else if (run) run.regenList = (run.regenList || []).concat(m.d.map(c => ({ x: c[0], y: c[1] }))); }
   else if (m.t === 'full') {
+    if (m.codes) { ioStatus('THE HOST IS ON AN OLDER VERSION — REFRESH BOTH PAGES, THEN PRESS PLAY', 25000); ioLeaveRoom(); return; }
+    if (!ioNet.dbg.welcome || ioNet.dbg.fp !== m.nf) {          // a piece is missing: ask for the whole world again
+      ioLog('world incomplete (welcome ' + ioNet.dbg.welcome + ', board parts ' + ioNet.dbg.fp + ' of ' + m.nf + ') — asking for a resend');
+      ioNet.fp = []; ioNet.fr = []; ioNet.dbg = { welcome: false, fp: 0, full: false };
+      ioAskPlay();
+      return;
+    }
+    ioNet.dbg.full = true;
+    ioLog('world received (' + ioNet.dbg.fp + ' board parts) — entering the arena');
     try { ioGuestFull(m); net.sendHost({ t: 'ready' }); }
     catch (err) { console.error('[io] could not build the world from the host\'s data:', err); ioStatus('JOIN FAILED — PRESS PLAY TO TRY AGAIN', 12000); ioLeaveRoom(); }
   }
@@ -4741,7 +4818,7 @@ function ioApplyTiles(gd) {
   }
 }
 function ioGuestFull(m) {
-  clearTimeout(ioNet.joinTimer);
+  clearTimeout(ioNet.joinTimer); clearTimeout(ioNet.retry1); clearTimeout(ioNet.retry2);
   const codesIn = ioNet.fp || [], rgIn = ioNet.fr || [];
   run = { seed: 0, depth: 1, arena: true, cfg: ioNet.cfg, winner: -1, shrinkLevel: 0, shrinkNext: 0,
     regenNext: 0, regenList: rgIn.map(c => ({ x: c[0], y: c[1] })), lastDeath: null };
@@ -4833,7 +4910,7 @@ function ioGuestSnap(m) {
 
 // leave the room (guest): back to a local demo world behind the title screen
 function ioLeaveRoom() {
-  clearInterval(ioNet.viewTimer); clearTimeout(ioNet.joinTimer);
+  clearInterval(ioNet.viewTimer); clearTimeout(ioNet.joinTimer); clearTimeout(ioNet.retry1); clearTimeout(ioNet.retry2);
   if (net.mode === 'guest') net.sendHost({ t: 'leave' });
   setTimeout(ioTeardownPeer, 150);
   net.mode = null; net.hostConn = null; ioNet.state = 'offline';
@@ -4843,6 +4920,7 @@ function ioLeaveRoom() {
 // the host went away
 function ioHostLost(msg) {
   if (ioNet.state !== 'guest') return;
+  ioLog('lost the host: ' + (msg || 'connection closed'));
   clearInterval(ioNet.viewTimer);
   ioNet.wasPlaying = !ioDemo;
   ioTeardownPeer();
@@ -4941,6 +5019,7 @@ function ioAbdicateCheck() {
   else if (document.hidden) ioNet.abdicateT = setTimeout(ioAbdicateCheck, Math.max(1000, ioNet.abdicateMs / 2));
 }
 function ioAbdicate() {
+  ioLog('stepping down as host (the world was frozen while this tab was hidden)');
   ioNet.wasPlaying = !ioDemo;
   ioStopClock();
   net.conns.forEach(c => { try { c.close(); } catch (e) {} });          // guests see the host leave and re-elect
