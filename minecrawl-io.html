@@ -198,7 +198,7 @@
     #io-colors { display: grid; grid-template-columns: repeat(8, 1fr); gap: 5px; }
     .io-sw { aspect-ratio: 1; border-radius: 50%; cursor: pointer; border: 2px solid #0d1117; box-sizing: border-box; }
     .io-sw.sel { border-color: #fff; box-shadow: 0 0 8px #ffffff80; }
-    #io-pats { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+    #io-pats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
     .io-pat { cursor: pointer; border: 2px solid #30363d; border-radius: 6px; background: #0d1117; line-height: 0; padding: 2px; }
     .io-pat canvas { width: 100%; height: auto; }
     .io-pat.sel { border-color: #00ff88; box-shadow: 0 0 8px #00ff8840; }
@@ -290,7 +290,6 @@
           <input type="text" id="io-name" maxlength="10" placeholder="PLAYER" autocomplete="off" spellcheck="false">
           <label>COLOR</label><div id="io-colors"></div>
           <label>PATTERN</label><div id="io-pats"></div>
-          <label>SECOND COLOR <span style="font-weight:normal;color:#586069">(patterns use it)</span></label><div id="io-colors2"></div>
           <label class="chk"><input type="checkbox" id="io-loyal"> monsters obey whoever digs them up</label>
           <button id="io-play">▶ PLAY</button>
           <p class="hint">WASD move · SPACE poll · E shoot · ESC inventory · Z camera</p>
@@ -324,7 +323,7 @@
 // snapshot only carries dynamic state.
 // =====================================================================
 
-const GAME_VER = 'io-0.3';
+const GAME_VER = 'io-0.5';
 const TILE = 32;
 let HUD_H = 64;   // grows one 16px row per teammate (party status board)
 const TICK_MS = 50, TICK_DT = TICK_MS / 1000;   // 20Hz fixed sim step
@@ -3074,6 +3073,11 @@ document.addEventListener('keydown', (e) => {
       returnToLobby();
     return;
   }
+  if (net.mode === 'guest' && !ioDemo && performance.now() - net.lastSnapWall > 700 && k === 'escape') {
+    if (invOpen) toggleInv();
+    ioLeaveRoom();                       // the host is silent: don't trap the player behind the pause screen
+    return;
+  }
   if (invOpen) { if (k === 'escape' || k === 'i') toggleInv(); return; }
   if (k === 'escape' || k === 'i') { toggleInv(); return; }
   if (k === 'z') { cycleCam(); return; }
@@ -3767,7 +3771,7 @@ function autoTrim(hex) {
   const n = parseInt(hex.slice(1), 16), lum = (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
   return lum > 0.5 ? mixHex(hex, '#000000', 0.5) : mixHex(hex, '#ffffff', 0.5);
 }
-const PATTERN_NAMES = ['SOLID', 'STRIPES', 'CHECKS', 'ZIGZAG', 'DOTS', 'RINGS', 'SPLIT', 'CHEVRON', 'ORB', 'QUARTERS', 'PINWHEEL', 'FADE'];
+const PATTERN_NAMES = ['SOLID', 'STRIPES', 'CHECKS', 'ZIGZAG', 'DOTS', 'RINGS', 'SPLIT', 'CHEVRON', 'QUARTERS', 'PINWHEEL'];   // all flat
 function drawPattern(pat, cx, cy, r, c, color, c2) {
   c = c || ctx;
   const A = color || '#888888', B = c2 || autoTrim(A), u = r / 10;
@@ -3809,18 +3813,10 @@ function drawPattern(pat, cx, cy, r, c, color, c2) {
     for (let d = -1.4 * r; d <= 1.6 * r; d += 6.6 * u) {
       c.beginPath(); c.moveTo(-1.3 * r, d + 0.9 * r); c.lineTo(0, d); c.lineTo(1.3 * r, d + 0.9 * r); c.stroke();
     }
-  } else if (pat === 8) {                            // glossy orb
-    const g = c.createRadialGradient(-r * 0.35, -r * 0.4, r * 0.08, 0, 0, r * 1.05);
-    g.addColorStop(0, mixHex(A, '#ffffff', 0.75)); g.addColorStop(0.4, A); g.addColorStop(1, B);
-    c.fillStyle = g; c.fillRect(-r, -r, 2 * r, 2 * r);
-  } else if (pat === 9) {                            // two opposite quarters
+  } else if (pat === 8) {                            // two opposite quarters
     c.fillRect(0, 0, r, r); c.fillRect(-r, -r, r, r);
-  } else if (pat === 10) {                           // pinwheel
+  } else if (pat === 9) {                            // pinwheel
     for (let k = 0; k < 6; k += 2) { c.beginPath(); c.moveTo(0, 0); c.arc(0, 0, r * 1.3, k * Math.PI / 3, (k + 1) * Math.PI / 3); c.closePath(); c.fill(); }
-  } else if (pat === 11) {                           // vertical fade
-    const g = c.createLinearGradient(0, -r, 0, r);
-    g.addColorStop(0, mixHex(A, '#ffffff', 0.25)); g.addColorStop(1, B);
-    c.fillStyle = g; c.fillRect(-r, -r, 2 * r, 2 * r);
   }
   c.restore();
 }
@@ -3942,8 +3938,10 @@ function ioLoad() {
     if (s) {
       ioSkin.name = String(s.name || '').slice(0, 10);
       if (COLORS.slice(0, COLOR_BASE).includes(s.color)) ioSkin.color = s.color;
-      ioSkin.pat = Math.max(0, Math.min(IO_PATTERNS - 1, s.pat | 0));
-      ioSkin.c2 = COLORS.slice(0, COLOR_BASE).includes(s.c2) ? s.c2 : '';
+      let sp = s.pat | 0;
+      if (!s.v) sp = sp === 8 || sp === 11 ? 0 : sp === 9 ? 8 : sp === 10 ? 9 : sp;      // skins saved before the flat redesign
+      ioSkin.pat = Math.max(0, Math.min(IO_PATTERNS - 1, sp));
+      ioSkin.c2 = '';                                                                       // second colors are off for now
     }
     const st = JSON.parse(localStorage.getItem('mcio-stats') || 'null');
     if (st) Object.assign(ioStats, st);
@@ -3953,7 +3951,7 @@ function ioLoad() {
 }
 function ioSave() {
   try {
-    localStorage.setItem('mcio-skin', JSON.stringify(ioSkin));
+    localStorage.setItem('mcio-skin', JSON.stringify(Object.assign({ v: 2 }, ioSkin)));
     localStorage.setItem('mcio-stats', JSON.stringify(ioStats));
     localStorage.setItem('mcio-opts', JSON.stringify(ioOpts));
   } catch (e) {}
@@ -4055,12 +4053,6 @@ function ioBuildUI() {
     });
   };
   mk(document.getElementById('io-colors'), 'color');
-  const c2h = document.getElementById('io-colors2');
-  const auto = document.createElement('div');
-  auto.className = 'io-sw auto'; auto.dataset.c = ''; auto.title = 'AUTO (a shade of your color)';
-  auto.onclick = () => { ioSkin.c2 = ''; ioRefreshSkinUI(); };
-  c2h.appendChild(auto);
-  mk(c2h, 'c2');
   const pw = document.getElementById('io-pats');
   for (let i = 0; i < IO_PATTERNS; i++) {
     const b = document.createElement('div');
@@ -4081,7 +4073,6 @@ function ioBuildUI() {
 }
 function ioRefreshSkinUI() {
   document.querySelectorAll('#io-colors .io-sw').forEach(d => d.classList.toggle('sel', d.dataset.c === ioSkin.color));
-  document.querySelectorAll('#io-colors2 .io-sw').forEach(d => d.classList.toggle('sel', (d.dataset.c || '') === (ioSkin.c2 || '')));
   document.querySelectorAll('#io-pats .io-pat').forEach(d => {
     const i = +d.dataset.p;
     d.classList.toggle('sel', i === ioSkin.pat);
@@ -4121,6 +4112,7 @@ function ioRefreshTitle() {
   if (!ioNet.busy && performance.now() > (ioNet.msgUntil || 0)) ioStatus(ioNetLabel());
 }
 function ioUiTick() {
+  ioUpdateTitle();
   if (!run || !run.cfg || !run.cfg.io) return;
   if (ioDemo) {
     ioRefreshTitle();
@@ -4483,6 +4475,9 @@ function ioBecomeHost(p) {
   net.mode = 'host'; net.peer = p; net.conns = []; net.events = [];
   net.prevCodes = null; net.pkSig = []; net.piSig = []; net.sentRg = null;
   ioNet.state = 'host';
+  ioNet.lastTick = performance.now();
+  ioStartClock();
+  ioUpdateTitle();
   p.on('connection', ioHostAccept);
   p.on('disconnected', () => { try { p.reconnect(); } catch (e) {} });
   p.on('error', () => {});
@@ -4575,6 +4570,12 @@ function ioSendChunks(conn, type, arr, per) {
 }
 function ioHostPlay(conn, m) {
   if (conn._idx >= 0) return;
+  // a frozen world is no place to join: tell them to wait for a new room
+  if (net.conns.some(c => c._ready) && performance.now() - ioNet.lastTick > ioNet.staleMs / 2) {
+    try { conn.send({ t: 'stalled' }); } catch (e) {}
+    setTimeout(() => ioHostDrop(conn), 100);
+    return;
+  }
   const name = sanitizeName(m.name) || 'PLAYER';
   const color = COLORS.slice(0, COLOR_BASE).includes(m.col) ? m.col : COLORS[0];
   const pat = Math.max(0, Math.min(IO_PATTERNS - 1, m.pat | 0));
@@ -4597,6 +4598,14 @@ function ioHostPlay(conn, m) {
     return;
   }
   conn._ready = true;
+  // an idle host can't tell "resting" from "frozen" until someone is watching: once they are, the world must
+  // start ticking within moments, or the newcomer is told to wait for a new room
+  setTimeout(() => {
+    if (conn._ready && net.conns.includes(conn) && performance.now() - ioNet.lastTick > ioNet.staleMs / 2) {
+      try { conn.send({ t: 'stalled' }); } catch (e) {}
+      setTimeout(() => ioHostDrop(conn), 100);
+    }
+  }, Math.max(800, ioNet.staleMs / 2));
   // the guest must confirm it received the world; otherwise free the slot instead of leaving a phantom avatar
   conn._joinT = setTimeout(() => { if (!conn._acked) { console.warn('[io] joiner never confirmed — dropping'); ioHostDrop(conn); } }, 10000);
   ioStatus(ioNetLabel());
@@ -4688,7 +4697,10 @@ function ioBecomeGuest(p, c) {
   clearInterval(ioNet.viewTimer);
   // tell the host where our camera is, so it sends the monsters/effects we can actually see
   ioNet.viewTimer = setInterval(() => {
-    if (net.mode === 'guest') net.sendHost({ t: 'view', x: Math.round(camTx), y: Math.round(camTy) });
+    if (net.mode !== 'guest') return;
+    net.sendHost({ t: 'view', x: Math.round(camTx), y: Math.round(camTy) });
+    if (!ioDemo && performance.now() - net.lastSnapWall > ioNet.stallMs)      // the host went quiet for good
+      ioHostLost('THE HOST WENT QUIET — RECONNECTING…');
   }, 400);
   ioSendPlay();
 }
@@ -4704,6 +4716,7 @@ function ioSendPlay() {
 function ioGuestOnData(m) {
   if (!m || typeof m !== 'object') return;
   if (m.t === 'welcome') { myIdx = m.idx; ioNet.cfg = m.cfg; }
+  else if (m.t === 'stalled') ioGuestRetryLater();
   else if (m.t === 'failed') { ioStatus('THE HOST COULDN\'T SEND YOU THE WORLD — PRESS PLAY TO TRY AGAIN', 12000); ioLeaveRoom(); }
   else if (m.t === 'busy') { ioStatus('THE ROOM IS FULL — TRY AGAIN SOON'); ioLeaveRoom(); }
   else if (m.t === 'fp') ioNet.fp = (ioNet.fp || []).concat(m.d);
@@ -4746,6 +4759,7 @@ function ioGuestFull(m) {
         loot: null, rt: 0, marked: false, cv: -1 };
   }
   net.clockOff = null;
+  net.lastSnapWall = performance.now();
   const gn = performance.now();
   let i = 0;
   for (let j = 0; j < codesIn.length; j += 2)
@@ -4814,7 +4828,7 @@ function ioGuestSnap(m) {
   enemyBullets = m.eb.map(a => ({ x: a[0], y: a[1], dx: a[2], dy: a[3] }));
   traps = m.tr.map(a => ({ x: a[0], y: a[1] }));
   gameTime = m.gt;
-  m.ev.forEach(e => { const [k, ...a] = e; if (FXR[k]) FXR[k](...a); });
+  if (!document.hidden) m.ev.forEach(e => { const [k, ...a] = e; if (FXR[k]) FXR[k](...a); });
 }
 
 // leave the room (guest): back to a local demo world behind the title screen
@@ -4827,7 +4841,7 @@ function ioLeaveRoom() {
   ioShowTitle();
 }
 // the host went away
-function ioHostLost() {
+function ioHostLost(msg) {
   if (ioNet.state !== 'guest') return;
   clearInterval(ioNet.viewTimer);
   ioNet.wasPlaying = !ioDemo;
@@ -4835,9 +4849,20 @@ function ioHostLost() {
   net.mode = null; net.hostConn = null; ioNet.state = 'offline';
   ioStartWorld();
   ioShowTitle();
-  ioStatus('THE HOST LEFT — RECONNECTING…');
+  ioStatus(msg || 'THE HOST LEFT — RECONNECTING…', 15000);
   ioNet.reTries = 0;
   setTimeout(ioAutoReconnect, 2500);
+}
+// the host answered but its world is frozen (it will step down soon): back to the title, retry shortly
+function ioGuestRetryLater() {
+  clearInterval(ioNet.viewTimer); clearTimeout(ioNet.joinTimer);
+  ioNet.wasPlaying = true;
+  ioTeardownPeer();
+  net.mode = null; net.hostConn = null; ioNet.state = 'offline';
+  ioStartWorld();
+  ioShowTitle();
+  ioStatus('THE HOST IS AWAY — WAITING FOR A NEW ROOM…', 15000);
+  setTimeout(ioAutoReconnect, 4000);
 }
 function ioAutoReconnect() {
   if (ioNet.state !== 'offline' || ioNet.busy) return;
@@ -4848,6 +4873,110 @@ function ioAutoReconnect() {
     else setTimeout(ioAutoReconnect, 3000);
   });
 }
+
+// =====================================================================
+// HOST RESILIENCE — keep the room alive when the host's tab isn't in front
+//
+//  1. a background clock (Web Worker timers aren't throttled like page timers) keeps the
+//     host simulating and sending snapshots even while its tab is hidden / covered
+//  2. guests that stop hearing from the host don't hang: they get a countdown + ESC to
+//     leave, and after a while reconnect — someone else becomes the host
+//  3. a host whose sim is truly frozen (no worker clock, heavy throttling) steps down
+//     after a while so the room can move to a player who is looking at the game
+//  4. host tips: tab title, an on-screen badge, and a "leave site?" prompt while hosting
+// =====================================================================
+ioNet.stallMs = 20000;       // guest: no snapshots for this long -> give up on the host
+ioNet.abdicateMs = 20000;    // host: hidden this long with a stalled sim -> step down
+ioNet.staleMs = 8000;        // host: the sim counts as frozen if it hasn't ticked for this long
+ioNet.lastRaf = 0;
+ioNet.lastTick = performance.now();
+ioNet.freeze = false;        // (test hook: pretend the host's sim is frozen)
+ioNet.clock = null; ioNet.clockTimer = null; ioNet.abdicateT = null; ioNet.abdicated = false;
+
+// ---- 1. background clock ---------------------------------------------------------
+function ioStartClock() {
+  if (ioNet.clock) return;
+  let w = null;
+  try {
+    const url = URL.createObjectURL(new Blob(['setInterval(function(){postMessage(0)},25)'], { type: 'text/javascript' }));
+    w = new Worker(url);
+    w.onmessage = ioClockTick;
+  } catch (e) { w = null; }
+  if (!w) ioNet.clockTimer = setInterval(ioClockTick, 50);      // fallback: page timers (throttled when hidden)
+  ioNet.clock = w || true;
+}
+function ioStopClock() {
+  try { if (ioNet.clock && ioNet.clock.terminate) ioNet.clock.terminate(); } catch (e) {}
+  clearInterval(ioNet.clockTimer);
+  ioNet.clock = null; ioNet.clockTimer = null;
+}
+function ioClockTick() {
+  if (net.mode !== 'host') return;
+  if (performance.now() - ioNet.lastRaf < 120) return;            // the normal loop is running: nothing to do
+  if (!net.conns.some(c => c._ready)) return;                     // nobody is watching: let the world rest
+  hostStep();
+  ioHiddenCull();
+}
+// while the screen loop isn't running nothing prunes the visual-effect lists: keep them bounded
+function ioHiddenCull() {
+  if (particles.length > 400) particles.length = 0;
+  if (floaters.length > 60) floaters.length = 0;
+  if (toasts.length > 24) toasts.splice(0, toasts.length - 8);
+}
+
+// ---- 3. a frozen host steps down ----------------------------------------------------
+function ioOnVisibility() {
+  ioUpdateTitle();
+  clearTimeout(ioNet.abdicateT);
+  if (document.hidden) {
+    if (net.mode === 'host') ioNet.abdicateT = setTimeout(ioAbdicateCheck, ioNet.abdicateMs);
+  } else if (ioNet.abdicated) {
+    ioNet.abdicated = false;                                      // welcome back: rejoin the room as a player
+    if (ioNet.wasPlaying) { ioNet.reTries = 0; ioAutoReconnect(); }
+  }
+}
+function ioAbdicateCheck() {
+  if (net.mode !== 'host') return;
+  if (performance.now() - ioNet.lastTick > ioNet.staleMs) ioAbdicate();
+  else if (document.hidden) ioNet.abdicateT = setTimeout(ioAbdicateCheck, Math.max(1000, ioNet.abdicateMs / 2));
+}
+function ioAbdicate() {
+  ioNet.wasPlaying = !ioDemo;
+  ioStopClock();
+  net.conns.forEach(c => { try { c.close(); } catch (e) {} });          // guests see the host leave and re-elect
+  ioTeardownPeer();
+  net.mode = null; net.conns = []; ioNet.state = 'offline'; ioNet.abdicated = true;
+  ioStartWorld();
+  ioShowTitle();
+  ioStatus('YOU STEPPED DOWN AS HOST WHILE YOU WERE AWAY — YOU\'LL REJOIN IN A MOMENT…', 20000);
+  ioUpdateTitle();
+}
+
+// ---- 4. host tips -----------------------------------------------------------------------
+function ioUpdateTitle() {
+  const guests = net.mode === 'host' ? net.conns.filter(c => c._ready).length : 0;
+  document.title = guests
+    ? (document.hidden ? '⚠ HOSTING — KEEP ME OPEN · MINECRAWL.IO' : '● HOSTING ' + (guests + 1) + ' · MINECRAWL.IO')
+    : 'MINECRAWL.IO';
+}
+function drawHostBadge() {
+  if (net.mode !== 'host' || ioDemo) return;
+  const g = net.conns.filter(c => c._ready).length;
+  if (!g) return;
+  ctx.save();
+  ctx.font = 'bold 10px Courier New';
+  const t1 = '● HOSTING ' + (g + 1) + ' PLAYERS', t2 = 'keep this tab open';
+  const w1 = Math.max(ctx.measureText(t1).width, ctx.measureText(t2).width) + 16;
+  ctx.fillStyle = '#0d1117d0'; ctx.fillRect(8, HUD_H + 6, w1, 30);
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#ffb347'; ctx.fillText(t1, 16, HUD_H + 16);
+  ctx.fillStyle = '#8b949e'; ctx.font = '10px Courier New'; ctx.fillText(t2, 16, HUD_H + 28);
+  ctx.restore();
+}
+document.addEventListener('visibilitychange', ioOnVisibility);
+window.addEventListener('beforeunload', (e) => {
+  if (net.mode === 'host' && net.conns.some(c => c._ready)) { e.preventDefault(); e.returnValue = ''; }
+});
 
 // ---- CAMERA ----
 // who you can watch once you're out: teammates first, then other humans, then bots
@@ -5065,6 +5194,7 @@ function render(now, wall) {
   drawRivalPanel(now);
   drawIoBoard(now);
   drawIoOverlay(now);
+  drawHostBadge();
   drawToasts(wall);
   drawPerkFlash(wall);
   if (player && player.downed && gameState === 'playing' && !ioDemo) {
@@ -5097,7 +5227,7 @@ function render(now, wall) {
   }
 
   // guest: snapshot stream stalled → host tabbed away / froze / hiccup
-  if (net.mode === 'guest' && (gameState === 'playing' || gameState === 'draft') &&
+  if (net.mode === 'guest' && !ioDemo && (gameState === 'playing' || gameState === 'draft') &&
       performance.now() - net.lastSnapWall > 700) {
     ctx.fillStyle = '#0d1117cc';
     ctx.fillRect(0, 0, W, H);
@@ -5112,12 +5242,14 @@ function render(now, wall) {
     ctx.restore();
     ctx.fillStyle = '#8b949e';
     ctx.font = '12px Courier New';
+    const stallLeft = Math.max(0, Math.ceil((ioNet.stallMs - (performance.now() - net.lastSnapWall)) / 1000));
     ctx.fillText('no signal from the host — did they tab away?', W / 2, H * 0.44 + 30);
-    if (Math.sin(wall / 500) > 0) {
-      ctx.fillStyle = '#00ff88';
-      ctx.font = 'bold 12px Courier New';
-      ctx.fillText('the run resumes automatically', W / 2, H * 0.44 + 54);
-    }
+    ctx.fillStyle = '#00ff88';
+    ctx.font = 'bold 12px Courier New';
+    ctx.fillText(stallLeft > 0 ? 'resumes when they\'re back · or a new host in ' + stallLeft + 's' : 'finding a new host…', W / 2, H * 0.44 + 54);
+    ctx.fillStyle = '#8b949e';
+    ctx.font = '12px Courier New';
+    ctx.fillText('[ESC] LEAVE', W / 2, H * 0.44 + 78);
   }
 
   ctx.restore();
@@ -6793,7 +6925,45 @@ function guestTick() {
 // Host/solo: fixed 20Hz sim via accumulator; host broadcasts a snapshot
 // after each batch of ticks. Guest: no sim — snapshot-anchored render
 // clock, 20Hz prediction/input tick, interpolation via updateFx.
+// advance the host's world to "now". Called by the screen loop and, while the tab is hidden or covered
+// (the screen loop stops), by the worker clock. It measures its own elapsed time, so it can't double-tick.
+let hostLast = 0;
+function hostStep(frameDt) {
+  if (ioNet.freeze) return;                                     // (test hook: pretend the host is frozen)
+  const nowMs = performance.now();
+  let dt = hostLast ? (nowMs - hostLast) / 1000 : 0.016;
+  hostLast = nowMs;
+  if (dt > 0.25) dt = 0.25;
+  // every human is out of a bot-filled arena: fast-forward the rest
+  specMode = !!(run && run.arena && gameState === 'playing' &&
+    players.some(p => p.bot && !p.left && !p.downed) &&
+    !players.some(p => !p.bot && !p.left && !p.downed) && !(run.cfg && run.cfg.io));
+  if (invOpen && gameState !== 'playing') toggleInv();
+  if (invOpen && net.mode === null) acc = 0;          // solo / bot match: the inventory pauses the game
+  else acc += dt * 1000 * (specMode && specFast ? 4 : 1);
+  let ticked = false, nTicks = 0;
+  const tk0 = performance.now();
+  while (acc >= TICK_MS) {
+    acc -= TICK_MS;
+    simTick++; simNow = simTick * TICK_MS;
+    tick();
+    ticked = true; nTicks++;
+  }
+  if (nTicks) { perfAvg = perfAvg * 0.9 + ((performance.now() - tk0) / nTicks) * 0.1; ioNet.lastTick = nowMs; }
+  if (frameDt !== undefined) perfFrame = perfFrame * 0.95 + frameDt * 1000 * 0.05;
+  if (run && gameState === 'playing' && !run.perfWarned && players.length > 30 &&
+      (perfAvg > PERF_TICK_MS || (!specMode && perfFrame > PERF_FRAME_MS))) {
+    perfSlowT += dt;
+    if (perfSlowT > 4) {
+      run.perfWarned = true;
+      toasts.push({ text: '⚠ RUNNING SLOW — FEWER BOTS OR A SMALLER MAP WILL HELP', t: performance.now(), life: 7000 });
+    }
+  } else perfSlowT = Math.max(0, perfSlowT - dt);
+  if (net.mode === 'host' && ticked && run) ioSendSnaps();
+}
+
 function loop(ts) {
+  ioNet.lastRaf = performance.now();
   let dt = (ts - lastTime) / 1000;
   lastTime = ts;
   if (dt > 0.25) dt = 0.25;
@@ -6805,32 +6975,7 @@ function loop(ts) {
     updateFx(dt, ts);
     render(rn, ts);
   } else {
-    // every human is out of a bot-filled arena: fast-forward the rest
-    specMode = !!(run && run.arena && gameState === 'playing' &&
-      players.some(p => p.bot && !p.left && !p.downed) &&
-      !players.some(p => !p.bot && !p.left && !p.downed) && !(run.cfg && run.cfg.io));
-    if (invOpen && gameState !== 'playing') toggleInv();
-    if (invOpen && net.mode === null) acc = 0;          // solo / bot match: the inventory pauses the game
-    else acc += dt * 1000 * (specMode && specFast ? 4 : 1);
-    let ticked = false, nTicks = 0;
-    const tk0 = performance.now();
-    while (acc >= TICK_MS) {
-      acc -= TICK_MS;
-      simTick++; simNow = simTick * TICK_MS;
-      tick();
-      ticked = true; nTicks++;
-    }
-    if (nTicks) perfAvg = perfAvg * 0.9 + ((performance.now() - tk0) / nTicks) * 0.1;
-    perfFrame = perfFrame * 0.95 + dt * 1000 * 0.05;
-    if (run && gameState === 'playing' && !run.perfWarned && players.length > 30 &&
-        (perfAvg > PERF_TICK_MS || (!specMode && perfFrame > PERF_FRAME_MS))) {
-      perfSlowT += dt;
-      if (perfSlowT > 4) {
-        run.perfWarned = true;
-        toasts.push({ text: '⚠ RUNNING SLOW — FEWER BOTS OR A SMALLER MAP WILL HELP', t: performance.now(), life: 7000 });
-      }
-    } else perfSlowT = Math.max(0, perfSlowT - dt);
-    if (net.mode === 'host' && ticked && run) ioSendSnaps();
+    hostStep(dt);
     updateFx(dt, ts);
     render(simNow + acc, ts);
   }
@@ -6910,6 +7055,8 @@ window.__mc = {
   ioPlay, ioToTitle, ioBoardRows, respawnPlayer,
   get ioDemo() { return ioDemo; }, get ioStats() { return ioStats; }, get enemies() { return enemies; },
   get eggs() { return eggs; }, get ioSkin() { return ioSkin; }, get ioNet() { return ioNet; }, get netMode() { return net.mode; },
+  get lastSnapAge() { return performance.now() - net.lastSnapWall; }, hostStep, ioAbdicateCheck,
+  get fxCounts() { return { particles: particles.length, toasts: toasts.length, floaters: floaters.length }; },
   ioCodes, ioConnect, ioSnap, ioClaimSlot, get conns() { return net.conns; }, sendHost: (m) => net.sendHost(m),
   drawAvatar, mixHex, autoTrim, get patternNames() { return PATTERN_NAMES; },
   get ui() { return { perkFlash, invOpen, perfAvg, perfSlowT }; },
