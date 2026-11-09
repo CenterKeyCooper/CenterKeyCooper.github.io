@@ -330,7 +330,7 @@
 // snapshot only carries dynamic state.
 // =====================================================================
 
-const GAME_VER = 'io-0.13';
+const GAME_VER = 'io-0.14';
 const TILE = 32;
 let HUD_H = 64;   // grows one 16px row per teammate (party status board)
 const TICK_MS = 50, TICK_DT = TICK_MS / 1000;   // 20Hz fixed sim step
@@ -4396,7 +4396,7 @@ function ioMarkGhost(name) {
 const IO_PROTO = 6;                      // bump whenever the host<->guest messages change shape
 const IO_SNAP_EVERY = 2;                 // sim ticks between snapshots (20Hz sim -> 10Hz)
 const IO_INTEREST = 48;                  // tiles around a guest's camera that get entity updates
-const ioNet = { attemptMs: 25000, cand: { host: 0, srflx: 0, relay: 0 }, staleWaitMs: 80000, pingN: 0, lastHeard: 0, dbg: { welcome: false, fp: 0, full: false }, state: 'offline', peer: null, busy: false, cb: null, timer: null, viewTimer: null,
+const ioNet = { aliasMs: 4000, aliases: {}, aliasTrying: {}, aliasTimer: null, attemptMs: 25000, cand: { host: 0, srflx: 0, relay: 0 }, staleWaitMs: 80000, pingN: 0, lastHeard: 0, dbg: { welcome: false, fp: 0, full: false }, state: 'offline', peer: null, busy: false, cb: null, timer: null, viewTimer: null,
   reTries: 0, wasPlaying: false, seen: { k: 0, d: 0 } };
 
 const ioLogBuf = [];
@@ -4620,12 +4620,49 @@ function ioTryHost() {
 // ===================================================================
 // HOST
 // ===================================================================
+// ONE LOBBY. A host in a backup room (Room B…) exists because every lower name was held by a ghost. When a ghost
+// goes away its name frees up, and the next arrival would claim it and start a SEPARATE room. So the backup host
+// keeps checking the lower names and claims each one as an ALIAS the moment it is free: anyone who looks there
+// lands in this same room, through this same world.
+function ioStartAliases() {
+  ioStopAliases();
+  if ((ioNet.ri | 0) === 0) return;
+  ioNet.aliasTimer = setInterval(ioAliasTick, ioNet.aliasMs);
+}
+function ioStopAliases() {
+  clearInterval(ioNet.aliasTimer); ioNet.aliasTimer = null;
+  Object.keys(ioNet.aliases).forEach(k => ioKillPeer(ioNet.aliases[k]));
+  ioNet.aliases = {}; ioNet.aliasTrying = {};
+}
+function ioAliasTick() {
+  if (net.mode !== 'host') { ioStopAliases(); return; }
+  for (let j = 0; j < (ioNet.ri | 0); j++) {
+    if (ioNet.aliases[j] || ioNet.aliasTrying[j]) continue;
+    ioNet.aliasTrying[j] = true;
+    const name = IO_ROOMS[j];
+    const a = new Peer(name, peerOpts());
+    let opened = false;
+    const fail = () => { ioNet.aliasTrying[j] = false; if (!opened) ioKillPeer(a); };
+    const guard = setTimeout(fail, 8000);                        // no answer at all from the server: forget this try
+    a.on('open', () => {
+      clearTimeout(guard); opened = true; ioNet.aliasTrying[j] = false;
+      if (net.mode !== 'host') { ioKillPeer(a); return; }
+      ioNet.aliases[j] = a;
+      ioLog('the name ' + name + ' freed up — this room now answers there too, so everyone ends up in one lobby');
+      a.on('connection', ioHostAccept);
+      a.on('disconnected', () => { if (a._ioDead || a.destroyed) return; try { a.reconnect(); } catch (e) {} });
+      a.on('close', () => { if (ioNet.aliases[j] === a) delete ioNet.aliases[j]; });
+    });
+    a.on('error', () => { clearTimeout(guard); if (!opened) fail(); else if (a.destroyed && ioNet.aliases[j] === a) delete ioNet.aliases[j]; });
+  }
+}
 function ioBecomeHost(p) {
   net.mode = 'host'; net.peer = p; net.conns = []; net.events = [];
   net.prevCodes = null; net.pkSig = []; net.piSig = []; net.sentRg = null;
   ioNet.state = 'host';
   ioNet.lastTick = performance.now();
   ioStartClock();
+  ioStartAliases();
   ioUpdateTitle();
   p.on('connection', ioHostAccept);
   p.on('disconnected', () => { if (p._ioDead || p.destroyed) return; try { p.reconnect(); } catch (e) {} });
@@ -5166,6 +5203,7 @@ function ioAbdicate() {
   ioLogAllLives('LEFT'); ioAtFlush(true);                          // everyone's current life ends with the room
   ioStopClock();
   net.conns.forEach(c => { try { c.close(); } catch (e) {} });          // guests see the host leave and re-elect
+  ioStopAliases();
   ioTeardownPeer();
   net.mode = null; net.conns = []; ioNet.state = 'offline'; ioNet.abdicated = true;
   ioStartWorld();
@@ -5205,6 +5243,7 @@ window.addEventListener('beforeunload', (e) => {
 window.addEventListener('pagehide', () => {
   if (net.mode !== 'host') return;
   net.conns.forEach(c => { try { c.send({ t: 'bye' }); } catch (e) {} });
+  ioStopAliases();
   ioKillPeer(net.peer);
 });
 
