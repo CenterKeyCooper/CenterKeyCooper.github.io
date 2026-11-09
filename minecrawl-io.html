@@ -300,7 +300,7 @@
           <p class="hint">WASD move · SPACE poll · E shoot · ESC inventory · Z camera</p>
         </div>
         <div>
-          <h2>TOP KILLS · THIS LIFE</h2><div id="io-board"></div>
+          <h2>TOP SCORES · THIS LIFE</h2><div id="io-board"></div>
           <h2 style="margin-top:16px">YOUR RECORD</h2><div id="io-stats"></div>
           <p class="hint">ONLINE: the first person to press PLAY hosts the room (keep that tab open and in front); everyone after joins them. If nobody can be reached you play offline against bots.</p>
           <p class="hint"><a href="#" id="io-logtoggle" style="color:#586069">network log</a> <a href="#" id="io-offline" style="display:none;color:#ffb347;margin-left:12px">play offline instead</a></p>
@@ -330,7 +330,7 @@
 // snapshot only carries dynamic state.
 // =====================================================================
 
-const GAME_VER = 'io-0.14';
+const GAME_VER = 'io-0.16';
 const TILE = 32;
 let HUD_H = 64;   // grows one 16px row per teammate (party status board)
 const TICK_MS = 50, TICK_DT = TICK_MS / 1000;   // 20Hz fixed sim step
@@ -1299,6 +1299,7 @@ function recomputeNums() {
     for (let x = 0; x < COLS; x++) {
       const t = grid[y][x];
       t.nearMega = false;
+      const had = (t.rev && !t.crater) || (t.crater && t.stale);          // was a number showing before this update?
       if (t.crater && !t.stale) { t.stale = true; t.staleT = simNow; }
       if (t.mine) continue;
       let n = 0;
@@ -1310,6 +1311,7 @@ function recomputeNums() {
           if (grid[ny][nx].mine) n++;
           if (grid[ny][nx].mega) t.nearMega = true;
         }
+      if (had && t.num > 0 && t.num !== n) { t.numOld = t.num; t.numAt = simNow; }      // the digit counts to its new value
       t.num = n;
       t.nv = numsVer;
     }
@@ -1329,6 +1331,7 @@ function recomputeRegion(idxs) {
   for (const i of todo) {
     const x = i % COLS, y = (i / COLS) | 0, t = grid[y][x];
     t.nearMega = false;
+    const had = (t.rev && !t.crater) || (t.crater && t.stale);
     if (t.crater && !t.stale) { t.stale = true; t.staleT = simNow; }
     if (t.mine) continue;
     let n = 0;
@@ -1340,6 +1343,7 @@ function recomputeRegion(idxs) {
         if (grid[ny][nx].mine) n++;
         if (grid[ny][nx].mega) t.nearMega = true;
       }
+    if (had && t.num > 0 && t.num !== n) { t.numOld = t.num; t.numAt = simNow; }
     t.num = n; t.nv = numsVer;
   }
 }
@@ -1353,6 +1357,7 @@ function reveal(x, y, byPl) {
   if (t.rev || t.crater) return;
   if (t.mine) { doExplosion(x, y, byPl); return; }
   t.rev = true; t.rt = simNow; tilesLeft--;
+  if (byPl) byPl.lifeTiles = (byPl.lifeTiles | 0) + 1;                 // a tile CLEARED (not one blown open)
   if (t.loot === 'egg') { spawnEgg(x, y, byPl ? byPl.idx : -1); t.loot = null; }
   if (t.num === 0)
     for (let dy = -1; dy <= 1; dy++)
@@ -1380,7 +1385,7 @@ function doExplosion(mx, my, byPl) {
       players.forEach(pl => {
         if (!pl.left && !pl.downed && pl.x === nx && pl.y === ny) hitPlayers.push(pl);
       });
-      enemies.forEach(e => { if (!e.dead && e.x === nx && e.y === ny) killEnemy(e, 'explosion', null); });
+      enemies.forEach(e => { if (!e.dead && e.x === nx && e.y === ny) killEnemy(e, 'explosion', null, byPl); });
       eggs.slice().forEach(e => { if (e.x === nx && e.y === ny) killEgg(e, byPl); });
       const nt = grid[ny][nx];
       if (nt.mine && !nt.crater) {
@@ -1419,9 +1424,11 @@ function makeEnemy(type, x, y, now, owner) {
     pyroState: null, igniteStart: 0, igniteTarget: null };
 }
 
-function killEnemy(e, cause, credit) {
+function killEnemy(e, cause, credit, scorer) {
   if (e.dead) return;
   e.dead = true;
+  const sc = credit || scorer;
+  if (sc) sc.lifeMonsters = (sc.lifeMonsters | 0) + 1;
   fx('edeath', e.fx, e.fy, e.type || 'normal');
   killsThisFloor++;
   if (killsThisFloor >= 3) award('slayer3');
@@ -1468,8 +1475,8 @@ function killEgg(egg, byPl) {
   }
 }
 
-function spawnEgg(x, y, owner) {
-  eggs.push({ id: nextEid++, x, y, t: simNow, owner: owner === undefined ? -1 : owner });
+function spawnEgg(x, y, owner, parent) {
+  eggs.push({ id: nextEid++, x, y, t: simNow, owner: owner === undefined ? -1 : owner, parent: parent === undefined ? -1 : parent });
 }
 
 // ---- damage / down / death ----
@@ -1900,6 +1907,12 @@ function burrowerStep(en, occupied) {
   return null;
 }
 
+// the player a magpie is loyal to (null if it's wild, or loyalty is off)
+function magpieLoyalTo(en) {
+  if (!run || (run.cfg && run.cfg.loyal === false)) return null;
+  if (en.owner === undefined || en.owner < 0) return null;
+  return players[en.owner] || null;
+}
 function magpieStep(en, now, occupied) {
   if (now < en.fleeUntil) {
     const tgt = nearestPlayer(en.x, en.y, en);
@@ -1912,8 +1925,11 @@ function magpieStep(en, now, occupied) {
       (Math.abs(a.x - tgt.x) + Math.abs(a.y - tgt.y)));
     return opts[0];
   }
-  const path = bfsWith(en.x, en.y,
-    (x, y) => !!(grid[y][x].rev && grid[y][x].loot), t => t.rev);
+  // a wild magpie goes for any loot; a loyal one fetches ammo for its owner (and hearts, when the owner is hurt)
+  const boss = magpieLoyalTo(en);
+  const wants = !boss ? (t => t.rev && !!t.loot)
+    : (t => t.rev && (t.loot === 'bullet' || (t.loot === 'heart' && !boss.downed && !boss.left && boss.hp < boss.maxHp)));
+  const path = bfsWith(en.x, en.y, (x, y) => !!wants(grid[y][x]), t => t.rev);
   if (path && path.length > 0 && !occupied.has(path[0].x + ',' + path[0].y)) return path[0];
   return defaultStep(en, occupied, 1);
 }
@@ -2887,7 +2903,7 @@ function botsDraft() {
 // Perks that make sense in a last-one-standing match are lootable: scattered
 // crates on the board, the feast / cornucopia, and a drop from every kill
 // (the victim's best perk; their ammo stash scatters as before). A configurable cap limits builds;
-// at the cap a crate swaps out your weakest perk only if it's better.
+// at the cap a crate just says BUILD FULL.
 // =====================================================================
 const CRATE_POOL = ['vest', 'medic', 'swift', 'bandolier', 'adrenaline', 'lucky', 'sixth',
   'pierce', 'demo', 'ricochet', 'blastsuit', 'secondwind', 'magnet'];
@@ -2900,32 +2916,32 @@ function randCratePerk(rareBias) {
   const pool = CRATE_POOL.filter(id => CRATE_RARE.has(id) === rare);
   return pool[Math.floor(Math.random() * pool.length)];
 }
-// can this player take that crate right now? (and which perk would it replace)
+// Perks with a ONE-SHOT boost the moment you pick them up. Once one has been dropped it is burnt out:
+// grabbing it again gives you the perk itself, but never that boost a second time.
+const BOOST_PERKS = new Set(['vest', 'medic', 'bandolier']);
+// can this player take that crate right now? There is no ranking and no swapping: a full build is just full.
 function crateVerdict(pl, id) {
   const p = perkById(id);
   if (!p) return { ok: false, why: '?' };
   if (!p.stack && pl.perks[id]) return { ok: false, why: 'HAVE IT' };
-  if (perkCount(pl) < arenaPerkCap()) return { ok: true, drop: null };
-  let wid = null, wv = 1e9;
-  for (const k of Object.keys(pl.perks)) { const v = perkValue(k); if (v < wv) { wv = v; wid = k; } }
-  if (!wid || perkValue(id) <= wv) return { ok: false, why: 'BUILD FULL' };
-  return { ok: true, drop: wid };
+  if (perkCount(pl) >= arenaPerkCap()) return { ok: false, why: 'BUILD FULL' };
+  return { ok: true, drop: null };
 }
 function takeCrate(pl, t, nx, ny) {
   const id = t.perk, v = crateVerdict(pl, id), p = perkById(id);
   if (!v.ok) { if (!pl.bot) fx('ptext', nx, ny, v.why, '#8b949e'); return; }
-  if (v.drop) { removePerk(pl, v.drop); fx('ptext', nx, ny - 0.5, '-' + perkById(v.drop).tag, '#8b949e'); }
+  const burnt = !!t.burnt;                                   // a dropped upgrade has already spent its pickup boost
   pl.perks[id] = (pl.perks[id] || 0) + 1;
-  if (id === 'vest') { pl.maxHp++; pl.hp = Math.min(pl.hp + 1, pl.maxHp); }
-  if (id === 'medic') pl.hp = pl.maxHp;
-  if (id === 'bandolier') pl.bullets += 4;
-  t.loot = null; t.perk = null;
-  fx('burst', nx, ny, p.clr);
-  fx('ptext', nx, ny, '+' + p.tag, p.clr);
-  fx('pflash', pl.idx, id, v.drop ? perkById(v.drop).name : '');   // the owner sees the description
+  if (id === 'vest') { pl.maxHp++; if (!burnt) pl.hp = Math.min(pl.hp + 1, pl.maxHp); }    // (+1 max HP is the perk; the heal is the boost)
+  if (id === 'medic' && !burnt) pl.hp = pl.maxHp;
+  if (id === 'bandolier' && !burnt) pl.bullets += 4;
+  t.loot = null; t.perk = null; t.burnt = false;
+  fx('burst', nx, ny, burnt ? '#6e7681' : p.clr);
+  fx('ptext', nx, ny, '+' + p.tag + (burnt ? ' (SPENT)' : ''), burnt ? '#8b949e' : p.clr);
+  fx('pflash', pl.idx, id, '');                              // the owner sees the description
 }
 // put loot on the nearest free, open, non-void tile within 2 of (x, y)
-function placeLoot(x, y, loot, perk) {
+function placeLoot(x, y, loot, perk, burnt) {
   for (let r = 0; r <= 2; r++)
     for (let dy = -r; dy <= r; dy++)
       for (let dx = -r; dx <= r; dx++) {
@@ -2934,7 +2950,7 @@ function placeLoot(x, y, loot, perk) {
         if (!ib(nx, ny)) continue;
         const t = grid[ny][nx];
         if (!t.rev || t.crater || t.loot || t.mine || isVoid(nx, ny)) continue;
-        t.loot = loot; t.perk = perk || null;
+        t.loot = loot; t.perk = perk || null; t.burnt = !!burnt;
         fx('burst', nx, ny, loot === 'perk' ? perkById(perk).clr : '#ffd700');
         return true;
       }
@@ -2949,7 +2965,7 @@ function dropKillLoot(pl) {
     const v = perkValue(id);
     if (v > bv) { bv = v; best = id; }
   }
-  if (best) placeLoot(pl.x, pl.y, 'perk', best);   // (their ammo stash already scatters on death)
+  if (best) placeLoot(pl.x, pl.y, 'perk', best, BOOST_PERKS.has(best));   // (their ammo stash already scatters on death) — a dropped perk is burnt out
 }
 function spawnArenaCrates() {
   const cfg = (run && run.cfg) || {};
@@ -2986,7 +3002,7 @@ function unequipPerk(idx, id) {
   const pl = players[idx];
   if (gameState !== 'playing' || !pl || pl.downed || pl.left || !pl.perks[id]) return;
   removePerk(pl, id);
-  if (run && run.arena && CRATE_POOL.includes(id)) placeLoot(pl.x, pl.y, 'perk', id);
+  if (run && run.arena && CRATE_POOL.includes(id)) placeLoot(pl.x, pl.y, 'perk', id, BOOST_PERKS.has(id));
   fx('ptext', pl.x, pl.y, '-' + (perkById(id) ? perkById(id).tag : '?'), '#8b949e');
 }
 
@@ -3405,8 +3421,20 @@ function tick() {
     if (en.type === 'magpie') {
       const t = grid[en.y][en.x];
       if (t.rev && t.loot) {
-        t.loot = null;
-        fx('ptext', (en.x + 0.5) * TILE, en.y * TILE + HUD_H, 'nom', '#cfd8ff');
+        const boss = magpieLoyalTo(en);
+        if (!boss) {                                       // wild: eats it
+          t.loot = null;
+          fx('ptext', (en.x + 0.5) * TILE, en.y * TILE + HUD_H, 'nom', '#cfd8ff');
+        } else if (!boss.downed && !boss.left) {           // loyal: picks it up FOR the owner
+          const bx = (en.x + 0.5) * TILE, by = en.y * TILE + HUD_H, ox = (boss.x + 0.5) * TILE, oy = boss.y * TILE + HUD_H;
+          if (t.loot === 'bullet') {
+            boss.bullets += 1 + (boss.perks.bandolier || 0);
+            t.loot = null; fx('streak', bx, by, ox, oy, '#ffd700');
+          } else if (t.loot === 'heart' && boss.hp < boss.maxHp) {
+            boss.hp = Math.min(boss.maxHp, boss.hp + 1);
+            t.loot = null; fx('streak', bx, by, ox, oy, '#ff6b6b');
+          }                                                // (crates and the rest are left for the owner)
+        }
       }
     }
 
@@ -3430,10 +3458,12 @@ function tick() {
     if (en.dead || en.type !== 'brood') return;
     if (now - en.lastLay < 6000) return;
     en.lastLay = now;
-    if (eggs.length >= 6) return;
+    if ((en.laid | 0) >= 3) return;                                                              // each brood mother lays 3 eggs in her life
+    if (eggs.length >= ((run && run.cfg && run.cfg.io) ? 90 : 24)) return;                       // (the old cap was 6 for the WHOLE board — always full in a busy world, so nobody ever laid)
     const t = grid[en.y][en.x];
     if (t.rev && !eggs.some(e => e.x === en.x && e.y === en.y)) {
-      spawnEgg(en.x, en.y, en.owner);
+      spawnEgg(en.x, en.y, en.owner, en.id);
+      en.laid = (en.laid | 0) + 1;
       fx('burst', en.x, en.y, '#ff9e2c');
     }
   });
@@ -3705,8 +3735,9 @@ function drawCrate(x, y, now, t) {
   // "close only" mode: from afar every crate is an anonymous '?'
   const hidden = !!(run && run.cfg && run.cfg.crateMode === 'near' &&
     Math.hypot(x + 0.5 - camTx, y + 0.5 - camTy) > 3.5);
-  const rare = !hidden && CRATE_RARE.has(p.id);
-  const clr = hidden ? '#d9c27a' : p.clr;
+  const burnt = !!t.burnt && !hidden;                 // already spent its pickup boost
+  const rare = !hidden && !burnt && CRATE_RARE.has(p.id);
+  const clr = hidden ? '#d9c27a' : burnt ? '#6e7681' : p.clr;
   const pulse = 0.75 + Math.sin(now / 260 + x * 1.3 + y) * 0.25;
   ctx.save();
   ctx.translate(cx, cy);
@@ -3723,6 +3754,10 @@ function drawCrate(x, y, now, t) {
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(hidden ? '?' : p.tag, 0, 1);
+  if (burnt) {
+    ctx.strokeStyle = '#ff6b3599'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(-8, -8); ctx.lineTo(8, 8); ctx.moveTo(8, -8); ctx.lineTo(-8, 8); ctx.stroke();
+  }
   ctx.restore();
 }
 function drawFloaters(wall) {
@@ -4125,27 +4160,33 @@ function ioRefreshSkinUI() {
   c.fillStyle = ioSkin.color + '22'; c.beginPath(); c.arc(48, 52, 42, 0, Math.PI * 2); c.fill();
   drawAvatar(c, 48, 52, 26, ioSkin.color, ioSkin.pat, ioSkin.c2, -Math.PI / 2, true);
 }
-// the boards rank kills on the CURRENT life (dying resets you to zero). `streak` is exactly that count.
+// SCORE (this life only — dying resets it): 1 per tile CLEARED (not blown open), 10 per monster killed, and for a player
+// killed the BIGGER of 100 or half the score the victim had (bots are players). The boards sort by it and show kills alongside. `streak` is the kill count this life.
+function ioScoreOf(p) {
+  if (net.mode === 'guest') return p.score | 0;
+  return (p.lifeTiles | 0) + 10 * (p.lifeMonsters | 0) + (p.lifeKillPts | 0);
+}
+function ioFmt(n) { return String(n | 0).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
 function ioBoardRows() {
-  return players.filter(p => !p.left).map(p => ({ p, life: p.streak | 0 }))
-    .sort((a, b) => (b.life - a.life) || (a.p.idx - b.p.idx));
+  return players.filter(p => !p.left).map(p => ({ p, score: ioScoreOf(p), kills: p.streak | 0 }))
+    .sort((a, b) => (b.score - a.score) || (b.kills - a.kills) || (a.p.idx - b.p.idx));
 }
 function ioRank() {
   const me = players[myIdx];
   if (!me) return '-';
-  const m = me.streak | 0;
-  return 1 + players.filter(p => !p.left && (p.streak | 0) > m).length;
+  const m = ioScoreOf(me);
+  return 1 + players.filter(p => !p.left && ioScoreOf(p) > m).length;
 }
 function ioScoreLine() {
   const me = players[myIdx], k = me.kills | 0, d = me.deaths | 0;
-  return 'K ' + k + ' · D ' + d + ' · K/D ' + (k / Math.max(1, d)).toFixed(2) + ((me.streak | 0) > 1 ? ' · STREAK ' + me.streak : '');
+  return 'SCORE ' + ioFmt(ioScoreOf(me)) + ' · K ' + k + ' · D ' + d + ' · K/D ' + (k / Math.max(1, d)).toFixed(2) + ((me.streak | 0) > 1 ? ' · STREAK ' + me.streak : '');
 }
 function ioRefreshTitle() {
-  const rows = ioBoardRows().filter(r => r.life > 0).slice(0, 8);
+  const rows = ioBoardRows().filter(r => r.score > 0).slice(0, 8);
   document.getElementById('io-board').innerHTML = rows.length ? rows.map((r, i) =>
     '<div class="io-row"><span style="color:' + r.p.color + '">' + (i + 1) + '. ' +
-    esc((r.p.bot ? '⚙' : '') + r.p.name.toUpperCase()) + '</span><span>' + r.life + ' kill' + (r.life === 1 ? '' : 's') + '</span></div>').join('')
-    : '<div class="io-row"><span style="color:#586069">nobody has a kill yet this life</span><span></span></div>';
+    esc((r.p.bot ? '⚙' : '') + r.p.name.toUpperCase()) + '</span><span>' + ioFmt(r.score) + ' pts · ' + r.kills + ' K</span></div>').join('')
+    : '<div class="io-row"><span style="color:#586069">nobody has scored yet this life</span><span></span></div>';
   const kd = ioStats.kills / Math.max(1, ioStats.deaths);
   document.getElementById('io-stats').innerHTML =
     '<div class="io-row"><span>K/D RATIO</span><span style="color:#00ff88">' + kd.toFixed(2) + '</span></div>' +
@@ -4168,23 +4209,25 @@ function ioUiTick() {
 function drawIoBoard(now) {
   if (!run || !run.cfg || !run.cfg.io || ioDemo) return;
   const me = players[myIdx];
-  const rows = ioBoardRows().filter(r => r.life > 0 || r.p === me);     // only players with a kill this life (plus you)
+  const rows = ioBoardRows().filter(r => r.score > 0 || r.p === me);     // everyone on the board has scored; you're always listed
   const list = rows.slice(0, 6);
   const mine = rows.findIndex(r => r.p === me);
   if (mine >= 6) list.push(rows[mine]);
-  const wpx = 168, hpx = 22 + list.length * 14, x0 = W - wpx - 8, y0 = HUD_H + 6;
+  const wpx = 196, hpx = 22 + list.length * 14, x0 = W - wpx - 8, y0 = HUD_H + 6;
   ctx.save();
   ctx.fillStyle = '#0d1117d0'; ctx.fillRect(x0, y0, wpx, hpx);
   ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
   ctx.font = 'bold 10px Courier New'; ctx.fillStyle = '#ffd700';
-  ctx.fillText('KILLS THIS LIFE' + (ioNet.state !== 'offline' ? ' · ' + ioHumans() + ' ONLINE' : ''), x0 + 8, y0 + 10);
+  ctx.fillText('SCORE · THIS LIFE' + (ioNet.state !== 'offline' ? ' · ' + ioHumans() + ' ONLINE' : ''), x0 + 8, y0 + 10);
   list.forEach((r, i) => {
-    const rk = r.life > 0 ? 1 + rows.filter(q => q.life > r.life).length : '-', y = y0 + 25 + i * 14;
+    const rk = 1 + rows.filter(q => q.score > r.score).length, y = y0 + 25 + i * 14;
     ctx.fillStyle = r.p.color; ctx.font = (r.p === players[myIdx] ? 'bold ' : '') + '10px Courier New';
     ctx.textAlign = 'left';
-    ctx.fillText(rk + ' ' + (r.p.bot ? '⚙' : '') + r.p.name.toUpperCase().slice(0, 9), x0 + 8, y);
-    ctx.fillStyle = '#c9d1d9'; ctx.textAlign = 'right';
-    ctx.fillText(String(r.life), x0 + wpx - 8, y);
+    ctx.fillText(rk + ' ' + (r.p.bot ? '⚙' : '') + r.p.name.toUpperCase().slice(0, 8), x0 + 8, y);
+    ctx.fillStyle = '#8b949e'; ctx.textAlign = 'right';                 // kills, small and grey
+    ctx.fillText('K' + r.kills, x0 + wpx - 62, y);
+    ctx.fillStyle = '#e6edf3'; ctx.font = 'bold 10px Courier New';       // the score is what the board sorts by
+    ctx.fillText(ioFmt(r.score), x0 + wpx - 8, y);
   });
   ctx.restore();
 }
@@ -4201,7 +4244,7 @@ function drawIoOverlay(now) {
   ctx.font = '12px Courier New'; ctx.fillStyle = '#8b949e'; ctx.fillText('by', cx - 40, cy - 10);
   ctx.font = 'bold 13px Courier New'; ctx.fillStyle = d.color; ctx.fillText(d.by, cx + 10, cy - 10);
   ctx.font = '12px Courier New'; ctx.fillStyle = '#8b949e';
-  ctx.fillText(ioScoreLine() + (d.streak > 1 ? '  (streak ' + d.streak + ' lost)' : ''), cx, cy + 12);
+  ctx.fillText('LAST LIFE  ' + ioFmt(d.score | 0) + ' PTS · ' + (d.streak | 0) + ' KILL' + ((d.streak | 0) === 1 ? '' : 'S'), cx, cy + 12);
   ctx.font = 'bold 15px Courier New'; ctx.fillStyle = '#ffd700';
   ctx.fillText('RESPAWN IN ' + left.toFixed(1), cx, cy + 38);
   ctx.restore();
@@ -4259,19 +4302,23 @@ function respawnPlayer(pl, now) {
   pl.iframeUntil = now + 3500;                               // spawn protection
   pl.moveBudget = 1; pl.taps = []; pl.acts = []; pl.botMove = null; pl.botWake = 0;
   pl.lastBy = -1; pl.respawnAt = undefined; pl.stall = 0; pl.goalI = -1; pl.lootI = -1;
-  pl.lifeStart = now; pl.lifeNo = (pl.lifeNo | 0) + 1; pl.lifeBotKills = 0; pl.lifeHumanKills = 0; pl.lifeLogged = false;
+  pl.lifeStart = now; pl.lifeNo = (pl.lifeNo | 0) + 1; pl.lifeBotKills = 0; pl.lifeHumanKills = 0; pl.lifeTiles = 0; pl.lifeMonsters = 0; pl.lifeKillPts = 0; pl.lifeLogged = false;
   fx('burst', s.x, s.y, pl.color);
   if (pl === player) camSnap = true;
 }
 function ioOnDeath(pl, now) {
   pl.deaths = (pl.deaths | 0) + 1;
   const lost = pl.streak | 0;
+  const lostScore = ioScoreOf(pl);                          // what this life was worth
   pl.streak = 0;
   const kb = pl.lastBy >= 0 && now - pl.lastByT < 12000 ? players[pl.lastBy] : null;
   if (kb && kb !== pl) {
     kb.kills = (kb.kills | 0) + 1;
     kb.streak = (kb.streak | 0) + 1;
     if (pl.bot) kb.lifeBotKills = (kb.lifeBotKills | 0) + 1; else kb.lifeHumanKills = (kb.lifeHumanKills | 0) + 1;
+    const pts = Math.max(100, Math.floor(lostScore / 2));        // half of what the victim had built up — or 100, whichever is more
+    kb.lifeKillPts = (kb.lifeKillPts | 0) + pts;
+    fx('ptext', kb.x, kb.y - 0.4, '+' + pts, '#ffd700');
     if (kb === players[0] && !ioDemo) ioBump('kill', kb.streak);
   }
   dropKillLoot(pl);
@@ -4279,6 +4326,7 @@ function ioOnDeath(pl, now) {
   const cause = pl.lastSrc === 'contact' ? 'A MONSTER' : pl.lastSrc === 'explosion' ? 'A BLAST' :
     pl.lastSrc === 'bullet' ? 'A STRAY SHOT' : '';
   if (!pl.bot) ioLogLife(pl, kb, cause, now, lost);          // a human's life just ended: one row in Airtable
+  pl.lifeTiles = 0; pl.lifeMonsters = 0; pl.lifeBotKills = 0; pl.lifeHumanKills = 0; pl.lifeKillPts = 0;     // the next life starts from zero
   const parts = kb
     ? [[vn, pl.color], [' ← ', '#ffd700'], [(kb.name || '?').toUpperCase(), kb.color]]
     : [[vn, pl.color], [cause ? ' ← ' + cause : ' IS OUT', '#ffd700']];
@@ -4286,11 +4334,11 @@ function ioOnDeath(pl, now) {
   pl.respawnAt = now + (pl.bot ? 4000 + Math.random() * 5000 : 3000);
   if (!pl.bot && pl.idx !== 0) {
     const gc = net.conns.find(c => c._idx === pl.idx);
-    if (gc) { try { gc.send({ t: 'died', by: kb ? (kb.name || '?').toUpperCase() : (cause || 'THE ARENA'), color: kb ? kb.color : '#ff6b6b', streak: lost }); } catch (e) {} }
+    if (gc) { try { gc.send({ t: 'died', by: kb ? (kb.name || '?').toUpperCase() : (cause || 'THE ARENA'), color: kb ? kb.color : '#ff6b6b', streak: lost, score: lostScore }); } catch (e) {} }
   }
   if (pl === players[0] && !ioDemo) {
     ioBump('death');
-    run.lastDeath = { by: kb ? (kb.name || '?').toUpperCase() : (cause || 'THE ARENA'), color: kb ? kb.color : '#ff6b6b', streak: lost };
+    run.lastDeath = { by: kb ? (kb.name || '?').toUpperCase() : (cause || 'THE ARENA'), color: kb ? kb.color : '#ff6b6b', streak: lost, score: lostScore };
   }
 }
 function ioTick(now) {
@@ -4314,10 +4362,13 @@ function ioTick(now) {
 }
 // ground grows back in blobs (telegraphed 3s ahead), a few % of what's open per cycle,
 // never near anyone; craters fill in and fresh loot is buried underneath
+// ground that may grow back: empty tiles, and tiles holding just a single bullet or heart (those used to be skipped, which
+// left lone open dots inside every regrown patch). Gear crates stay protected.
+function ioPaintable(t) { return !t.loot || t.loot === 'bullet' || t.loot === 'heart'; }
 function ioPickRegrow() {
   const open = [];
   for (let y = 0; y < ROWS; y++)
-    for (let x = 0; x < COLS; x++) { const t = grid[y][x]; if (t.rev && !t.loot) open.push(y * COLS + x); }
+    for (let x = 0; x < COLS; x++) { const t = grid[y][x]; if (t.rev && ioPaintable(t)) open.push(y * COLS + x); }
   if (!open.length) return [];
   const target = Math.min(1600, Math.max(80, Math.round(open.length * 0.035)));
   const live = players.filter(p => !p.left && !p.downed);
@@ -4333,10 +4384,40 @@ function ioPickRegrow() {
       if (seen.has(c)) continue;
       seen.add(c);
       const x = c % COLS, y = (c / COLS) | 0, t = grid[y][x];
-      if (!t.rev || t.loot || near(x, y)) continue;
+      if (!t.rev || !ioPaintable(t) || near(x, y)) continue;
       picked.push({ x, y }); blob++;
       for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) if (ib(x + dx, y + dy)) frontier.push((y + dy) * COLS + x + dx);
     }
+  }
+  // TIDY: random blob shapes leave pinholes — a lone open tile (or a 2–3 tile islet) stranded inside new ground. Paint
+  // those over too, unless a gear crate / player / monster / egg / trap is on them or a player is close by.
+  const pickSet = new Set(picked.map(c => c.y * COLS + c.x));
+  const busy = new Set();
+  enemies.forEach(e => busy.add(e.y * COLS + e.x)); eggs.forEach(e => busy.add(e.y * COLS + e.x));
+  traps.forEach(tr => busy.add(tr.y * COLS + tr.x)); players.forEach(p => { if (!p.left) busy.add(p.y * COLS + p.x); });
+  const isOpenNow = (i) => { const t = grid[(i / COLS) | 0][i % COLS]; return (t.rev || t.crater) && !pickSet.has(i); };
+  const state = new Uint8Array(COLS * ROWS);               // 0 unseen · 1 in a small islet · 2 part of a big area
+  for (let i = 0; i < COLS * ROWS; i++) {
+    if (state[i] || !isOpenNow(i)) continue;
+    const comp = [i]; state[i] = 1; let big = false;
+    for (let qi = 0; qi < comp.length && !big; qi++) {
+      const c = comp[qi], x = c % COLS, y = (c / COLS) | 0;
+      for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
+        if (!ib(x + dx, y + dy)) continue;
+        const n = (y + dy) * COLS + x + dx;
+        if (!isOpenNow(n)) continue;
+        if (state[n] === 2) { big = true; break; }
+        if (state[n]) continue;
+        state[n] = 1; comp.push(n);
+        if (comp.length > 3) { big = true; break; }
+      }
+    }
+    if (big) { comp.forEach(c => { state[c] = 2; }); continue; }
+    const ok = comp.every(c => {
+      const x = c % COLS, y = (c / COLS) | 0, t = grid[y][x];
+      return t.loot !== 'perk' && !busy.has(c) && !near(x, y);
+    });
+    if (ok) comp.forEach(c => { picked.push({ x: c % COLS, y: (c / COLS) | 0 }); pickSet.add(c); });
   }
   return picked;
 }
@@ -4357,9 +4438,14 @@ function ioRegrow(now) {
     if (!t.rev) continue;
     if (players.some(p => !p.left && !p.downed && p.x === c.x && p.y === c.y)) continue;
     if (enemies.some(e => e.x === c.x && e.y === c.y)) continue;
+    // painting over a bullet/heart BURIES it under the new ground (nothing is lost; a buried heart shows its pulse again)
+    const keep = t.loot === 'bullet' || t.loot === 'heart' ? t.loot : null;
     t.rev = false; t.rt = 0; t.loot = null; t.perk = null; t.marked = false; t.crater = false; t.stale = false;
-    t.mine = Math.random() < 0.3; t.mega = t.mine && Math.random() < 0.12;
-    if (!t.mine) ioSeedLoot(t);
+    if (keep) { t.mine = false; t.mega = false; t.loot = keep; }
+    else {
+      t.mine = Math.random() < 0.3; t.mega = t.mine && Math.random() < 0.12;
+      if (!t.mine) ioSeedLoot(t);
+    }
     touched.push(c.y * COLS + c.x);
   }
   if (touched.length) { recomputeNums(); BK.tick = -99; }     // the map updated: refresh EVERY number on the board (and let old craters show theirs)     // bots re-solve before trusting old deductions
@@ -4393,7 +4479,7 @@ function ioGhostRecent(name) {                                   // a name found
 function ioMarkGhost(name) {
   try { const g = JSON.parse(localStorage.getItem('mcio-ghosts') || '{}'); g[name] = Date.now(); localStorage.setItem('mcio-ghosts', JSON.stringify(g)); } catch (e) {}
 }
-const IO_PROTO = 6;                      // bump whenever the host<->guest messages change shape
+const IO_PROTO = 7;                      // bump whenever the host<->guest messages change shape
 const IO_SNAP_EVERY = 2;                 // sim ticks between snapshots (20Hz sim -> 10Hz)
 const IO_INTEREST = 48;                  // tiles around a guest's camera that get entity updates
 const ioNet = { aliasMs: 4000, aliases: {}, aliasTrying: {}, aliasTimer: null, attemptMs: 25000, cand: { host: 0, srflx: 0, relay: 0 }, staleWaitMs: 80000, pingN: 0, lastHeard: 0, dbg: { welcome: false, fp: 0, full: false }, state: 'offline', peer: null, busy: false, cb: null, timer: null, viewTimer: null,
@@ -4430,8 +4516,10 @@ function ioNetLabel() {
 function ioCellCode(t) {
   const open = t.rev || t.crater;
   const st = t.crater ? (t.stale ? 3 : 2) : t.rev ? 1 : 0;
-  const lo = open ? (t.loot === 'bullet' ? 1 : t.loot === 'heart' ? 2 : t.loot === 'egg' ? 3 : 0) : 0;   // never leak hidden loot
-  const pk = open && t.loot === 'perk' ? 1 + CRATE_POOL.indexOf(t.perk) : 0;
+  // (hidden mines, hidden crates, hidden everything-else never leave the host; a buried HEART is the exception because the
+  //  host's own screen draws a marker for it — so clients get it too)
+  const lo = open ? (t.loot === 'bullet' ? 1 : t.loot === 'heart' ? 2 : t.loot === 'egg' ? 3 : 0) : (t.loot === 'heart' ? 2 : 0);
+  const pk = open && t.loot === 'perk' ? 1 + CRATE_POOL.indexOf(t.perk) + (t.burnt ? CRATE_POOL.length : 0) : 0;
   const nm = open && t.nearMega ? 1 : 0;
   const num = open ? t.num : 0;                         // hidden tiles carry no number, no mine, no mega
   return st + 4 * (lo + 4 * ((t.marked ? 1 : 0) + 2 * (nm + 2 * (num + 9 * pk))));
@@ -4444,13 +4532,16 @@ function ioApplyCell(t, v, gn) {
   const num = v % 9; v = (v - num) / 9;
   const pk = v;
   const wasOpen = t.rev || t.crater;
+  const shown = (t.rev && !t.crater) || (t.crater && t.stale);         // was a number on screen?
   t.rev = st >= 1; t.crater = st >= 2;
   const ws = t.stale; t.stale = st === 3;
   if (t.stale && !ws) t.staleT = gn;
   if (!wasOpen && st >= 1) t.rt = gn;
   t.loot = lo === 1 ? 'bullet' : lo === 2 ? 'heart' : lo === 3 ? 'egg' : pk ? 'perk' : null;
-  t.perk = pk ? CRATE_POOL[pk - 1] : null;
-  t.marked = !!mk; t.nearMega = !!nm; t.num = num; t.mine = false; t.mega = false;
+  t.perk = pk ? CRATE_POOL[(pk - 1) % CRATE_POOL.length] : null; t.burnt = pk > CRATE_POOL.length;
+  t.marked = !!mk; t.nearMega = !!nm;
+  if (shown && t.num > 0 && num !== t.num && (st === 1 || st === 3)) { t.numOld = t.num; t.numAt = gn; }   // the digit counts to its new value
+  t.num = num; t.mine = false; t.mega = false;
 }
 function ioCodes() {
   const codes = new Uint16Array(COLS * ROWS);
@@ -4856,7 +4947,7 @@ function ioSnap() {
   if (!ready.length) return;
   const pl = players.map(p => [p.idx, p.x, p.y, p.dir.x, p.dir.y, p.hp, p.maxHp, p.bullets, p.downed ? 1 : 0,
     Math.round(p.iframeUntil), Math.round(p.adrenalineUntil), p.kills | 0, p.deaths | 0, p.streak | 0,
-    p.respawnAt !== undefined && isFinite(p.respawnAt) ? Math.round(p.respawnAt) : -1, p.lastSeq | 0, p.sapperLeft | 0]);
+    p.respawnAt !== undefined && isFinite(p.respawnAt) ? Math.round(p.respawnAt) : -1, p.lastSeq | 0, p.sapperLeft | 0, ioScoreOf(p)]);
   const pk = [], pi = [];
   players.forEach(p => {
     const a = JSON.stringify(p.perks);
@@ -4883,6 +4974,7 @@ function ioSnap() {
     const r2 = (n) => Math.round(n * 100) / 100;
     try {
       c.send({ t: 's', k: simTick, gt: Math.round(gameTime * 10) / 10, gd: bigGd ? [] : gd, pk, pi, rg: bigRg ? null : rg,
+        sm: me && !me.downed && me.perks && me.perks.sixth ? ioSenseMask(me) : 0,
         pl: everyone ? pl : pl.filter(a => a[0] === c._idx || near(a[1], a[2])),
         en: enemies.filter(e => !e.dead && near(e.x, e.y)).map(ioEnemyOut),
         eg: eggs.filter(e => near(e.x, e.y)).map(e => [e.id, e.x, e.y, e.t]),
@@ -4979,7 +5071,7 @@ function ioGuestOnData(m) {
   else if (m.t === 's') {
     try { ioGuestSnap(m); } catch (err) { console.error('[io] bad snapshot:', err); }
   }
-  else if (m.t === 'died') { if (run) run.lastDeath = { by: m.by, color: m.color, streak: m.streak | 0 }; }
+  else if (m.t === 'died') { if (run) run.lastDeath = { by: m.by, color: m.color, streak: m.streak | 0, score: m.score | 0 }; }
 }
 function ioApplyTiles(gd) {
   if (!grid) return;
@@ -5026,7 +5118,23 @@ function ioGuestFull(m) {
   ioNet.seen = { k: 0, d: 0 };
   ioStatus('');
 }
+// Sixth Sense for guests. HOST: which of the four tiles around this guest are unrevealed mines (bit 0 up, 1 down, 2 left, 3 right).
+function ioSenseMask(me) {
+  let mask = 0;
+  [[0, -1], [0, 1], [-1, 0], [1, 0]].forEach(([dx, dy], i) => {
+    const x = me.x + dx, y = me.y + dy;
+    if (ib(x, y)) { const t = grid[y][x]; if (t.mine && !t.rev && !t.crater) mask |= 1 << i; }
+  });
+  return mask;
+}
+// GUEST: is the tile this player is facing a mine (per the host's mask)?
+function ioSenseMine(pl) {
+  if (net.mode !== 'guest') return false;
+  const i = pl.dir.y < 0 ? 0 : pl.dir.y > 0 ? 1 : pl.dir.x < 0 ? 2 : 3;
+  return !!((ioNet.sm | 0) & (1 << i));
+}
 function ioGuestSnap(m) {
+  ioNet.sm = m.sm | 0;
   if (net.mode !== 'guest' || !grid) return;
   const target = m.k * TICK_MS - performance.now();
   net.clockOff = net.clockOff === null ? target : net.clockOff + (target - net.clockOff) * 0.15;
@@ -5045,7 +5153,7 @@ function ioGuestSnap(m) {
     else if (a[15] >= mySeq) { pl.x = a[1]; pl.y = a[2]; }
     pl.hp = a[5]; pl.maxHp = a[6]; pl.bullets = a[7]; pl.downed = !!a[8];
     pl.iframeUntil = a[9]; pl.adrenalineUntil = a[10];
-    pl.kills = a[11]; pl.deaths = a[12]; pl.streak = a[13];
+    pl.kills = a[11]; pl.deaths = a[12]; pl.streak = a[13]; pl.score = a[17] | 0;
     pl.respawnAt = a[14] >= 0 ? a[14] : undefined;
     pl.lastSeq = a[15]; pl.sapperLeft = a[16];
   });
@@ -5294,6 +5402,9 @@ function ioLogLife(pl, kb, cause, now, kills) {
     'Host': (players[0] && !players[0].left && players[0].name) || ioSkin.name || 'PLAYER',   // who was running the room
     'Is Host': pl.idx === 0,
     'Mode': mode,
+    'Score': ioScoreOf(pl),
+    'Tiles Cleared': pl.lifeTiles | 0,
+    'Monsters Killed': pl.lifeMonsters | 0,
     'Kills': kills | 0,
     'Bot Kills': pl.lifeBotKills | 0,
     'Player Kills': pl.lifeHumanKills | 0,
@@ -5573,7 +5684,7 @@ function render(now, wall) {
     if (ib(tx, ty) && !grid[ty][tx].rev && !grid[ty][tx].crater) {
       const tt = grid[ty][tx];
       let rc = '#00ff8850';
-      if (player.perks.sixth && tt.mine) rc = Math.sin(now / 130) > 0 ? '#ff2d55cc' : '#ff2d5560';
+      if (player.perks.sixth && senseMine(tt, player)) rc = Math.sin(now / 130) > 0 ? '#ff2d55cc' : '#ff2d5560';
       else if (tt.mine && player.sapperLeft > 0 && tt.marked) rc = '#4a9eff80';
       ctx.strokeStyle = rc;
       ctx.lineWidth = 2;
@@ -5665,23 +5776,42 @@ function render(now, wall) {
   ctx.restore();
 }
 
-// a tile's number (hidden on DARK floors unless a player is within 3 tiles)
-function drawTileNum(t, x, y, px, py) {
-  let showNum = t.num > 0;
+// Sixth Sense: is the tile in front of this player a mine? The host just looks; a guest's board has no mine data
+// (it must never), so the host sends each guest who owns the perk a 4-bit "which neighbours are mines" mask.
+function senseMine(tt, pl) { return !!tt.mine || (typeof ioSenseMine === 'function' && ioSenseMine(pl)); }
+
+// a tile's number (hidden on DARK floors unless a player is within 3 tiles). When the map refreshes and a number
+// changes it counts through the values in between — a little pop at each step, the last digit fading into nothing.
+const NUM_STEP_MS = 95;
+function drawTileNum(t, x, y, px, py, now) {
+  let v = t.num, scale = 1, alpha = 1;
+  if (t.numAt !== undefined) {
+    const old = t.numOld | 0, steps = Math.abs(old - t.num);
+    const k = Math.max(0, (now - t.numAt) / NUM_STEP_MS);
+    if (k >= steps + 1) t.numAt = undefined;
+    else {
+      const f = Math.floor(k), frac = k - f;
+      v = old + (t.num < old ? -f : f);
+      scale = 1 + 0.3 * (1 - frac);
+      if (t.num === 0 && v === 1) alpha = 1 - frac;
+    }
+  }
+  let showNum = v > 0;
   if (showNum && conf.dark) {
     showNum = players.some(p => !p.left && !p.downed &&
       Math.max(Math.abs(p.x - x), Math.abs(p.y - y)) <= 3);
   }
   if (!showNum) return;
-  const nc = t.nearMega ? '#ffd700' : NUM_CLR[t.num];
+  const nc = t.nearMega ? '#ffd700' : NUM_CLR[v];
   ctx.save();
+  if (alpha < 1) ctx.globalAlpha = alpha;
   ctx.shadowBlur = t.nearMega ? 10 : 6;
   ctx.shadowColor = nc;
   ctx.fillStyle = nc;
-  ctx.font = 'bold 15px Courier New';
+  ctx.font = 'bold ' + Math.round(15 * scale) + 'px Courier New';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(t.num, px + TILE / 2, py + TILE / 2 + 1);
+  ctx.fillText(v, px + TILE / 2, py + TILE / 2 + 1);
   ctx.restore();
 }
 
@@ -5728,7 +5858,7 @@ function drawTile(x, y, now) {
       ctx.fillStyle = `rgba(0,255,136,${g * 0.35})`;
       ctx.fillRect(px, py, TILE, TILE);
     }
-    drawTileNum(t, x, y, px, py);
+    drawTileNum(t, x, y, px, py, now);
   } else {
     ctx.fillStyle = '#21262d';
     ctx.fillRect(px, py, TILE, TILE);
@@ -7485,6 +7615,7 @@ window.__mc = {
   get eggs() { return eggs; }, get ioSkin() { return ioSkin; }, get ioNet() { return ioNet; }, get netMode() { return net.mode; },
   get lastSnapAge() { return performance.now() - net.lastSnapWall; }, hostStep, ioAbdicateCheck,
   get fxCounts() { return { particles: particles.length, toasts: toasts.length, floaters: floaters.length }; },
+  ioRank, ioPickRegrow, ioRegrow, ioScoreOf, ioSenseMine, ioSenseMask, ioApplyCell, ioCellCode, drawTileNum, BOOST_PERKS, takeCrate, crateVerdict, unequipPerk, killEnemy, reveal, poll, shoot,
   ioAT, ioAtFlush, ioLogLife, ioLogAllLives, ioPid, ioAtEnqueue, IO_AT_URL() { return IO_AT_URL; },
   ioCodes, ioConnect, ioSnap, ioClaimSlot, get conns() { return net.conns; }, sendHost: (m) => net.sendHost(m),
   drawAvatar, mixHex, autoTrim, get patternNames() { return PATTERN_NAMES; },
