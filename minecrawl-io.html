@@ -198,9 +198,13 @@
     #io-colors { display: grid; grid-template-columns: repeat(8, 1fr); gap: 5px; }
     .io-sw { aspect-ratio: 1; border-radius: 50%; cursor: pointer; border: 2px solid #0d1117; box-sizing: border-box; }
     .io-sw.sel { border-color: #fff; box-shadow: 0 0 8px #ffffff80; }
-    #io-pats { display: flex; flex-wrap: wrap; gap: 5px; }
-    .io-pat { cursor: pointer; border: 2px solid #30363d; border-radius: 4px; padding: 4px 8px; font-size: 11px; font-weight: bold; color: #8b949e; }
-    .io-pat.sel { border-color: #00ff88; color: #00ff88; }
+    #io-pats { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+    .io-pat { cursor: pointer; border: 2px solid #30363d; border-radius: 6px; background: #0d1117; line-height: 0; padding: 2px; }
+    .io-pat canvas { width: 100%; height: auto; }
+    .io-pat.sel { border-color: #00ff88; box-shadow: 0 0 8px #00ff8840; }
+    .io-pat:hover { border-color: #8b949e; }
+    #io-colors2 { display: grid; grid-template-columns: repeat(8, 1fr); gap: 5px; }
+    .io-sw.auto { background: linear-gradient(135deg, #8b949e 50%, #30363d 50%); }
     #io-prev { float: right; margin-top: -4px; border-radius: 6px; }
     #io-play { width: 100%; margin-top: 16px; padding: 12px; background: #ffd700; color: #0a0a14; border: none;
       font: bold 18px 'Courier New', monospace; letter-spacing: 3px; cursor: pointer; border-radius: 4px; }
@@ -277,7 +281,7 @@
   <div id="iotitle">
     <div class="iobox">
       <h1>MINECRAWL<span>.IO</span></h1>
-      <div class="tag">minesweeper × battle royale — one endless arena · <span id="io-live"></span></div>
+      <div class="tag">minesweeper × battle royale × endless · <span id="io-live"></span></div>
       <div class="tag" id="io-net" style="color:#ffb347;margin-top:-8px;min-height:14px"></div>
       <div class="iogrid">
         <div>
@@ -286,6 +290,7 @@
           <input type="text" id="io-name" maxlength="10" placeholder="PLAYER" autocomplete="off" spellcheck="false">
           <label>COLOR</label><div id="io-colors"></div>
           <label>PATTERN</label><div id="io-pats"></div>
+          <label>SECOND COLOR <span style="font-weight:normal;color:#586069">(patterns use it)</span></label><div id="io-colors2"></div>
           <label class="chk"><input type="checkbox" id="io-loyal"> monsters obey whoever digs them up</label>
           <button id="io-play">▶ PLAY</button>
           <p class="hint">WASD move · SPACE poll · E shoot · ESC inventory · Z camera</p>
@@ -319,7 +324,7 @@
 // snapshot only carries dynamic state.
 // =====================================================================
 
-const GAME_VER = 'io-0.2';
+const GAME_VER = 'io-0.3';
 const TILE = 32;
 let HUD_H = 64;   // grows one 16px row per teammate (party status board)
 const TICK_MS = 50, TICK_DT = TICK_MS / 1000;   // 20Hz fixed sim step
@@ -3751,36 +3756,98 @@ function drawRivalPanel(now) {
 
 // ---- PATTERNS / PERK FLASH / INVENTORY ----
 // once the named colors run out, players reuse them with a pattern over the body
-function drawPattern(pat, cx, cy, r, c) {
+// ---- avatars: a primary color, an optional second color, and a pattern that fills the whole body
+function mixHex(hex, to, f) {                         // blend `hex` toward `to` by fraction f
+  const a = parseInt(hex.slice(1), 16), b = parseInt(to.slice(1), 16);
+  const ch = (s) => Math.round(((a >> s) & 255) * (1 - f) + ((b >> s) & 255) * f);
+  return '#' + [16, 8, 0].map(s => ch(s).toString(16).padStart(2, '0')).join('');
+}
+// the second color when none is chosen: a deeper shade (or a lighter one for dark colors)
+function autoTrim(hex) {
+  const n = parseInt(hex.slice(1), 16), lum = (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
+  return lum > 0.5 ? mixHex(hex, '#000000', 0.5) : mixHex(hex, '#ffffff', 0.5);
+}
+const PATTERN_NAMES = ['SOLID', 'STRIPES', 'CHECKS', 'ZIGZAG', 'DOTS', 'RINGS', 'SPLIT', 'CHEVRON', 'ORB', 'QUARTERS', 'PINWHEEL', 'FADE'];
+function drawPattern(pat, cx, cy, r, c, color, c2) {
   c = c || ctx;
+  const A = color || '#888888', B = c2 || autoTrim(A), u = r / 10;
   c.save();
   c.beginPath(); c.arc(cx, cy, r, 0, Math.PI * 2); c.clip();
-  c.strokeStyle = '#000000a8'; c.fillStyle = '#000000a8'; c.lineWidth = 2;
-  if (pat === 1) {                                   // diagonal stripes
-    for (let k = -2 * r; k <= 2 * r; k += 5) {
-      c.beginPath(); c.moveTo(cx + k - r, cy + r); c.lineTo(cx + k + r, cy - r); c.stroke();
-    }
-  } else if (pat === 2) {                            // checkerboard
-    const s = 5;
-    for (let yy = -3; yy <= 3; yy++) for (let xx = -3; xx <= 3; xx++)
-      if ((xx + yy) & 1) c.fillRect(cx + xx * s - s / 2, cy + yy * s - s / 2, s, s);
-  } else if (pat === 3) {                            // zigzag
-    c.lineWidth = 1.8;
-    for (let yy = -r; yy <= r; yy += 5) {
+  c.translate(cx, cy);
+  c.fillStyle = B; c.strokeStyle = B; c.lineJoin = 'miter'; c.lineCap = 'butt';
+  if (pat === 1) {                                   // bold diagonal stripes
+    c.rotate(-Math.PI / 4); c.lineWidth = 3.4 * u;
+    for (let k = -2 * r; k <= 2 * r; k += 6.8 * u) { c.beginPath(); c.moveTo(k, -2 * r); c.lineTo(k, 2 * r); c.stroke(); }
+  } else if (pat === 2) {                            // harlequin (checkerboard turned 45°)
+    c.rotate(Math.PI / 4);
+    const s = 5.6 * u;
+    for (let yy = -4; yy <= 4; yy++) for (let xx = -4; xx <= 4; xx++)
+      if ((xx + yy) & 1) c.fillRect(xx * s - s / 2, yy * s - s / 2, s, s);
+  } else if (pat === 3) {                            // thick zigzag bands
+    c.lineWidth = 3.1 * u;
+    for (let yy = -r - 3 * u; yy <= r + 3 * u; yy += 6.6 * u) {
       c.beginPath();
-      for (let xx = -r - 2, i = 0; xx <= r + 2; xx += 4, i++) {
-        const py = cy + yy + (i & 1 ? 2.5 : -2.5);
-        if (i === 0) c.moveTo(cx + xx, py); else c.lineTo(cx + xx, py);
+      for (let xx = -r - 4 * u, i = 0; xx <= r + 4 * u; xx += 3.3 * u, i++) {
+        const py = yy + (i & 1 ? 2.1 * u : -2.1 * u);
+        if (i === 0) c.moveTo(xx, py); else c.lineTo(xx, py);
       }
       c.stroke();
     }
-  } else {                                           // dots
+  } else if (pat === 4) {                            // polka dots, big enough to read
+    const s = 6 * u;
     for (let yy = -3; yy <= 3; yy++) for (let xx = -3; xx <= 3; xx++) {
-      c.beginPath(); c.arc(cx + xx * 5 + (yy & 1 ? 2.5 : 0), cy + yy * 5, 1.5, 0, Math.PI * 2); c.fill();
+      c.beginPath(); c.arc(xx * s + (yy & 1 ? s / 2 : 0), yy * s * 0.9, 2 * u, 0, Math.PI * 2); c.fill();
     }
+  } else if (pat === 5) {                            // bullseye
+    c.lineWidth = 2.6 * u;
+    for (const f of [0.84, 0.5]) { c.beginPath(); c.arc(0, 0, r * f - 1.2 * u, 0, Math.PI * 2); c.stroke(); }
+    c.beginPath(); c.arc(0, 0, r * 0.14, 0, Math.PI * 2); c.fill();
+  } else if (pat === 6) {                            // split in two
+    c.rotate(-Math.PI / 4); c.fillRect(-2 * r, 0, 4 * r, 2 * r);
+  } else if (pat === 7) {                            // chevrons
+    c.lineWidth = 3.2 * u;
+    for (let d = -1.4 * r; d <= 1.6 * r; d += 6.6 * u) {
+      c.beginPath(); c.moveTo(-1.3 * r, d + 0.9 * r); c.lineTo(0, d); c.lineTo(1.3 * r, d + 0.9 * r); c.stroke();
+    }
+  } else if (pat === 8) {                            // glossy orb
+    const g = c.createRadialGradient(-r * 0.35, -r * 0.4, r * 0.08, 0, 0, r * 1.05);
+    g.addColorStop(0, mixHex(A, '#ffffff', 0.75)); g.addColorStop(0.4, A); g.addColorStop(1, B);
+    c.fillStyle = g; c.fillRect(-r, -r, 2 * r, 2 * r);
+  } else if (pat === 9) {                            // two opposite quarters
+    c.fillRect(0, 0, r, r); c.fillRect(-r, -r, r, r);
+  } else if (pat === 10) {                           // pinwheel
+    for (let k = 0; k < 6; k += 2) { c.beginPath(); c.moveTo(0, 0); c.arc(0, 0, r * 1.3, k * Math.PI / 3, (k + 1) * Math.PI / 3); c.closePath(); c.fill(); }
+  } else if (pat === 11) {                           // vertical fade
+    const g = c.createLinearGradient(0, -r, 0, r);
+    g.addColorStop(0, mixHex(A, '#ffffff', 0.25)); g.addColorStop(1, B);
+    c.fillStyle = g; c.fillRect(-r, -r, 2 * r, 2 * r);
   }
   c.restore();
 }
+// one avatar, used on the board and in the title-screen preview. The beak is drawn first so only
+// its tip shows past the (patterned) body.
+function drawAvatar(c, cx, cy, r, color, pat, c2, a, beak) {
+  const u = r / 10;
+  if (beak) {
+    c.fillStyle = color; c.strokeStyle = '#00000066'; c.lineWidth = 1.2 * u; c.lineJoin = 'round';
+    c.beginPath();
+    c.moveTo(cx + Math.cos(a) * 15.5 * u, cy + Math.sin(a) * 15.5 * u);
+    c.lineTo(cx + Math.cos(a + 2.5) * 8.5 * u, cy + Math.sin(a + 2.5) * 8.5 * u);
+    c.lineTo(cx + Math.cos(a - 2.5) * 8.5 * u, cy + Math.sin(a - 2.5) * 8.5 * u);
+    c.closePath(); c.fill(); c.stroke();
+  }
+  c.fillStyle = color;
+  c.beginPath(); c.arc(cx, cy, r, 0, Math.PI * 2); c.fill();
+  if (pat) {
+    drawPattern(pat, cx, cy, r, c, color, c2);
+    c.strokeStyle = '#00000066'; c.lineWidth = 1.4 * u;                       // a crisp rim instead of the old dark disc
+    c.beginPath(); c.arc(cx, cy, r - 0.7 * u, 0, Math.PI * 2); c.stroke();
+  } else {
+    c.fillStyle = '#00000030';
+    c.beginPath(); c.arc(cx, cy, r * 0.6, 0, Math.PI * 2); c.fill();
+  }
+}
+
 // a card with the perk you just picked up, and what it does
 function drawPerkFlash(wall) {
   if (!perkFlash) return;
@@ -3864,7 +3931,8 @@ function toggleInv() {
 //  * every monster type, optionally loyal to whoever dug it up
 // =====================================================================
 const IO_TOTAL = 30, IO_SIZE = 201, IO_MAX_ENEMIES = 70, IO_REGROW_EVERY = 6000;
-let ioSkin = { name: '', color: COLORS[0], pat: 0 };
+const IO_PATTERNS = PATTERN_NAMES.length;
+let ioSkin = { name: '', color: COLORS[0], pat: 0, c2: '' };
 let ioOpts = { loyal: true };
 let ioStats = { kills: 0, deaths: 0, bestStreak: 0, plays: 0 };
 
@@ -3874,7 +3942,8 @@ function ioLoad() {
     if (s) {
       ioSkin.name = String(s.name || '').slice(0, 10);
       if (COLORS.slice(0, COLOR_BASE).includes(s.color)) ioSkin.color = s.color;
-      ioSkin.pat = Math.max(0, Math.min(4, s.pat | 0));
+      ioSkin.pat = Math.max(0, Math.min(IO_PATTERNS - 1, s.pat | 0));
+      ioSkin.c2 = COLORS.slice(0, COLOR_BASE).includes(s.c2) ? s.c2 : '';
     }
     const st = JSON.parse(localStorage.getItem('mcio-stats') || 'null');
     if (st) Object.assign(ioStats, st);
@@ -3918,7 +3987,7 @@ function ioStartWorld() {
   net.mode = null; net.botMatch = true; net.arenaOn = true;
   players = [makePlayer(0)];
   myIdx = 0; player = players[0];
-  players[0].color = ioSkin.color; players[0].pat = ioSkin.pat; players[0].name = ioSkin.name || 'PLAYER';
+  players[0].color = ioSkin.color; players[0].pat = ioSkin.pat; players[0].c2 = ioSkin.c2 || ''; players[0].name = ioSkin.name || 'PLAYER';
   net.botCfg = { n: IO_TOTAL - 1, diff: 'mixed', aggr: 'mixed' };
   addBots();
   newArena((Math.random() * 0xffffffff) >>> 0, ioCfg());
@@ -3965,7 +4034,7 @@ function ioPlayLocal() {
     p.color = lk.color; p.pat = lk.pat; p.name = lookName(lk.color, lk.pat).slice(0, 14);
     used.add(lookKey(lk));
   });
-  me.color = ioSkin.color; me.pat = ioSkin.pat;
+  me.color = ioSkin.color; me.pat = ioSkin.pat; me.c2 = ioSkin.c2 || '';
   me.kills = 0; me.deaths = 0; me.streak = 0;
   me.left = false;
   ioStats.plays++; ioSave();
@@ -3977,20 +4046,30 @@ function ioPlayLocal() {
 
 // ---- title screen UI (skins, board, record)
 function ioBuildUI() {
-  const cw = document.getElementById('io-colors');
-  COLORS.slice(0, COLOR_BASE).forEach(c => {
-    const d = document.createElement('div');
-    d.className = 'io-sw'; d.style.background = c; d.dataset.c = c;
-    d.onclick = () => { ioSkin.color = c; ioRefreshSkinUI(); };
-    cw.appendChild(d);
-  });
+  const mk = (host, key) => {
+    COLORS.slice(0, COLOR_BASE).forEach(c => {
+      const d = document.createElement('div');
+      d.className = 'io-sw'; d.style.background = c; d.dataset.c = c;
+      d.onclick = () => { ioSkin[key] = c; ioRefreshSkinUI(); };
+      host.appendChild(d);
+    });
+  };
+  mk(document.getElementById('io-colors'), 'color');
+  const c2h = document.getElementById('io-colors2');
+  const auto = document.createElement('div');
+  auto.className = 'io-sw auto'; auto.dataset.c = ''; auto.title = 'AUTO (a shade of your color)';
+  auto.onclick = () => { ioSkin.c2 = ''; ioRefreshSkinUI(); };
+  c2h.appendChild(auto);
+  mk(c2h, 'c2');
   const pw = document.getElementById('io-pats');
-  ['SOLID', 'STRIPES', 'CHECKS', 'ZIGZAG', 'DOTS'].forEach((n, i) => {
-    const b = document.createElement('span');
-    b.className = 'io-pat'; b.textContent = n; b.dataset.p = i;
+  for (let i = 0; i < IO_PATTERNS; i++) {
+    const b = document.createElement('div');
+    b.className = 'io-pat'; b.dataset.p = i; b.title = PATTERN_NAMES[i];
+    const cv = document.createElement('canvas'); cv.width = 40; cv.height = 40;
+    b.appendChild(cv);
     b.onclick = () => { ioSkin.pat = i; ioRefreshSkinUI(); };
     pw.appendChild(b);
-  });
+  }
   const nm = document.getElementById('io-name');
   nm.value = ioSkin.name;
   nm.addEventListener('keydown', e => { if (e.key === 'Enter') ioPlay(); });
@@ -4002,17 +4081,19 @@ function ioBuildUI() {
 }
 function ioRefreshSkinUI() {
   document.querySelectorAll('#io-colors .io-sw').forEach(d => d.classList.toggle('sel', d.dataset.c === ioSkin.color));
-  document.querySelectorAll('#io-pats .io-pat').forEach(d => d.classList.toggle('sel', +d.dataset.p === ioSkin.pat));
+  document.querySelectorAll('#io-colors2 .io-sw').forEach(d => d.classList.toggle('sel', (d.dataset.c || '') === (ioSkin.c2 || '')));
+  document.querySelectorAll('#io-pats .io-pat').forEach(d => {
+    const i = +d.dataset.p;
+    d.classList.toggle('sel', i === ioSkin.pat);
+    const c = d.firstChild.getContext('2d');
+    c.clearRect(0, 0, 40, 40);
+    drawAvatar(c, 20, 20, 15, ioSkin.color, i, ioSkin.c2, 0, false);        // every pattern in *your* colors
+  });
   const c = document.getElementById('io-prev').getContext('2d');
   c.clearRect(0, 0, 96, 96);
   c.fillStyle = '#0d1117'; c.fillRect(0, 0, 96, 96);
-  c.save();
-  c.shadowBlur = 14; c.shadowColor = ioSkin.color;
-  c.fillStyle = ioSkin.color;
-  c.beginPath(); c.arc(48, 48, 28, 0, Math.PI * 2); c.fill();
-  c.restore();
-  if (ioSkin.pat) drawPattern(ioSkin.pat, 48, 48, 28, c);
-  c.fillStyle = '#00000030'; c.beginPath(); c.arc(48, 48, 12, 0, Math.PI * 2); c.fill();
+  c.fillStyle = ioSkin.color + '22'; c.beginPath(); c.arc(48, 52, 42, 0, Math.PI * 2); c.fill();
+  drawAvatar(c, 48, 52, 26, ioSkin.color, ioSkin.pat, ioSkin.c2, -Math.PI / 2, true);
 }
 function ioBoardRows() {
   return players.filter(p => !p.left).map(p => {
@@ -4037,7 +4118,7 @@ function ioRefreshTitle() {
     '<div class="io-row"><span>BEST STREAK</span><span>' + ioStats.bestStreak + '</span></div>' +
     '<div class="io-row"><span>GAMES PLAYED</span><span>' + ioStats.plays + '</span></div>';
   document.getElementById('io-live').textContent = players.filter(p => !p.left).length + ' in the arena';
-  if (ioNet.state !== 'offline' && !ioNet.busy) ioStatus(ioNetLabel());
+  if (!ioNet.busy && performance.now() > (ioNet.msgUntil || 0)) ioStatus(ioNetLabel());
 }
 function ioUiTick() {
   if (!run || !run.cfg || !run.cfg.io) return;
@@ -4265,14 +4346,16 @@ const IO_INTEREST = 48;                  // tiles around a guest's camera that g
 const ioNet = { state: 'offline', peer: null, busy: false, cb: null, timer: null, viewTimer: null,
   reTries: 0, wasPlaying: false, seen: { k: 0, d: 0 } };
 
-function ioStatus(msg) {
+function ioStatus(msg, hold) {
   const el = document.getElementById('io-net');
   if (el) el.textContent = msg || '';
+  ioNet.msgUntil = hold ? performance.now() + hold : 0;            // `hold` ms: don't overwrite with the room label
 }
 function ioHumans() {
   return players.filter(p => !p.bot && !p.left).length;
 }
 function ioNetLabel() {
+  if (ioNet.state === 'guest' && ioDemo) return 'JOINING THE ARENA…';
   if (ioNet.state === 'host') return 'ONLINE · HOSTING THE ROOM · ' + ioHumans() + ' PLAYER' + (ioHumans() === 1 ? '' : 'S');
   if (ioNet.state === 'guest') return 'ONLINE · ' + ioHumans() + ' PLAYERS IN THE ROOM';
   return '';
@@ -4321,11 +4404,11 @@ function ioRle(codes) {
 }
 
 // ---- who is who ---------------------------------------------------------------
-function ioInfo(p) { return [p.idx, p.name, p.color, p.pat | 0, p.bot ? 1 : 0, p.iq | 0, Math.round(p.agg * 100), p.left ? 1 : 0]; }
+function ioInfo(p) { return [p.idx, p.name, p.color, p.pat | 0, p.bot ? 1 : 0, p.iq | 0, Math.round(p.agg * 100), p.left ? 1 : 0, p.c2 || '']; }
 function ioApplyInfo(inf) {
   const p = players[inf[0]];
   if (!p) return;
-  p.name = inf[1]; p.color = inf[2]; p.pat = inf[3]; p.bot = !!inf[4]; p.iq = inf[5]; p.agg = inf[6] / 100; p.left = !!inf[7];
+  p.name = inf[1]; p.color = inf[2]; p.pat = inf[3]; p.bot = !!inf[4]; p.iq = inf[5]; p.agg = inf[6] / 100; p.left = !!inf[7]; p.c2 = inf[8] || '';
 }
 
 // ===================================================================
@@ -4414,6 +4497,7 @@ function ioHostAccept(conn) {
   if (conn.open) setup(); else conn.on('open', setup);
 }
 function ioHostDrop(conn) {
+  clearTimeout(conn._joinT);
   if (!net.conns.includes(conn)) return;
   net.conns = net.conns.filter(c => c !== conn);
   if (conn._idx > 0) ioFreeSlot(conn._idx);
@@ -4422,7 +4506,7 @@ function ioHostDrop(conn) {
   ioStatus(ioNetLabel());
 }
 // a human takes over the bot that is worth least (preferring one that's currently dead)
-function ioClaimSlot(name, color, pat) {
+function ioClaimSlot(name, color, pat, c2) {
   const cand = players.filter(p => p.bot && !p.left && p.idx !== 0)
     .sort((a, b) => ((b.downed ? 1 : 0) - (a.downed ? 1 : 0)) || ((a.kills | 0) - (b.kills | 0)))[0];
   if (!cand) return -1;
@@ -4437,7 +4521,7 @@ function ioClaimSlot(name, color, pat) {
     p.color = lk.color; p.pat = lk.pat; p.name = lookName(lk.color, lk.pat).slice(0, 14);
     used.add(lookKey(lk));
   });
-  cand.bot = false; cand.name = name; cand.color = color; cand.pat = pat;
+  cand.bot = false; cand.name = name; cand.color = color; cand.pat = pat; cand.c2 = c2 || '';
   cand.kills = 0; cand.deaths = 0; cand.streak = 0; cand.lastSeq = 0;
   respawnPlayer(cand, simNow);
   return cand.idx;
@@ -4452,13 +4536,14 @@ function ioFreeSlot(idx) {
   let slot = 0;
   while (used.has(lookKey(slotLook(slot))) && slot < 400) slot++;
   const lk = slotLook(slot);
-  p.color = lk.color; p.pat = lk.pat; p.name = lookName(lk.color, lk.pat).slice(0, 14);
+  p.color = lk.color; p.pat = lk.pat; p.c2 = ''; p.name = lookName(lk.color, lk.pat).slice(0, 14);
   p.kills = 0; p.deaths = 0; p.streak = 0;
   if (p.downed) p.respawnAt = simNow + 4000;
 }
 function ioHostOnData(conn, m) {
   if (!m || typeof m !== 'object') return;
   if (m.t === 'play') { ioHostPlay(conn, m); return; }
+  if (m.t === 'ready') { conn._acked = true; clearTimeout(conn._joinT); return; }
   if (m.t === 'leave') { ioHostDrop(conn); return; }
   if (m.t === 'view') {
     const x = +m.x, y = +m.y;
@@ -4484,22 +4569,36 @@ function ioHostOnData(conn, m) {
     if (typeof m.id === 'string') unequipPerk(conn._idx, m.id);
   }
 }
+// send a long array as several small messages (real data channels cap message size)
+function ioSendChunks(conn, type, arr, per) {
+  for (let i = 0; i < arr.length; i += per) conn.send({ t: type, d: arr.slice(i, i + per) });
+}
 function ioHostPlay(conn, m) {
   if (conn._idx >= 0) return;
   const name = sanitizeName(m.name) || 'PLAYER';
   const color = COLORS.slice(0, COLOR_BASE).includes(m.col) ? m.col : COLORS[0];
-  const pat = Math.max(0, Math.min(4, m.pat | 0));
-  const idx = ioClaimSlot(name, color, pat);
+  const pat = Math.max(0, Math.min(IO_PATTERNS - 1, m.pat | 0));
+  const c2 = m.c2 && COLORS.slice(0, COLOR_BASE).includes(m.c2) ? m.c2 : '';
+  const idx = ioClaimSlot(name, color, pat, c2);
   if (idx < 0) { try { conn.send({ t: 'busy' }); } catch (e) {} setTimeout(() => { try { conn.close(); } catch (e) {} }, 200); return; }
   conn._idx = idx;
   ioSnap();                              // flush pending diffs so the newcomer's baseline lines up
-  const codes = net.prevCodes || ioCodes();
+  const codes = ioRle(net.prevCodes || ioCodes());
   try {
     conn.send({ t: 'welcome', idx, cfg: run.cfg });
-    conn.send({ t: 'full', cols: COLS, rows: ROWS, codes: ioRle(codes), tick: simTick, gt: gameTime,
-      pi: players.map(ioInfo), pk: players.map(p => p.perks), rg: (run.regenList || []).map(c => [c.x, c.y]) });
-  } catch (e) {}
+    ioSendChunks(conn, 'fp', codes, 1800);                                  // the board, in small pieces
+    ioSendChunks(conn, 'fr', (run.regenList || []).map(c => [c.x, c.y]), 600);
+    conn.send({ t: 'full', cols: COLS, rows: ROWS, tick: simTick, gt: gameTime,
+      pi: players.map(ioInfo), pk: players.map(p => p.perks) });
+  } catch (err) {
+    console.error('[io] join sync failed — dropping the joiner so no ghost avatar is left behind:', err);
+    try { conn.send({ t: 'failed' }); } catch (e2) {}
+    setTimeout(() => ioHostDrop(conn), 100);
+    return;
+  }
   conn._ready = true;
+  // the guest must confirm it received the world; otherwise free the slot instead of leaving a phantom avatar
+  conn._joinT = setTimeout(() => { if (!conn._acked) { console.warn('[io] joiner never confirmed — dropping'); ioHostDrop(conn); } }, 10000);
   ioStatus(ioNetLabel());
 }
 // compact: [id, type, x, y, hp, owner] plus an extras object only while an attack is in progress
@@ -4552,13 +4651,20 @@ function ioSnap() {
   let rg = null;
   if (run.regenList !== net.sentRg) { net.sentRg = run.regenList; rg = (run.regenList || []).map(c => [c.x, c.y]); }
   const R = IO_INTEREST;
+  const bigGd = gd.length > 1800;
+  const bigRg = rg && rg.length > 600;
   ready.forEach(c => {
+    if (c._dead) return;
+    try {
+      if (bigGd) ioSendChunks(c, 'gd', gd, 1800);                           // lots of tiles changed at once
+      if (rg && bigRg) { c.send({ t: 'rg', first: true, d: [] }); ioSendChunks(c, 'rg', rg, 600); }
+    } catch (err) { console.error('[io] send failed', err); }
     const me = players[c._idx];
     const v = c._view || (me ? { x: me.x, y: me.y } : { x: COLS >> 1, y: ROWS >> 1 });
     const near = (x, y) => Math.abs(x - v.x) <= R && Math.abs(y - v.y) <= R;
     const r2 = (n) => Math.round(n * 100) / 100;
     try {
-      c.send({ t: 's', k: simTick, gt: Math.round(gameTime * 10) / 10, gd, pk, pi, rg,
+      c.send({ t: 's', k: simTick, gt: Math.round(gameTime * 10) / 10, gd: bigGd ? [] : gd, pk, pi, rg: bigRg ? null : rg,
         pl: everyone ? pl : pl.filter(a => a[0] === c._idx || near(a[1], a[2])),
         en: enemies.filter(e => !e.dead && near(e.x, e.y)).map(ioEnemyOut),
         eg: eggs.filter(e => near(e.x, e.y)).map(e => [e.id, e.x, e.y, e.t]),
@@ -4566,7 +4672,7 @@ function ioSnap() {
         eb: enemyBullets.filter(q => near(q.x, q.y)).map(q => [r2(q.x), r2(q.y), q.dx, q.dy]),
         tr: traps.filter(q => near(q.x, q.y)).map(q => [q.x, q.y]),
         ev: evs.filter(e => ioEvNear(e, v)) });
-    } catch (err) {}
+    } catch (err) { console.error('[io] send failed', err); }
   });
 }
 
@@ -4588,19 +4694,44 @@ function ioBecomeGuest(p, c) {
 }
 function ioSendPlay() {
   ioStatus('JOINING THE ARENA…');
-  net.sendHost({ t: 'play', name: ioSkin.name || 'PLAYER', col: ioSkin.color, pat: ioSkin.pat });
+  ioNet.fp = []; ioNet.fr = [];
+  clearTimeout(ioNet.joinTimer);
+  ioNet.joinTimer = setTimeout(() => {
+    if (ioNet.state === 'guest' && ioDemo) { ioStatus('COULDN\'T GET THE WORLD FROM THE HOST — PRESS PLAY TO TRY AGAIN', 12000); ioLeaveRoom(); }
+  }, 12000);
+  net.sendHost({ t: 'play', name: ioSkin.name || 'PLAYER', col: ioSkin.color, pat: ioSkin.pat, c2: ioSkin.c2 || '' });
 }
 function ioGuestOnData(m) {
   if (!m || typeof m !== 'object') return;
   if (m.t === 'welcome') { myIdx = m.idx; ioNet.cfg = m.cfg; }
+  else if (m.t === 'failed') { ioStatus('THE HOST COULDN\'T SEND YOU THE WORLD — PRESS PLAY TO TRY AGAIN', 12000); ioLeaveRoom(); }
   else if (m.t === 'busy') { ioStatus('THE ROOM IS FULL — TRY AGAIN SOON'); ioLeaveRoom(); }
-  else if (m.t === 'full') ioGuestFull(m);
-  else if (m.t === 's') ioGuestSnap(m);
+  else if (m.t === 'fp') ioNet.fp = (ioNet.fp || []).concat(m.d);
+  else if (m.t === 'fr') ioNet.fr = (ioNet.fr || []).concat(m.d);
+  else if (m.t === 'gd') ioApplyTiles(m.d);
+  else if (m.t === 'rg') { if (m.first) { if (run) run.regenList = []; } else if (run) run.regenList = (run.regenList || []).concat(m.d.map(c => ({ x: c[0], y: c[1] }))); }
+  else if (m.t === 'full') {
+    try { ioGuestFull(m); net.sendHost({ t: 'ready' }); }
+    catch (err) { console.error('[io] could not build the world from the host\'s data:', err); ioStatus('JOIN FAILED — PRESS PLAY TO TRY AGAIN', 12000); ioLeaveRoom(); }
+  }
+  else if (m.t === 's') {
+    try { ioGuestSnap(m); } catch (err) { console.error('[io] bad snapshot:', err); }
+  }
   else if (m.t === 'died') { if (run) run.lastDeath = { by: m.by, color: m.color, streak: m.streak | 0 }; }
 }
+function ioApplyTiles(gd) {
+  if (!grid) return;
+  const gn = grNow();
+  for (let j = 0; j < gd.length; j += 2) {
+    const i = gd[j];
+    if (grid[(i / COLS) | 0]) ioApplyCell(grid[(i / COLS) | 0][i % COLS], gd[j + 1], gn);
+  }
+}
 function ioGuestFull(m) {
+  clearTimeout(ioNet.joinTimer);
+  const codesIn = ioNet.fp || [], rgIn = ioNet.fr || [];
   run = { seed: 0, depth: 1, arena: true, cfg: ioNet.cfg, winner: -1, shrinkLevel: 0, shrinkNext: 0,
-    regenNext: 0, regenList: (m.rg || []).map(c => ({ x: c[0], y: c[1] })), lastDeath: null };
+    regenNext: 0, regenList: rgIn.map(c => ({ x: c[0], y: c[1] })), lastDeath: null };
   players = m.pi.map(inf => { const p = makePlayer(inf[0]); return p; });
   m.pi.forEach(ioApplyInfo);
   m.pk.forEach((pk, i) => { if (players[i]) players[i].perks = pk || {}; });
@@ -4617,8 +4748,9 @@ function ioGuestFull(m) {
   net.clockOff = null;
   const gn = performance.now();
   let i = 0;
-  for (let j = 0; j < m.codes.length; j += 2)
-    for (let n = 0; n < m.codes[j + 1]; n++, i++) ioApplyCell(grid[(i / m.cols) | 0][i % m.cols], m.codes[j], 0);
+  for (let j = 0; j < codesIn.length; j += 2)
+    for (let n = 0; n < codesIn[j + 1]; n++, i++) ioApplyCell(grid[(i / m.cols) | 0][i % m.cols], codesIn[j], 0);
+  ioNet.fp = []; ioNet.fr = [];
   enemies = []; eggs = []; projectiles = []; enemyBullets = []; traps = []; particles = [];
   player = players[myIdx];
   mySeq = 0; gTapQueue = []; keys.clear(); gacc = 0;
@@ -4637,11 +4769,7 @@ function ioGuestSnap(m) {
   net.snapSim = m.k * TICK_MS;
   net.lastSnapWall = performance.now();
   const gn = grNow();
-  const gd = m.gd;
-  for (let j = 0; j < gd.length; j += 2) {
-    const i = gd[j];
-    ioApplyCell(grid[(i / COLS) | 0][i % COLS], gd[j + 1], gn);
-  }
+  ioApplyTiles(m.gd);
   (m.pi || []).forEach(ioApplyInfo);
   (m.pk || []).forEach(a => { if (players[a[0]]) players[a[0]].perks = a[1] || {}; });
   m.pl.forEach(a => {
@@ -4691,7 +4819,7 @@ function ioGuestSnap(m) {
 
 // leave the room (guest): back to a local demo world behind the title screen
 function ioLeaveRoom() {
-  clearInterval(ioNet.viewTimer);
+  clearInterval(ioNet.viewTimer); clearTimeout(ioNet.joinTimer);
   if (net.mode === 'guest') net.sendHost({ t: 'leave' });
   setTimeout(ioTeardownPeer, 150);
   net.mode = null; net.hostConn = null; ioNet.state = 'offline';
@@ -5368,22 +5496,8 @@ function drawPlayer(pl, now, isMe) {
   ctx.beginPath();
   ctx.arc(cx, cy, 18 * pulse, 0, Math.PI * 2);
   ctx.fill();
-  ctx.fillStyle = pl.color;
-  ctx.beginPath();
-  ctx.arc(cx, cy, 10 * pulse, 0, Math.PI * 2);
-  ctx.fill();
-  if (pl.pat) drawPattern(pl.pat, cx, cy, 10 * pulse);
-  ctx.fillStyle = '#00000030';
-  ctx.beginPath();
-  ctx.arc(cx, cy, 6, 0, Math.PI * 2);
-  ctx.fill();
   const a = Math.atan2(pl.dir.y, pl.dir.x);
-  ctx.fillStyle = pl.color;
-  ctx.beginPath();
-  ctx.moveTo(cx + Math.cos(a) * 15, cy + Math.sin(a) * 15);
-  ctx.lineTo(cx + Math.cos(a + 2.6) * 7, cy + Math.sin(a + 2.6) * 7);
-  ctx.lineTo(cx + Math.cos(a - 2.6) * 7, cy + Math.sin(a - 2.6) * 7);
-  ctx.closePath(); ctx.fill();
+  drawAvatar(ctx, cx, cy, 10 * pulse, pl.color, pl.pat | 0, pl.c2, a, true);
   if (!isMe) {
     for (let i = 0; i < pl.maxHp; i++) {
       const frac = Math.max(0, Math.min(1, pl.hp - i));
@@ -6797,6 +6911,7 @@ window.__mc = {
   get ioDemo() { return ioDemo; }, get ioStats() { return ioStats; }, get enemies() { return enemies; },
   get eggs() { return eggs; }, get ioSkin() { return ioSkin; }, get ioNet() { return ioNet; }, get netMode() { return net.mode; },
   ioCodes, ioConnect, ioSnap, ioClaimSlot, get conns() { return net.conns; }, sendHost: (m) => net.sendHost(m),
+  drawAvatar, mixHex, autoTrim, get patternNames() { return PATTERN_NAMES; },
   get ui() { return { perkFlash, invOpen, perfAvg, perfSlowT }; },
   toggleInv, unequipPerk,
   renderNow() { camUpdate(0.05); render(simNow + 25, performance.now()); },
