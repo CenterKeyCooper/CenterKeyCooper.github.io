@@ -330,7 +330,7 @@
 // snapshot only carries dynamic state.
 // =====================================================================
 
-const GAME_VER = 'io-0.12';
+const GAME_VER = 'io-0.13';
 const TILE = 32;
 let HUD_H = 64;   // grows one 16px row per teammate (party status board)
 const TICK_MS = 50, TICK_DT = TICK_MS / 1000;   // 20Hz fixed sim step
@@ -4030,7 +4030,8 @@ function ioPlay() {
     else if (res === 'unreachable') {
       // the room exists but this device couldn't get through to it: say so, and DON'T quietly start a solo game
       const cd = ioNet.cand || { host: 0, srflx: 0, relay: 0 };
-      ioStatus('THE ROOM IS UP BUT THIS CONNECTION COULDN\'T REACH IT (' + (cd.relay ? 'EVEN VIA THE RELAY' : cd.srflx || cd.host ? 'AND NO RELAY WAS AVAILABLE' : 'NO ROUTES FOUND') +
+      ioStatus('A ROOM EXISTS BUT THIS CONNECTION COULDN\'T REACH IT (' + (cd.relay ? 'EVEN VIA THE RELAY' : cd.srflx || cd.host ? 'NO RELAY ROUTE' : 'NO ROUTES FOUND') +
+        (ioNet.relayOk === false ? ' · RELAY TEST FAILED: THIS NETWORK CAN\'T REACH THE RELAY' : ioNet.relayOk ? ' · RELAY TEST OK' : '') +
         '). TRY AGAIN, OR PLAY OFFLINE', 60000);
       document.getElementById('io-offline').style.display = 'inline';
     }
@@ -4073,6 +4074,7 @@ function ioRejoinHide() { document.getElementById('io-rejoin').classList.remove(
 function ioBuildUI() {
   document.getElementById('io-ver').textContent = GAME_VER;
   ioLog('minecrawl.io ' + GAME_VER + ' · protocol ' + IO_PROTO);
+  setTimeout(ioRelayTest, 1200);                                  // can this network reach the relay? (shown in the network log)
   ioNet.onStale = () => { document.getElementById('io-offline').style.display = 'inline'; };     // while waiting out a dead room, offer a way out
   document.getElementById('io-offline').onclick = (e) => { e.preventDefault(); e.target.style.display = 'none'; ioStatus(''); ioPlayLocal(); };
   document.getElementById('io-logtoggle').onclick = (e) => {
@@ -4379,6 +4381,18 @@ function ioRegrow(now) {
 //    gets there first hosts a fresh world (host migration comes later)
 // =====================================================================
 const IO_ROOM_ID = 'mcio-room-main-v1';
+// A room name can be held by a GHOST: a page that is registered with the server but never answers (an old tab left
+// open, a frozen phone). Nobody can evict it, so instead there are several names, probed in a fixed order: claim a
+// name; if it's taken, try to join it; if nothing ever answers, it's a ghost — move on to the next name.
+const IO_ROOMS = [IO_ROOM_ID, IO_ROOM_ID + '-b', IO_ROOM_ID + '-c', IO_ROOM_ID + '-d', IO_ROOM_ID + '-e'];
+function ioRoomId() { return IO_ROOMS[ioNet.ri | 0]; }
+function ioRoomTag() { return (ioNet.ri | 0) ? ' · ROOM ' + 'ABCDE'[ioNet.ri | 0] : ''; }
+function ioGhostRecent(name) {                                   // a name found silent in the last 2 minutes: don't give it a full 5s again
+  try { const g = JSON.parse(localStorage.getItem('mcio-ghosts') || '{}'); return Date.now() - (g[name] || 0) < 120000; } catch (e) { return false; }
+}
+function ioMarkGhost(name) {
+  try { const g = JSON.parse(localStorage.getItem('mcio-ghosts') || '{}'); g[name] = Date.now(); localStorage.setItem('mcio-ghosts', JSON.stringify(g)); } catch (e) {}
+}
 const IO_PROTO = 6;                      // bump whenever the host<->guest messages change shape
 const IO_SNAP_EVERY = 2;                 // sim ticks between snapshots (20Hz sim -> 10Hz)
 const IO_INTEREST = 48;                  // tiles around a guest's camera that get entity updates
@@ -4407,8 +4421,8 @@ function ioHumans() {
 }
 function ioNetLabel() {
   if (ioNet.state === 'guest' && ioDemo) return 'JOINING THE ARENA…';
-  if (ioNet.state === 'host') return 'ONLINE · HOSTING THE ROOM · ' + ioHumans() + ' PLAYER' + (ioHumans() === 1 ? '' : 'S');
-  if (ioNet.state === 'guest') return 'ONLINE · ' + ioHumans() + ' PLAYERS IN THE ROOM';
+  if (ioNet.state === 'host') return 'ONLINE · HOSTING THE ROOM' + ioRoomTag() + ' · ' + ioHumans() + ' PLAYER' + (ioHumans() === 1 ? '' : 'S');
+  if (ioNet.state === 'guest') return 'ONLINE · ' + ioHumans() + ' PLAYERS IN THE ROOM' + ioRoomTag();
   return '';
 }
 
@@ -4471,8 +4485,8 @@ function ioApplyInfo(inf) {
 function ioConnect(cb) {
   if (ioNet.busy) return;
   if (typeof Peer === 'undefined') { cb('offline'); return; }
-  ioNet.busy = true; ioNet.cb = cb; ioNet.tries = 0; ioNet.roomSeen = false; ioNet.iceTries = 0; ioNet.silent = 0; ioNet.t0 = performance.now();
-  ioLog('PLAY: looking for the room (' + IO_ROOM_ID + ')');
+  ioNet.busy = true; ioNet.cb = cb; ioNet.tries = 0; ioNet.roomSeen = false; ioNet.iceTries = 0; ioNet.silent = 0; ioNet.t0 = performance.now(); ioNet.ri = 0; ioNet.allGhost = false;
+  ioLog('PLAY: looking for a room (' + IO_ROOM_ID + ')');
   // (if a room was seen to exist but we never got through, that's 'unreachable' — NOT 'offline': don't start a solo game)
   ioNet.timer = setTimeout(() => { ioTeardownPeer(); ioFinish(ioNet.roomSeen ? 'unreachable' : 'offline'); }, ioNet.staleWaitMs + 8000);
   ioTryHost();
@@ -4494,12 +4508,27 @@ function ioTeardownPeer() {
   ioKillPeer(ioNet.peer);
   ioNet.peer = null;
 }
-function ioConnStatus(msg) { if ((ioNet.silent | 0) < 3) ioStatus(msg); }
+function ioRelayTest() {
+  ioNet.relayOk = null;
+  if (typeof RTCPeerConnection === 'undefined') return;
+  const turn = peerOpts().config.iceServers.filter(s => /^turns?:/.test(String(s.urls)));
+  if (!turn.length) return;
+  let pc, n = 0;
+  try { pc = new RTCPeerConnection({ iceServers: turn, iceTransportPolicy: 'relay' }); } catch (e) { return; }
+  pc.onicecandidate = ev => { if (ev.candidate && / typ relay/.test(ev.candidate.candidate || '')) n++; };
+  try { pc.createDataChannel('relaytest'); pc.createOffer().then(o => pc.setLocalDescription(o)).catch(() => {}); } catch (e) {}
+  setTimeout(() => {
+    ioNet.relayOk = n > 0;
+    ioLog('relay test: ' + (n > 0 ? 'the TURN relay IS reachable from this network ✓ (' + n + ' relay routes)' : 'NO relay routes — the TURN relay is blocked, down, or too slow from this network ✗'));
+    try { pc.close(); } catch (e) {}
+  }, 6000);
+}
+function ioConnStatus(msg) { if (!ioNet.allGhost) ioStatus(msg); }
 function ioTryGuest() {
   ioConnStatus('JOINING THE ROOM…');
   const p = new Peer(peerOpts());
   ioNet.peer = p;
-  let settled = false, watch = null, c = null, lastState = '';
+  let settled = false, watch = null, c = null, lastState = '', rid = ioRoomId();
   const t0 = performance.now();
   const giveUp = (why, roomExists) => {
     if (settled || ioNet.peer !== p) return;
@@ -4507,26 +4536,14 @@ function ioTryGuest() {
     ioLog(why + ' | routes found: direct ' + ioNet.cand.host + ', via STUN ' + ioNet.cand.srflx + ', via relay ' + ioNet.cand.relay);
     ioKillPeer(p);
     ioNet.peer = null;
-    if (!roomExists) {
-      // A room name that never answers belongs to a host that vanished without saying goodbye. The server forgets
-      // such names within about a minute — and then there is NO room, so the next claim succeeds and we host.
-      ioNet.silent = (ioNet.silent | 0) + 1;
-      const elapsed = performance.now() - ioNet.t0;
-      if (elapsed > ioNet.staleWaitMs) { ioFinish(ioNet.roomSeen ? 'unreachable' : 'offline'); return; }
-      if (ioNet.silent >= 3) {
-        ioStatus('THE LAST HOST VANISHED — WAITING FOR ITS ROOM TO CLEAR, THEN YOU\'LL START A NEW ONE… ' + Math.max(0, Math.round((ioNet.staleWaitMs - elapsed) / 1000)) + 's');
-        if (ioNet.onStale) ioNet.onStale();
-      }
-      ioTryHost();
-      return;
-    }
+    if (!roomExists) { ioNextRoom(); return; }
     if (++ioNet.iceTries < 2) { ioLog('trying the connection once more'); ioTryGuest(); }       // the room is there but we couldn't reach it
     else ioFinish('unreachable');
   };
   p.on('open', () => {
     if (ioNet.peer !== p) return;                 // abandoned attempt (timed out / superseded)
     ioLog('signaling server reached; connecting to the room');
-    c = p.connect(IO_ROOM_ID, { reliable: true });
+    c = p.connect(rid, { reliable: true });
     // count the kinds of routes this device finds: host = direct/LAN, srflx = via STUN (public address), relay = via TURN
     ioNet.cand = { host: 0, srflx: 0, relay: 0 };
     try {
@@ -4555,7 +4572,7 @@ function ioTryGuest() {
       const st = sig + '/' + ice;
       if (pc && st !== lastState) { lastState = st; ioLog('connection progress: signaling ' + sig + ', ice ' + ice); }
       if (ice === 'failed') return giveUp('the connection to the room failed', true);
-      if (pc && sig === 'have-local-offer' && waited > 5000) return giveUp('no answer from the room after 5s — assuming it is empty', false);
+      if (pc && sig === 'have-local-offer' && waited > (ioGhostRecent(rid) ? 1800 : 5000)) return giveUp('room ' + rid + ' never answers — a ghost', false);
       if (waited > ioNet.attemptMs) return giveUp('gave up connecting after ' + Math.round(ioNet.attemptMs / 1000) + 's', true);
       if (waited > 1500) ioConnStatus('CONNECTING TO THE ROOM · TRY ' + (ioNet.iceTries + 1) + ' OF 2 · ' + Math.floor(waited / 1000) + 's');
     }, 500);
@@ -4570,18 +4587,30 @@ function ioTryGuest() {
     else ioFinish(ioNet.roomSeen ? 'unreachable' : 'offline');
   });
 }
+function ioNextRoom() {
+  ioMarkGhost(ioRoomId());
+  ioNet.ri = (ioNet.ri | 0) + 1;
+  if (ioNet.ri < IO_ROOMS.length) { ioLog('trying the next room name: ' + ioRoomId()); ioTryHost(); return; }
+  // every name is held by a ghost (very unlikely): wait a bit for some to expire, then start over
+  ioNet.ri = 0; ioNet.allGhost = true;
+  const elapsed = performance.now() - ioNet.t0;
+  if (elapsed > ioNet.staleWaitMs) { ioFinish('unreachable'); return; }
+  ioStatus('EVERY ROOM LOOKS STALE — WAITING FOR THEM TO CLEAR… ' + Math.max(0, Math.round((ioNet.staleWaitMs - elapsed) / 1000)) + 's');
+  if (ioNet.onStale) ioNet.onStale();
+  setTimeout(() => { if (ioNet.busy) { ioNet.allGhost = false; ioTryHost(); } }, 6000);
+}
 function ioTryHost() {
   ioConnStatus('LOOKING FOR THE ROOM…');
-  const p = new Peer(IO_ROOM_ID, peerOpts());
+  const p = new Peer(ioRoomId(), peerOpts());
   ioNet.peer = p;
   let settled = false;
-  p.on('open', () => { if (ioNet.peer !== p) return; settled = true; ioLog('nobody was hosting: the room is yours — you are the HOST'); ioBecomeHost(p); ioFinish('host'); });
+  p.on('open', () => { if (ioNet.peer !== p) return; settled = true; ioLog('nobody was hosting ' + ioRoomId() + ': the room is yours — you are the HOST'); ioBecomeHost(p); ioFinish('host'); });
   p.on('error', (err) => {
     if (settled || ioNet.peer !== p) return;
     settled = true;
     ioKillPeer(p);
     ioNet.peer = null;
-    ioLog('room name taken (' + err.type + ') — joining the host');
+    ioLog('room name ' + ioRoomId() + ' taken (' + err.type + ') — joining the host');
     if (err.type === 'unavailable-id') ioNet.roomSeen = true;
     if (err.type === 'unavailable-id' && performance.now() - ioNet.t0 < ioNet.staleWaitMs) ioTryGuest();     // somebody is hosting: join them
     else ioFinish(err.type === 'unavailable-id' ? 'unreachable' : 'offline');
