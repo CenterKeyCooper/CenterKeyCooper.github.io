@@ -325,7 +325,7 @@
 // snapshot only carries dynamic state.
 // =====================================================================
 
-const GAME_VER = 'io-0.6';
+const GAME_VER = 'io-0.7';
 const TILE = 32;
 let HUD_H = 64;   // grows one 16px row per teammate (party status board)
 const TICK_MS = 50, TICK_DT = TICK_MS / 1000;   // 20Hz fixed sim step
@@ -2264,7 +2264,9 @@ function botSolve() {
         if (t.marked) marks.push(y * COLS + x);
         continue;
       }
-      if (!t.rev || t.crater || t.num <= 0) continue;
+      if (!t.rev && !t.crater) continue;
+      if (t.crater && !t.stale) continue;       // a fresh crater has no valid number yet; an old one is an ordinary numbered tile
+      if (t.num <= 0) continue;
       // DARK floors hide numbers beyond 3 tiles of a live player
       if (conf.dark && !live.some(p => Math.max(Math.abs(p.x - x), Math.abs(p.y - y)) <= 3)) continue;
       let k = t.num;
@@ -4324,7 +4326,7 @@ function ioRegrow(now) {
     if (!t.mine) ioSeedLoot(t);
     touched.push(c.y * COLS + c.x);
   }
-  if (touched.length) { recomputeRegion(touched); BK.tick = -99; }     // bots re-solve before trusting old deductions
+  if (touched.length) { recomputeNums(); BK.tick = -99; }     // the map updated: refresh EVERY number on the board (and let old craters show theirs)     // bots re-solve before trusting old deductions
   run.regenList = [];
   run.regenNext = now + IO_REGROW_EVERY;
 }
@@ -5334,6 +5336,26 @@ function render(now, wall) {
   ctx.restore();
 }
 
+// a tile's number (hidden on DARK floors unless a player is within 3 tiles)
+function drawTileNum(t, x, y, px, py) {
+  let showNum = t.num > 0;
+  if (showNum && conf.dark) {
+    showNum = players.some(p => !p.left && !p.downed &&
+      Math.max(Math.abs(p.x - x), Math.abs(p.y - y)) <= 3);
+  }
+  if (!showNum) return;
+  const nc = t.nearMega ? '#ffd700' : NUM_CLR[t.num];
+  ctx.save();
+  ctx.shadowBlur = t.nearMega ? 10 : 6;
+  ctx.shadowColor = nc;
+  ctx.fillStyle = nc;
+  ctx.font = 'bold 15px Courier New';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(t.num, px + TILE / 2, py + TILE / 2 + 1);
+  ctx.restore();
+}
+
 function drawTile(x, y, now) {
   const t = grid[y][x], px = x * TILE, py = y * TILE + HUD_H;
   if (run && run.arena && run.cfg && run.cfg.pressure !== 'regen' && run.shrinkLevel > 0 &&
@@ -5345,7 +5367,8 @@ function drawTile(x, y, now) {
     ctx.fillRect(px + 6 + ((x * 7 + y * 13) % 12), py + 6 + ((x * 11 + y * 5) % 14), 4, 4);
     return;
   }
-  if (t.crater) {
+  if (t.crater && !t.stale) {
+    // a fresh crater: still counted in the numbers around it, so it has no number of its own yet
     ctx.fillStyle = '#070a0e';
     ctx.fillRect(px, py, TILE, TILE);
     ctx.strokeStyle = '#ff3a0018';
@@ -5355,43 +5378,28 @@ function drawTile(x, y, now) {
     ctx.beginPath();
     ctx.arc(px + TILE / 2, py + TILE / 2, TILE * 0.35, 0, Math.PI * 2);
     ctx.fill();
-    if (t.stale) {
-      // the numbers have reset, so this crater no longer counts toward them:
-      // let it sink back into the floor so it can't be mistaken for fresh damage
-      const k = Math.min(1, Math.max(0, (now - (t.staleT || 0)) / 900));
-      ctx.fillStyle = 'rgba(22,27,34,' + (0.9 * k).toFixed(3) + ')';
-      ctx.fillRect(px, py, TILE, TILE);
-    }
-  } else if (t.rev) {
+  } else if (t.rev || t.crater) {
+    // open ground — including an OLD crater: the map has updated since it blew, so its number is valid
+    // again and it's just a numbered tile with a fading scar
     ctx.fillStyle = '#161b22';
     ctx.fillRect(px, py, TILE, TILE);
     ctx.strokeStyle = '#1e2329';
     ctx.lineWidth = 0.5;
     ctx.strokeRect(px + 0.5, py + 0.5, TILE - 1, TILE - 1);
+    if (t.crater) {
+      const k = Math.min(1, Math.max(0, (now - (t.staleT || 0)) / 900));
+      ctx.fillStyle = 'rgba(7,10,14,' + (0.7 * (1 - k) + 0.1).toFixed(3) + ')';
+      ctx.beginPath();
+      ctx.arc(px + TILE / 2, py + TILE / 2, TILE * 0.42, 0, Math.PI * 2);
+      ctx.fill();
+    }
     const age = now - (t.rt || 0);
-    if (age < 350 && age >= 0) {
+    if (!t.crater && age < 350 && age >= 0) {
       const g = 1 - age / 350;
       ctx.fillStyle = `rgba(0,255,136,${g * 0.35})`;
       ctx.fillRect(px, py, TILE, TILE);
     }
-    let showNum = t.num > 0;
-    if (showNum && conf.dark) {
-      // DARK floors: numbers only legible within 3 tiles of a live player
-      showNum = players.some(p => !p.left && !p.downed &&
-        Math.max(Math.abs(p.x - x), Math.abs(p.y - y)) <= 3);
-    }
-    if (showNum) {
-      const nc = t.nearMega ? '#ffd700' : NUM_CLR[t.num];
-      ctx.save();
-      ctx.shadowBlur = t.nearMega ? 10 : 6;
-      ctx.shadowColor = nc;
-      ctx.fillStyle = nc;
-      ctx.font = 'bold 15px Courier New';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(t.num, px + TILE / 2, py + TILE / 2 + 1);
-      ctx.restore();
-    }
+    drawTileNum(t, x, y, px, py);
   } else {
     ctx.fillStyle = '#21262d';
     ctx.fillRect(px, py, TILE, TILE);
