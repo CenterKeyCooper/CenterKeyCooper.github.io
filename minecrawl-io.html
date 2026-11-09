@@ -303,7 +303,7 @@
           <h2>TOP KILLS · THIS LIFE</h2><div id="io-board"></div>
           <h2 style="margin-top:16px">YOUR RECORD</h2><div id="io-stats"></div>
           <p class="hint">ONLINE: the first person to press PLAY hosts the room (keep that tab open and in front); everyone after joins them. If nobody can be reached you play offline against bots.</p>
-          <p class="hint"><a href="#" id="io-logtoggle" style="color:#586069">network log</a></p>
+          <p class="hint"><a href="#" id="io-logtoggle" style="color:#586069">network log</a> <a href="#" id="io-offline" style="display:none;color:#ffb347;margin-left:12px">play offline instead</a></p>
           <pre id="io-log" style="display:none;max-height:150px;overflow:auto;font-size:10px;line-height:1.4;color:#8b949e;background:#0d1117;padding:6px;margin:4px 0 0;white-space:pre-wrap"></pre>
         </div>
       </div>
@@ -330,7 +330,7 @@
 // snapshot only carries dynamic state.
 // =====================================================================
 
-const GAME_VER = 'io-0.9';
+const GAME_VER = 'io-0.10';
 const TILE = 32;
 let HUD_H = 64;   // grows one 16px row per teammate (party status board)
 const TICK_MS = 50, TICK_DT = TICK_MS / 1000;   // 20Hz fixed sim step
@@ -4021,12 +4021,18 @@ function ioPlay() {
   if (ioNet.busy) return;
   if (ioNet.state === 'host') { ioPlayLocal(); return; }
   const btn = document.getElementById('io-play');
+  document.getElementById('io-offline').style.display = 'none';
   btn.disabled = true; btn.textContent = 'CONNECTING…';
   ioConnect(res => {
     btn.disabled = false; btn.textContent = '▶ PLAY';
     if (res === 'host') { ioStatus(ioNetLabel()); ioPlayLocal(); }
     else if (res === 'guest') { /* ioBecomeGuest sent PLAY; the room's world arrives next */ }
-    else { ioStatus('COULDN\'T REACH THE ROOM — PLAYING OFFLINE'); ioPlayLocal(); }
+    else if (res === 'unreachable') {
+      // the room exists but this device couldn't get through to it: say so, and DON'T quietly start a solo game
+      ioStatus('THE ROOM IS UP BUT THIS CONNECTION COULDN\'T REACH IT — STRICT WI-FI OR CELLULAR OFTEN BLOCKS IT. TRY AGAIN, OR PLAY OFFLINE', 60000);
+      document.getElementById('io-offline').style.display = 'inline';
+    }
+    else { ioStatus('COULDN\'T REACH THE ONLINE SERVICE — PLAYING OFFLINE'); ioPlayLocal(); }
   });
 }
 function ioPlayLocal() {
@@ -4065,6 +4071,7 @@ function ioRejoinHide() { document.getElementById('io-rejoin').classList.remove(
 function ioBuildUI() {
   document.getElementById('io-ver').textContent = GAME_VER;
   ioLog('minecrawl.io ' + GAME_VER + ' · protocol ' + IO_PROTO);
+  document.getElementById('io-offline').onclick = (e) => { e.preventDefault(); e.target.style.display = 'none'; ioStatus(''); ioPlayLocal(); };
   document.getElementById('io-logtoggle').onclick = (e) => {
     e.preventDefault();
     const el = document.getElementById('io-log');
@@ -4461,9 +4468,10 @@ function ioApplyInfo(inf) {
 function ioConnect(cb) {
   if (ioNet.busy) return;
   if (typeof Peer === 'undefined') { cb('offline'); return; }
-  ioNet.busy = true; ioNet.cb = cb; ioNet.tries = 0;
+  ioNet.busy = true; ioNet.cb = cb; ioNet.tries = 0; ioNet.roomSeen = false; ioNet.iceTries = 0; ioNet.silent = 0;
   ioLog('PLAY: looking for the room (' + IO_ROOM_ID + ')');
-  ioNet.timer = setTimeout(() => { ioTeardownPeer(); ioFinish('offline'); }, 25000);
+  // (if a room was seen to exist but we never got through, that's 'unreachable' — NOT 'offline': don't start a solo game)
+  ioNet.timer = setTimeout(() => { ioTeardownPeer(); ioFinish(ioNet.roomSeen ? 'unreachable' : 'offline'); }, 60000);
   ioTryHost();
 }
 function ioFinish(res) {
@@ -4487,23 +4495,31 @@ function ioTryGuest() {
   ioStatus('JOINING THE ROOM…');
   const p = new Peer(peerOpts());
   ioNet.peer = p;
-  let settled = false, watchdog = null;
-  const giveUp = (why) => {                                    // the room isn't answering: it may be empty — try to take it over
+  let settled = false, watch = null, c = null, lastState = '';
+  const t0 = performance.now();
+  const giveUp = (why, roomExists) => {
     if (settled || ioNet.peer !== p) return;
-    settled = true; clearTimeout(watchdog);
+    settled = true; clearInterval(watch);
     ioLog(why);
     ioKillPeer(p);
     ioNet.peer = null;
-    if (++ioNet.tries > 6) ioFinish('offline'); else ioTryHost();
+    if (!roomExists) {                                                                           // silent room: probably empty, take it
+      ioNet.silent = (ioNet.silent | 0) + 1;
+      if (ioNet.silent >= 3 || ++ioNet.tries > 6) ioFinish(ioNet.roomSeen ? 'unreachable' : 'offline');   // …unless it keeps staying silent
+      else ioTryHost();
+      return;
+    }
+    if (++ioNet.iceTries < 2) { ioLog('trying the connection once more'); ioTryGuest(); }       // the room is there but we couldn't reach it
+    else ioFinish('unreachable');
   };
   p.on('open', () => {
     if (ioNet.peer !== p) return;                 // abandoned attempt (timed out / superseded)
     ioLog('signaling server reached; connecting to the room');
-    const c = p.connect(IO_ROOM_ID, { reliable: true });
+    c = p.connect(IO_ROOM_ID, { reliable: true });
     const onOpen = () => {
       if (settled) return;
-      settled = true; clearTimeout(watchdog);
-      ioLog('data channel to the host is open');
+      settled = true; clearInterval(watch);
+      ioLog('data channel to the host is open (' + ((performance.now() - t0) / 1000).toFixed(1) + 's)');
       ioBecomeGuest(p, c);
       ioFinish('guest');
     };
@@ -4511,17 +4527,28 @@ function ioTryGuest() {
     c.on('close', () => ioHostLost());
     c.on('error', () => { if (settled) ioHostLost(); });
     if (c.open) onOpen(); else c.on('open', onOpen);
-    // a room whose host just vanished can swallow the request silently: don't wait 20s on it
-    watchdog = setTimeout(() => giveUp('no answer from the room after 5s — assuming it is empty'), 5000);
+    // Telling a ghost room from a slow connection: a room that never ANSWERS our offer is gone (give it ~5s, then
+    // take it over). A room that answered is real — negotiating across devices/networks can take a while, so wait.
+    watch = setInterval(() => {
+      if (settled || ioNet.peer !== p) { clearInterval(watch); return; }
+      const waited = performance.now() - t0, pc = c && c.peerConnection;
+      const sig = pc ? pc.signalingState : '', ice = pc ? pc.iceConnectionState : '';
+      const st = sig + '/' + ice;
+      if (pc && st !== lastState) { lastState = st; ioLog('connection progress: signaling ' + sig + ', ice ' + ice); }
+      if (ice === 'failed') return giveUp('the connection to the room failed', true);
+      if (pc && sig === 'have-local-offer' && waited > 5000) return giveUp('no answer from the room after 5s — assuming it is empty', false);
+      if (waited > 40000) return giveUp('gave up connecting after 40s', true);
+      if (waited > 2500) ioStatus('CONNECTING TO THE ROOM… ' + Math.floor(waited / 1000) + 's');
+    }, 500);
   });
   p.on('error', (err) => {
     if (settled || ioNet.peer !== p) return;
-    settled = true; clearTimeout(watchdog);
+    settled = true; clearInterval(watch);
     ioLog('guest connection error: ' + err.type);
     ioKillPeer(p);
     ioNet.peer = null;
     if (err.type === 'peer-unavailable' && ++ioNet.tries <= 6) ioTryHost();   // the room vanished while we looked: take it
-    else ioFinish('offline');
+    else ioFinish(ioNet.roomSeen ? 'unreachable' : 'offline');
   });
 }
 function ioTryHost() {
@@ -4536,8 +4563,9 @@ function ioTryHost() {
     ioKillPeer(p);
     ioNet.peer = null;
     ioLog('room name taken (' + err.type + ') — joining the host');
+    if (err.type === 'unavailable-id') ioNet.roomSeen = true;
     if (err.type === 'unavailable-id' && ++ioNet.tries <= 6) ioTryGuest();     // somebody is hosting: join them
-    else ioFinish('offline');
+    else ioFinish(err.type === 'unavailable-id' ? 'unreachable' : 'offline');
   });
 }
 
