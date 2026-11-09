@@ -198,6 +198,10 @@
     #io-colors { display: grid; grid-template-columns: repeat(8, 1fr); gap: 5px; }
     .io-sw { aspect-ratio: 1; border-radius: 50%; cursor: pointer; border: 2px solid #0d1117; box-sizing: border-box; }
     .io-sw.sel { border-color: #fff; box-shadow: 0 0 8px #ffffff80; }
+    #io-rejoin { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; z-index: 8; background: #05070d99; font-family: 'Courier New', monospace; pointer-events: none; }
+    #io-rejoin.show { display: flex; }
+    #io-rejoin div { background: #0a0a14ee; border: 2px solid #ffb347; padding: 16px 26px; color: #ffb347; font-weight: bold; text-align: center; letter-spacing: 1px; }
+    #io-rejoin small { display: block; margin-top: 6px; color: #8b949e; font-weight: normal; letter-spacing: 0; }
     #io-pats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
     .io-pat { cursor: pointer; border: 2px solid #30363d; border-radius: 6px; background: #0d1117; line-height: 0; padding: 2px; }
     .io-pat canvas { width: 100%; height: auto; }
@@ -278,6 +282,7 @@
     </div>
   </div>
 
+  <div id="io-rejoin"><div><span id="io-rejoin-msg"></span><small>you'll drop straight back in</small></div></div>
   <div id="iotitle">
     <div class="iobox">
       <h1>MINECRAWL<span>.IO</span></h1>
@@ -295,7 +300,7 @@
           <p class="hint">WASD move · SPACE poll · E shoot · ESC inventory · Z camera</p>
         </div>
         <div>
-          <h2>LIVE BOARD</h2><div id="io-board"></div>
+          <h2>TOP KILLS · THIS LIFE</h2><div id="io-board"></div>
           <h2 style="margin-top:16px">YOUR RECORD</h2><div id="io-stats"></div>
           <p class="hint">ONLINE: the first person to press PLAY hosts the room (keep that tab open and in front); everyone after joins them. If nobody can be reached you play offline against bots.</p>
           <p class="hint"><a href="#" id="io-logtoggle" style="color:#586069">network log</a></p>
@@ -325,7 +330,7 @@
 // snapshot only carries dynamic state.
 // =====================================================================
 
-const GAME_VER = 'io-0.7';
+const GAME_VER = 'io-0.9';
 const TILE = 32;
 let HUD_H = 64;   // grows one 16px row per teammate (party status board)
 const TICK_MS = 50, TICK_DT = TICK_MS / 1000;   // 20Hz fixed sim step
@@ -680,7 +685,7 @@ function anyPerk(id) { return players.some(p => !p.left && p.perks[id]); }
 // Host/solo submits automatically at run end, on behalf of the whole party.
 const AT_BASE  = 'appsvu3ApgrBKyAx6';
 const AT_TABLE = 'Minecrawl Rogue';
-const AT_TOKEN = '';   // (unused in the io build)
+const AT_TOKEN = 'patxeMh9t8lsRlU9l.973e131b2895f6b1e921cb91959264ec16e1a9c5e1d481e7ae18bd2c2e73881b';
 const AT_URL   = `https://api.airtable.com/v0/${AT_BASE}/${encodeURIComponent(AT_TABLE)}`;
 let leaderboard = [], lbStatus = '', pendingSubmitWon = null;
 
@@ -3997,6 +4002,7 @@ function ioStartWorld() {
   player.downed = true; player.left = true; player.hp = 0; player.bullets = 0; player.respawnAt = Infinity;
 }
 function ioShowTitle() {
+  ioRejoinHide();
   ioDemo = true;
   document.getElementById('iotitle').classList.add('show');
   ioRefreshTitle();
@@ -4005,6 +4011,7 @@ function ioToTitle() {
   ioSave();
   if (ioNet.state === 'guest') { ioLeaveRoom(); return; }       // guests drop back to a local demo
   const me = players[0];                                         // the host keeps the room running as a ghost
+  if (!me.downed && !me.left) ioLogLife(me, null, 'LEFT', simNow, me.streak | 0);
   me.downed = true; me.left = true; me.hp = 0; me.respawnAt = Infinity;
   ioShowTitle();
 }
@@ -4023,6 +4030,7 @@ function ioPlay() {
   });
 }
 function ioPlayLocal() {
+  ioRejoinHide();
   const me = players[0];
   me.name = ioSkin.name || 'PLAYER';
   // free the look: any bot wearing it gets a fresh one
@@ -4038,6 +4046,7 @@ function ioPlayLocal() {
   });
   me.color = ioSkin.color; me.pat = ioSkin.pat; me.c2 = ioSkin.c2 || '';
   me.kills = 0; me.deaths = 0; me.streak = 0;
+  me.lifeNo = 0; me.pid = ioPid();
   me.left = false;
   ioStats.plays++; ioSave();
   ioDemo = false;
@@ -4047,6 +4056,12 @@ function ioPlayLocal() {
 }
 
 // ---- title screen UI (skins, board, record)
+function ioRejoinShow(msg) {
+  const el = document.getElementById('io-rejoin');
+  document.getElementById('io-rejoin-msg').textContent = msg;
+  el.classList.add('show');
+}
+function ioRejoinHide() { document.getElementById('io-rejoin').classList.remove('show'); }
 function ioBuildUI() {
   document.getElementById('io-ver').textContent = GAME_VER;
   ioLog('minecrawl.io ' + GAME_VER + ' · protocol ' + IO_PROTO);
@@ -4098,22 +4113,27 @@ function ioRefreshSkinUI() {
   c.fillStyle = ioSkin.color + '22'; c.beginPath(); c.arc(48, 52, 42, 0, Math.PI * 2); c.fill();
   drawAvatar(c, 48, 52, 26, ioSkin.color, ioSkin.pat, ioSkin.c2, -Math.PI / 2, true);
 }
+// the boards rank kills on the CURRENT life (dying resets you to zero). `streak` is exactly that count.
 function ioBoardRows() {
-  return players.filter(p => !p.left).map(p => {
-    const k = p.kills | 0, d = p.deaths | 0;
-    return { p, kills: k, deaths: d, kd: k / Math.max(1, d) };
-  }).sort((a, b) => (b.kills - a.kills) || (b.kd - a.kd));
+  return players.filter(p => !p.left).map(p => ({ p, life: p.streak | 0 }))
+    .sort((a, b) => (b.life - a.life) || (a.p.idx - b.p.idx));
 }
-function ioRank() { const r = ioBoardRows().findIndex(x => x.p === players[myIdx]); return r < 0 ? '-' : r + 1; }
+function ioRank() {
+  const me = players[myIdx];
+  if (!me) return '-';
+  const m = me.streak | 0;
+  return 1 + players.filter(p => !p.left && (p.streak | 0) > m).length;
+}
 function ioScoreLine() {
   const me = players[myIdx], k = me.kills | 0, d = me.deaths | 0;
   return 'K ' + k + ' · D ' + d + ' · K/D ' + (k / Math.max(1, d)).toFixed(2) + ((me.streak | 0) > 1 ? ' · STREAK ' + me.streak : '');
 }
 function ioRefreshTitle() {
-  const rows = ioBoardRows().slice(0, 8);
-  document.getElementById('io-board').innerHTML = rows.map((r, i) =>
+  const rows = ioBoardRows().filter(r => r.life > 0).slice(0, 8);
+  document.getElementById('io-board').innerHTML = rows.length ? rows.map((r, i) =>
     '<div class="io-row"><span style="color:' + r.p.color + '">' + (i + 1) + '. ' +
-    esc((r.p.bot ? '⚙' : '') + r.p.name.toUpperCase()) + '</span><span>' + r.kills + ' K · ' + r.kd.toFixed(2) + ' K/D</span></div>').join('');
+    esc((r.p.bot ? '⚙' : '') + r.p.name.toUpperCase()) + '</span><span>' + r.life + ' kill' + (r.life === 1 ? '' : 's') + '</span></div>').join('')
+    : '<div class="io-row"><span style="color:#586069">nobody has a kill yet this life</span><span></span></div>';
   const kd = ioStats.kills / Math.max(1, ioStats.deaths);
   document.getElementById('io-stats').innerHTML =
     '<div class="io-row"><span>K/D RATIO</span><span style="color:#00ff88">' + kd.toFixed(2) + '</span></div>' +
@@ -4135,23 +4155,24 @@ function ioUiTick() {
 // ---- in-game scoreboard + respawn screen
 function drawIoBoard(now) {
   if (!run || !run.cfg || !run.cfg.io || ioDemo) return;
-  const rows = ioBoardRows();
+  const me = players[myIdx];
+  const rows = ioBoardRows().filter(r => r.life > 0 || r.p === me);     // only players with a kill this life (plus you)
   const list = rows.slice(0, 6);
-  const mine = rows.findIndex(r => r.p === players[myIdx]);
+  const mine = rows.findIndex(r => r.p === me);
   if (mine >= 6) list.push(rows[mine]);
   const wpx = 168, hpx = 22 + list.length * 14, x0 = W - wpx - 8, y0 = HUD_H + 6;
   ctx.save();
   ctx.fillStyle = '#0d1117d0'; ctx.fillRect(x0, y0, wpx, hpx);
   ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
   ctx.font = 'bold 10px Courier New'; ctx.fillStyle = '#ffd700';
-  ctx.fillText('TOP KILLS' + (ioNet.state !== 'offline' ? ' · ' + ioHumans() + ' ONLINE' : ''), x0 + 8, y0 + 10);
+  ctx.fillText('KILLS THIS LIFE' + (ioNet.state !== 'offline' ? ' · ' + ioHumans() + ' ONLINE' : ''), x0 + 8, y0 + 10);
   list.forEach((r, i) => {
-    const rk = i < 6 ? i + 1 : mine + 1, y = y0 + 25 + i * 14;
+    const rk = r.life > 0 ? 1 + rows.filter(q => q.life > r.life).length : '-', y = y0 + 25 + i * 14;
     ctx.fillStyle = r.p.color; ctx.font = (r.p === players[myIdx] ? 'bold ' : '') + '10px Courier New';
     ctx.textAlign = 'left';
     ctx.fillText(rk + ' ' + (r.p.bot ? '⚙' : '') + r.p.name.toUpperCase().slice(0, 9), x0 + 8, y);
     ctx.fillStyle = '#c9d1d9'; ctx.textAlign = 'right';
-    ctx.fillText(r.kills + '  ' + r.kd.toFixed(1), x0 + wpx - 8, y);
+    ctx.fillText(String(r.life), x0 + wpx - 8, y);
   });
   ctx.restore();
 }
@@ -4226,6 +4247,7 @@ function respawnPlayer(pl, now) {
   pl.iframeUntil = now + 3500;                               // spawn protection
   pl.moveBudget = 1; pl.taps = []; pl.acts = []; pl.botMove = null; pl.botWake = 0;
   pl.lastBy = -1; pl.respawnAt = undefined; pl.stall = 0; pl.goalI = -1; pl.lootI = -1;
+  pl.lifeStart = now; pl.lifeNo = (pl.lifeNo | 0) + 1; pl.lifeBotKills = 0; pl.lifeHumanKills = 0; pl.lifeLogged = false;
   fx('burst', s.x, s.y, pl.color);
   if (pl === player) camSnap = true;
 }
@@ -4237,12 +4259,14 @@ function ioOnDeath(pl, now) {
   if (kb && kb !== pl) {
     kb.kills = (kb.kills | 0) + 1;
     kb.streak = (kb.streak | 0) + 1;
+    if (pl.bot) kb.lifeBotKills = (kb.lifeBotKills | 0) + 1; else kb.lifeHumanKills = (kb.lifeHumanKills | 0) + 1;
     if (kb === players[0] && !ioDemo) ioBump('kill', kb.streak);
   }
   dropKillLoot(pl);
   const vn = (pl.name || 'PLAYER').toUpperCase();
   const cause = pl.lastSrc === 'contact' ? 'A MONSTER' : pl.lastSrc === 'explosion' ? 'A BLAST' :
     pl.lastSrc === 'bullet' ? 'A STRAY SHOT' : '';
+  if (!pl.bot) ioLogLife(pl, kb, cause, now, lost);          // a human's life just ended: one row in Airtable
   const parts = kb
     ? [[vn, pl.color], [' ← ', '#ffd700'], [(kb.name || '?').toUpperCase(), kb.color]]
     : [[vn, pl.color], [cause ? ' ← ' + cause : ' IS OUT', '#ffd700']];
@@ -4348,7 +4372,7 @@ const IO_ROOM_ID = 'mcio-room-main-v1';
 const IO_PROTO = 6;                      // bump whenever the host<->guest messages change shape
 const IO_SNAP_EVERY = 2;                 // sim ticks between snapshots (20Hz sim -> 10Hz)
 const IO_INTEREST = 48;                  // tiles around a guest's camera that get entity updates
-const ioNet = { dbg: { welcome: false, fp: 0, full: false }, state: 'offline', peer: null, busy: false, cb: null, timer: null, viewTimer: null,
+const ioNet = { pingN: 0, lastHeard: 0, dbg: { welcome: false, fp: 0, full: false }, state: 'offline', peer: null, busy: false, cb: null, timer: null, viewTimer: null,
   reTries: 0, wasPlaying: false, seen: { k: 0, d: 0 } };
 
 const ioLogBuf = [];
@@ -4431,13 +4455,16 @@ function ioApplyInfo(inf) {
 // ===================================================================
 // connecting: try the room as a guest first; if nobody is home, host it
 // ===================================================================
+// Claim the room name FIRST. Claiming is instant either way — it succeeds (nobody was hosting: you are the
+// host, no waiting) or fails at once because someone is, in which case you join them. Trying to JOIN first
+// meant a ~6 second wait whenever the room was empty, e.g. every time a host left.
 function ioConnect(cb) {
   if (ioNet.busy) return;
   if (typeof Peer === 'undefined') { cb('offline'); return; }
   ioNet.busy = true; ioNet.cb = cb; ioNet.tries = 0;
   ioLog('PLAY: looking for the room (' + IO_ROOM_ID + ')');
-  ioNet.timer = setTimeout(() => { ioTeardownPeer(); ioFinish('offline'); }, 20000);
-  ioTryGuest();
+  ioNet.timer = setTimeout(() => { ioTeardownPeer(); ioFinish('offline'); }, 25000);
+  ioTryHost();
 }
 function ioFinish(res) {
   clearTimeout(ioNet.timer);
@@ -4445,22 +4472,37 @@ function ioFinish(res) {
   const cb = ioNet.cb; ioNet.cb = null;
   if (cb) cb(res);
 }
+// PeerJS emits 'disconnected' from inside destroy(), before it marks the peer destroyed — so a handler that
+// reconnects on 'disconnected' would quietly revive it and the dead peer would keep HOLDING THE ROOM NAME.
+function ioKillPeer(p) {
+  if (!p) return;
+  p._ioDead = true;
+  try { p.destroy(); } catch (e) {}
+}
 function ioTeardownPeer() {
-  try { if (ioNet.peer) ioNet.peer.destroy(); } catch (e) {}
+  ioKillPeer(ioNet.peer);
   ioNet.peer = null;
 }
 function ioTryGuest() {
-  ioStatus('LOOKING FOR THE ROOM…');
+  ioStatus('JOINING THE ROOM…');
   const p = new Peer(peerOpts());
   ioNet.peer = p;
-  let settled = false;
+  let settled = false, watchdog = null;
+  const giveUp = (why) => {                                    // the room isn't answering: it may be empty — try to take it over
+    if (settled || ioNet.peer !== p) return;
+    settled = true; clearTimeout(watchdog);
+    ioLog(why);
+    ioKillPeer(p);
+    ioNet.peer = null;
+    if (++ioNet.tries > 6) ioFinish('offline'); else ioTryHost();
+  };
   p.on('open', () => {
     if (ioNet.peer !== p) return;                 // abandoned attempt (timed out / superseded)
     ioLog('signaling server reached; connecting to the room');
     const c = p.connect(IO_ROOM_ID, { reliable: true });
     const onOpen = () => {
       if (settled) return;
-      settled = true;
+      settled = true; clearTimeout(watchdog);
       ioLog('data channel to the host is open');
       ioBecomeGuest(p, c);
       ioFinish('guest');
@@ -4469,19 +4511,21 @@ function ioTryGuest() {
     c.on('close', () => ioHostLost());
     c.on('error', () => { if (settled) ioHostLost(); });
     if (c.open) onOpen(); else c.on('open', onOpen);
+    // a room whose host just vanished can swallow the request silently: don't wait 20s on it
+    watchdog = setTimeout(() => giveUp('no answer from the room after 5s — assuming it is empty'), 5000);
   });
   p.on('error', (err) => {
     if (settled || ioNet.peer !== p) return;
-    settled = true;
+    settled = true; clearTimeout(watchdog);
     ioLog('guest connection error: ' + err.type);
-    try { p.destroy(); } catch (e) {}
+    ioKillPeer(p);
     ioNet.peer = null;
-    if (err.type === 'peer-unavailable') ioTryHost();          // nobody is hosting: that's us
+    if (err.type === 'peer-unavailable' && ++ioNet.tries <= 6) ioTryHost();   // the room vanished while we looked: take it
     else ioFinish('offline');
   });
 }
 function ioTryHost() {
-  ioStatus('OPENING THE ROOM…');
+  ioStatus('LOOKING FOR THE ROOM…');
   const p = new Peer(IO_ROOM_ID, peerOpts());
   ioNet.peer = p;
   let settled = false;
@@ -4489,11 +4533,10 @@ function ioTryHost() {
   p.on('error', (err) => {
     if (settled || ioNet.peer !== p) return;
     settled = true;
-    try { p.destroy(); } catch (e) {}
+    ioKillPeer(p);
     ioNet.peer = null;
-    ioLog('host attempt error: ' + err.type);
-    if (err.type === 'unavailable-id' && ++ioNet.tries < 5)    // somebody just beat us to it: join them
-      setTimeout(ioTryGuest, 500 + Math.random() * 700);
+    ioLog('room name taken (' + err.type + ') — joining the host');
+    if (err.type === 'unavailable-id' && ++ioNet.tries <= 6) ioTryGuest();     // somebody is hosting: join them
     else ioFinish('offline');
   });
 }
@@ -4509,7 +4552,7 @@ function ioBecomeHost(p) {
   ioStartClock();
   ioUpdateTitle();
   p.on('connection', ioHostAccept);
-  p.on('disconnected', () => { try { p.reconnect(); } catch (e) {} });
+  p.on('disconnected', () => { if (p._ioDead || p.destroyed) return; try { p.reconnect(); } catch (e) {} });
   p.on('error', () => {});
   ioStatus(ioNetLabel());
 }
@@ -4526,13 +4569,17 @@ function ioHostDrop(conn) {
   clearTimeout(conn._joinT);
   if (!net.conns.includes(conn)) return;
   net.conns = net.conns.filter(c => c !== conn);
-  if (conn._idx > 0) ioFreeSlot(conn._idx);
+  if (conn._idx > 0) {
+    const lp = players[conn._idx];
+    if (lp && !lp.bot && !lp.downed && !lp.left) ioLogLife(lp, null, 'LEFT', simNow, lp.streak | 0);   // left mid-life
+    ioFreeSlot(conn._idx);
+  }
   conn._idx = -1;
   try { conn.close(); } catch (e) {}
   ioStatus(ioNetLabel());
 }
 // a human takes over the bot that is worth least (preferring one that's currently dead)
-function ioClaimSlot(name, color, pat, c2) {
+function ioClaimSlot(name, color, pat, c2, pid) {
   const cand = players.filter(p => p.bot && !p.left && p.idx !== 0)
     .sort((a, b) => ((b.downed ? 1 : 0) - (a.downed ? 1 : 0)) || ((a.kills | 0) - (b.kills | 0)))[0];
   if (!cand) return -1;
@@ -4549,6 +4596,7 @@ function ioClaimSlot(name, color, pat, c2) {
   });
   cand.bot = false; cand.name = name; cand.color = color; cand.pat = pat; cand.c2 = c2 || '';
   cand.kills = 0; cand.deaths = 0; cand.streak = 0; cand.lastSeq = 0;
+  cand.lifeNo = 0; cand.pid = pid || '';
   respawnPlayer(cand, simNow);
   return cand.idx;
 }
@@ -4568,6 +4616,7 @@ function ioFreeSlot(idx) {
 }
 function ioHostOnData(conn, m) {
   if (!m || typeof m !== 'object') return;
+  if (m.t === 'ping') { try { conn.send({ t: 'pong', n: m.n }); } catch (e) {} return; }
   if (m.t === 'play') { ioHostPlay(conn, m); return; }
   if (m.t === 'ready') { conn._acked = true; clearTimeout(conn._joinT); return; }
   if (m.t === 'leave') { ioHostDrop(conn); return; }
@@ -4635,7 +4684,7 @@ function ioHostPlay(conn, m) {
   const color = COLORS.slice(0, COLOR_BASE).includes(m.col) ? m.col : COLORS[0];
   const pat = Math.max(0, Math.min(IO_PATTERNS - 1, m.pat | 0));
   const c2 = m.c2 && COLORS.slice(0, COLOR_BASE).includes(m.c2) ? m.c2 : '';
-  const idx = ioClaimSlot(name, color, pat, c2);
+  const idx = ioClaimSlot(name, color, pat, c2, String(m.pid || '').replace(/[^\w-]/g, '').slice(0, 24));
   if (idx < 0) { try { conn.send({ t: 'busy' }); } catch (e) {} setTimeout(() => { try { conn.close(); } catch (e) {} }, 200); return; }
   conn._idx = idx;
   try { ioSendWorld(conn); }
@@ -4736,16 +4785,21 @@ function ioSnap() {
 // GUEST
 // ===================================================================
 function ioBecomeGuest(p, c) {
+  ioNet.lastHeard = performance.now();
   net.mode = 'guest'; net.peer = p; net.hostConn = c; net.conns = [];
   net.clockOff = null; net.snapSim = 0;
   ioNet.state = 'guest'; ioNet.seen = { k: 0, d: 0 };
-  p.on('disconnected', () => { try { p.reconnect(); } catch (e) {} });
+  p.on('disconnected', () => { if (p._ioDead || p.destroyed) return; try { p.reconnect(); } catch (e) {} });
   p.on('error', () => {});
   clearInterval(ioNet.viewTimer);
   // tell the host where our camera is, so it sends the monsters/effects we can actually see
   ioNet.viewTimer = setInterval(() => {
     if (net.mode !== 'guest') return;
+    const nowT = performance.now();
+    if (nowT - (ioNet.pingSentAt || 0) > 1000) { ioNet.pingSentAt = nowT; net.sendHost({ t: 'ping', n: ++ioNet.pingN }); }   // 'is your page alive?'
     net.sendHost({ t: 'view', x: Math.round(camTx), y: Math.round(camTy) });
+    // nothing at all (not even a pong) for a few seconds: the host's page is gone, don't wait for the long timeout
+    if (!ioDemo && nowT - Math.max(ioNet.lastHeard, net.lastSnapWall) > ioNet.deadMs) { ioHostLost('THE HOST DISAPPEARED — REJOINING…'); return; }
     if (!ioDemo && performance.now() - net.lastSnapWall > ioNet.stallMs)      // the host went quiet for good
       ioHostLost('THE HOST WENT QUIET — RECONNECTING…');
   }, 400);
@@ -4753,7 +4807,7 @@ function ioBecomeGuest(p, c) {
 }
 function ioAskPlay() {
   net.sendHost({ t: 'play', proto: IO_PROTO, ver: GAME_VER, name: ioSkin.name || 'PLAYER',
-    col: ioSkin.color, pat: ioSkin.pat, c2: ioSkin.c2 || '' });
+    col: ioSkin.color, pat: ioSkin.pat, c2: ioSkin.c2 || '', pid: ioPid() });
 }
 function ioSendPlay() {
   ioStatus('JOINING THE ARENA…');
@@ -4777,6 +4831,7 @@ function ioSendPlay() {
   }, 12000);
 }
 function ioGuestOnData(m) {
+  ioNet.lastHeard = performance.now();
   if (!m || typeof m !== 'object') return;
   if (m.t === 'welcome') {
     myIdx = m.idx; ioNet.cfg = m.cfg; ioNet.fp = []; ioNet.fr = []; ioNet.dbg.welcome = true;
@@ -4786,6 +4841,8 @@ function ioGuestOnData(m) {
     ioStatus('THE HOST IS ON A DIFFERENT VERSION (' + m.ver + ', YOURS IS ' + GAME_VER + ') — REFRESH BOTH PAGES, THEN PRESS PLAY', 25000);
     ioLeaveRoom();
   }
+  else if (m.t === 'pong') { ioNet.rtt = performance.now() - (ioNet.pingSentAt || performance.now()); }
+  else if (m.t === 'bye') ioHostLost('THE HOST LEFT — REJOINING…');             // the host said goodbye: no need to wait and see
   else if (m.t === 'stalled') ioGuestRetryLater();
   else if (m.t === 'failed') { ioStatus('THE HOST COULDN\'T SEND YOU THE WORLD — PRESS PLAY TO TRY AGAIN', 12000); ioLeaveRoom(); }
   else if (m.t === 'busy') { ioStatus('THE ROOM IS FULL — TRY AGAIN SOON'); ioLeaveRoom(); }
@@ -4820,6 +4877,7 @@ function ioApplyTiles(gd) {
   }
 }
 function ioGuestFull(m) {
+  ioRejoinHide();
   clearTimeout(ioNet.joinTimer); clearTimeout(ioNet.retry1); clearTimeout(ioNet.retry2);
   const codesIn = ioNet.fp || [], rgIn = ioNet.fr || [];
   run = { seed: 0, depth: 1, arena: true, cfg: ioNet.cfg, winner: -1, shrinkLevel: 0, shrinkNext: 0,
@@ -4923,34 +4981,39 @@ function ioLeaveRoom() {
 function ioHostLost(msg) {
   if (ioNet.state !== 'guest') return;
   ioLog('lost the host: ' + (msg || 'connection closed'));
-  clearInterval(ioNet.viewTimer);
+  clearInterval(ioNet.viewTimer); clearTimeout(ioNet.joinTimer);
   ioNet.wasPlaying = !ioDemo;
+  const slot = Math.max(0, myIdx | 0);
   ioTeardownPeer();
   net.mode = null; net.hostConn = null; ioNet.state = 'offline';
   ioStartWorld();
-  ioShowTitle();
-  ioStatus(msg || 'THE HOST LEFT — RECONNECTING…', 15000);
   ioNet.reTries = 0;
-  setTimeout(ioAutoReconnect, 2500);
+  if (ioNet.wasPlaying) {
+    ioDemo = true;                                       // stand on a local world while the room is sorted out…
+    ioRejoinShow(msg || 'THE HOST LEFT — REJOINING…');   // …without dropping the player on the title screen
+  } else { ioShowTitle(); ioStatus(msg || 'THE HOST LEFT — RECONNECTING…', 15000); }
+  // the lowest slot goes first, so one player opens the new room and the rest simply join it
+  setTimeout(ioAutoReconnect, 100 + Math.min(8, slot) * 120);
 }
-// the host answered but its world is frozen (it will step down soon): back to the title, retry shortly
+// the host answered but its world is frozen (it will step down soon): wait, then retry
 function ioGuestRetryLater() {
   clearInterval(ioNet.viewTimer); clearTimeout(ioNet.joinTimer);
   ioNet.wasPlaying = true;
+  const slot = Math.max(0, myIdx | 0);
   ioTeardownPeer();
   net.mode = null; net.hostConn = null; ioNet.state = 'offline';
   ioStartWorld();
-  ioShowTitle();
-  ioStatus('THE HOST IS AWAY — WAITING FOR A NEW ROOM…', 15000);
-  setTimeout(ioAutoReconnect, 4000);
+  ioDemo = true;
+  ioRejoinShow('THE HOST IS AWAY — WAITING FOR A NEW ROOM…');
+  setTimeout(ioAutoReconnect, 2500 + Math.min(8, slot) * 250);
 }
 function ioAutoReconnect() {
   if (ioNet.state !== 'offline' || ioNet.busy) return;
-  if (++ioNet.reTries > 12) { ioStatus('COULDN\'T REACH THE ROOM — PRESS PLAY TO TRY AGAIN'); return; }
+  if (++ioNet.reTries > 20) { ioRejoinHide(); ioShowTitle(); ioStatus('COULDN\'T REACH THE ROOM — PRESS PLAY TO TRY AGAIN', 20000); return; }
   ioConnect(res => {
-    if (res === 'host') { ioStatus(ioNetLabel()); if (ioNet.wasPlaying) ioPlayLocal(); }
+    if (res === 'host') { ioStatus(ioNetLabel()); if (ioNet.wasPlaying) { ioPlayLocal(); ioRejoinHide(); } else ioRejoinHide(); }
     else if (res === 'guest') { /* ioBecomeGuest already sent PLAY (or will once we're back on the title) */ }
-    else setTimeout(ioAutoReconnect, 3000);
+    else setTimeout(ioAutoReconnect, 2000);
   });
 }
 
@@ -4965,9 +5028,10 @@ function ioAutoReconnect() {
 //     after a while so the room can move to a player who is looking at the game
 //  4. host tips: tab title, an on-screen badge, and a "leave site?" prompt while hosting
 // =====================================================================
-ioNet.stallMs = 20000;       // guest: no snapshots for this long -> give up on the host
-ioNet.abdicateMs = 20000;    // host: hidden this long with a stalled sim -> step down
-ioNet.staleMs = 8000;        // host: the sim counts as frozen if it hasn't ticked for this long
+ioNet.stallMs = 10000;       // guest: host's page answers but its world isn't moving this long -> give up on it
+ioNet.deadMs = 4000;         // guest: NOTHING heard from the host (not even a pong) this long -> the page is gone
+ioNet.abdicateMs = 10000;    // host: hidden this long with a stalled sim -> step down
+ioNet.staleMs = 5000;        // host: the sim counts as frozen if it hasn't ticked for this long
 ioNet.lastRaf = 0;
 ioNet.lastTick = performance.now();
 ioNet.freeze = false;        // (test hook: pretend the host's sim is frozen)
@@ -5023,6 +5087,7 @@ function ioAbdicateCheck() {
 function ioAbdicate() {
   ioLog('stepping down as host (the world was frozen while this tab was hidden)');
   ioNet.wasPlaying = !ioDemo;
+  ioLogAllLives('LEFT'); ioAtFlush(true);                          // everyone's current life ends with the room
   ioStopClock();
   net.conns.forEach(c => { try { c.close(); } catch (e) {} });          // guests see the host leave and re-elect
   ioTeardownPeer();
@@ -5057,6 +5122,154 @@ function drawHostBadge() {
 document.addEventListener('visibilitychange', ioOnVisibility);
 window.addEventListener('beforeunload', (e) => {
   if (net.mode === 'host' && net.conns.some(c => c._ready)) { e.preventDefault(); e.returnValue = ''; }
+});
+
+// the host's tab is closing: say goodbye and close every channel so guests react in a moment,
+// instead of waiting for a timeout
+window.addEventListener('pagehide', () => {
+  if (net.mode !== 'host') return;
+  net.conns.forEach(c => { try { c.send({ t: 'bye' }); } catch (e) {} });
+  ioKillPeer(net.peer);
+});
+
+// =====================================================================
+// PER-LIFE STATS -> AIRTABLE   (table "IO Lives", same base as the classic leaderboard)
+//
+// One row per human life, written by the HOST (it sees the whole sim, so the numbers are
+// consistent). A life ends when you die — or when you leave mid-life (row says LEFT).
+// Rows are queued and sent in batches of up to 10 (Airtable allows 5 requests/second),
+// retried with backoff if the network or Airtable hiccups, and flushed when the tab hides/closes.
+// If the table is missing a column, that one column is skipped instead of losing every row.
+// =====================================================================
+const IO_AT_TABLE = 'IO Lives';
+const IO_AT_URL = `https://api.airtable.com/v0/${AT_BASE}/${encodeURIComponent(IO_AT_TABLE)}`;
+const IO_SESSION = Math.random().toString(36).slice(2, 10);
+const ioAT = { queue: [], timer: null, inflight: false, skip: new Set(), backoff: 0, sent: 0, dropped: 0,
+  disabled: false, lastError: '' };
+
+// an anonymous, persistent id for this browser (so a player's lives link up even if they rename)
+function ioPid() {
+  let id = '';
+  try { id = localStorage.getItem('mcio-pid') || ''; } catch (e) {}
+  if (!id) {
+    id = Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 6);
+    try { localStorage.setItem('mcio-pid', id); } catch (e) {}
+  }
+  return id;
+}
+
+// called by the host when a human's life ends. kb = killer (or null), cause = text, kills = kills this life
+function ioLogLife(pl, kb, cause, now, kills) {
+  if (!pl || pl.bot || pl.lifeLogged || pl.lifeStart === undefined) return;
+  pl.lifeLogged = true;
+  const aliveMs = Math.max(0, now - pl.lifeStart);
+  let ktype = 'ARENA', kby = 'THE ARENA';
+  if (cause === 'LEFT') { ktype = 'LEFT'; kby = 'LEFT THE ARENA'; }
+  else if (kb) { ktype = kb.bot ? 'BOT' : 'PLAYER'; kby = kb.name || '?'; }
+  else if (cause === 'A MONSTER') { ktype = 'MONSTER'; kby = 'A MONSTER'; }
+  else if (cause === 'A BLAST') { ktype = 'BLAST'; kby = 'A BLAST'; }
+  else if (cause === 'A STRAY SHOT') { ktype = 'STRAY SHOT'; kby = 'A STRAY SHOT'; }
+  const perks = Object.keys(pl.perks || {}).map(id => {
+    const p = perkById(id);
+    return (p ? p.name : id) + (pl.perks[id] > 1 ? ' x' + pl.perks[id] : '');
+  }).join(', ');
+  const mode = net.mode === 'host' ? (pl.idx === 0 ? 'ONLINE HOST' : 'ONLINE GUEST') : 'OFFLINE';
+  ioAtEnqueue({
+    'Player': pl.name || 'PLAYER',
+    'Host': (players[0] && !players[0].left && players[0].name) || ioSkin.name || 'PLAYER',   // who was running the room
+    'Is Host': pl.idx === 0,
+    'Mode': mode,
+    'Kills': kills | 0,
+    'Bot Kills': pl.lifeBotKills | 0,
+    'Player Kills': pl.lifeHumanKills | 0,
+    'Time Alive': Math.round(aliveMs / 100) / 10,                     // seconds
+    'Killed By': kby,
+    'Killer Type': ktype,
+    'Perks': perks,
+    'Skin': (COLOR_NAMES[pl.color] || pl.color) + ' ' + (PATTERN_NAMES[pl.pat | 0] || 'SOLID'),
+    'Players Online': ioHumans(),
+    'Life #': pl.lifeNo | 0,
+    'Started At': new Date(Date.now() - aliveMs).toISOString(),
+    'Ended At': new Date().toISOString(),
+    'Player ID': pl.pid || '',
+    'Session ID': IO_SESSION,
+    'Version': GAME_VER,
+  });
+}
+// everybody currently alive has their life closed out (host leaving / stepping down)
+function ioLogAllLives(cause) {
+  players.forEach(p => { if (!p.bot && !p.left && !p.downed) ioLogLife(p, null, cause, simNow, p.streak | 0); });
+}
+
+function ioAtEnqueue(fields) {
+  if (ioAT.disabled || !AT_TOKEN) return;
+  ioAT.queue.push(fields);
+  if (ioAT.queue.length > 300) { ioAT.queue.shift(); ioAT.dropped++; }
+  if (ioAT.queue.length >= 10) ioAtFlush();
+  else if (!ioAT.timer) ioAT.timer = setTimeout(() => ioAtFlush(), 5000);
+}
+function ioAtSchedule(ms) {
+  if (ioAT.timer) clearTimeout(ioAT.timer);
+  ioAT.timer = setTimeout(() => ioAtFlush(), ms);
+}
+function ioAtFlush(keepalive) {
+  clearTimeout(ioAT.timer); ioAT.timer = null;
+  if (ioAT.inflight || !ioAT.queue.length || ioAT.disabled || !AT_TOKEN) return;
+  const batch = ioAT.queue.slice(0, 10);
+  const records = batch.map(f => {
+    const o = {};
+    for (const k in f) if (!ioAT.skip.has(k)) o[k] = f[k];
+    return { fields: o };
+  });
+  const body = JSON.stringify({ records, typecast: true });
+  ioAT.inflight = true;
+  const done = (ok) => { ioAT.inflight = false; if (ok && ioAT.queue.length) ioAtSchedule(1000); };
+  fetch(IO_AT_URL, {
+    method: 'POST', keepalive: !!keepalive && body.length < 60000,
+    headers: { Authorization: 'Bearer ' + AT_TOKEN, 'Content-Type': 'application/json' }, body,
+  }).then(r => r.json().catch(() => ({})).then(d => ({ status: r.status, ok: r.ok, d })))
+    .then(({ status, ok, d }) => {
+      if (ok) {
+        ioAT.queue.splice(0, batch.length);
+        ioAT.sent += batch.length; ioAT.backoff = 0; ioAT.lastError = '';
+        if (ioAT.sent === batch.length) console.info('[io] first lives written to Airtable ✓');
+        return done(true);
+      }
+      const msg = (d && d.error && (d.error.message || d.error.type)) || ('HTTP ' + status);
+      ioAT.lastError = status + ' ' + msg;
+      const unknown = /Unknown field name: "([^"]+)"/.exec(msg);
+      if (status === 422 && unknown) {                           // the table lacks a column: skip it from now on, resend
+        console.warn('[io] Airtable table "' + IO_AT_TABLE + '" has no field "' + unknown[1] + '" — skipping that column');
+        ioAT.skip.add(unknown[1]);
+        return done(true);
+      }
+      if (status === 401 || status === 403) {                    // bad token / no permission: stop trying this session
+        console.error('[io] Airtable refused the write (' + msg + '). Check the token has data.records:write on this base.');
+        ioAT.disabled = true; ioAT.queue.length = 0;
+        return done(false);
+      }
+      if (status === 422) {                                      // a value Airtable can't accept: drop this batch rather than loop forever
+        console.error('[io] Airtable rejected a batch (' + msg + ') — dropping those ' + batch.length + ' rows');
+        ioAT.queue.splice(0, batch.length); ioAT.dropped += batch.length;
+        return done(true);
+      }
+      // 404 (table not created yet), 429 (rate limit), 5xx: keep the rows and try again later
+      ioAT.backoff = Math.min(60000, (ioAT.backoff || 2000) * 2);
+      if (status === 404) console.warn('[io] Airtable table "' + IO_AT_TABLE + '" not found yet — will keep trying (' + ioAT.queue.length + ' rows waiting)');
+      ioAtSchedule(ioAT.backoff);
+      done(false);
+    })
+    .catch(err => {                                              // offline / blocked
+      ioAT.lastError = String(err && err.message || err);
+      ioAT.backoff = Math.min(60000, (ioAT.backoff || 2000) * 2);
+      ioAtSchedule(ioAT.backoff);
+      done(false);
+    });
+}
+document.addEventListener('visibilitychange', () => { if (document.hidden) ioAtFlush(); });
+window.addEventListener('pagehide', () => {
+  if (net.mode !== 'guest') ioLogAllLives('LEFT');               // the host's tab is closing: end every life in the room
+  ioAtFlush(true);
 });
 
 // ---- CAMERA ----
@@ -5323,7 +5536,8 @@ function render(now, wall) {
     ctx.restore();
     ctx.fillStyle = '#8b949e';
     ctx.font = '12px Courier New';
-    const stallLeft = Math.max(0, Math.ceil((ioNet.stallMs - (performance.now() - net.lastSnapWall)) / 1000));
+    const sinceHeard = performance.now() - Math.max(ioNet.lastHeard, net.lastSnapWall);
+    const stallLeft = Math.max(0, Math.ceil(Math.min(ioNet.stallMs - (performance.now() - net.lastSnapWall), ioNet.deadMs - sinceHeard) / 1000));
     ctx.fillText('no signal from the host — did they tab away?', W / 2, H * 0.44 + 30);
     ctx.fillStyle = '#00ff88';
     ctx.font = 'bold 12px Courier New';
@@ -7144,6 +7358,7 @@ window.__mc = {
   get eggs() { return eggs; }, get ioSkin() { return ioSkin; }, get ioNet() { return ioNet; }, get netMode() { return net.mode; },
   get lastSnapAge() { return performance.now() - net.lastSnapWall; }, hostStep, ioAbdicateCheck,
   get fxCounts() { return { particles: particles.length, toasts: toasts.length, floaters: floaters.length }; },
+  ioAT, ioAtFlush, ioLogLife, ioLogAllLives, ioPid, ioAtEnqueue, IO_AT_URL() { return IO_AT_URL; },
   ioCodes, ioConnect, ioSnap, ioClaimSlot, get conns() { return net.conns; }, sendHost: (m) => net.sendHost(m),
   drawAvatar, mixHex, autoTrim, get patternNames() { return PATTERN_NAMES; },
   get ui() { return { perkFlash, invOpen, perfAvg, perfSlowT }; },
