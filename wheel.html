@@ -736,7 +736,7 @@ input[type=text],input[type=number],textarea,select{border-radius:8px; backgroun
 input[type=checkbox]{accent-color:var(--gold); width:15px; height:15px;}
 
 
-.tc.piled{box-shadow:0 0 0 1px rgba(240,207,133,.42), -3px 3px 6px rgba(0,0,0,.55);}
+.tc.piled{box-shadow:-3px 3px 7px rgba(0,0,0,.6);}
 </style>
 </head>
 <body>
@@ -4074,8 +4074,8 @@ function setTicker(s){
 
 // ---------- lands go to the bottom-left of your side ----------
 function isLandCard(c){ return /\bLand\b/.test((c && c.type) || ''); }
-const PILE_STEP = 10; // identical lands on one spot fan out by this many px, up and to the right
-const PILE_GROW = 13; // a pile of n pushes the lands to its right over by (n-1) * this, so gaps widen a little as it grows
+const PILE_STEP = 14; // identical lands on one spot fan out by this many px, up and to the right
+const PILE_GROW = 15; // a pile of n pushes the lands to its right over by (n-1) * this, so gaps widen a little as it grows
 function landShifts(bf){
   const rows = {}, cnt = {};
   for(const c of bf){
