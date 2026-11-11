@@ -616,29 +616,6 @@ input[type=text],input[type=number],textarea,select{border-radius:8px; backgroun
 .tc.opphl:hover,.tc.mine:hover{outline:1px solid rgba(240,207,133,.55); outline-offset:1px;}
 .cbadge{border-radius:9px; font-family:var(--ui);}
 
-/* stacked lands: real layers peeking out behind the top card */
-.tc.stk{cursor:pointer;}
-.tc.stk .sl{position:relative; border-radius:5px;}
-.tc.stk .sl img,.tc.stk .sl .ph{width:100%; display:block; border-radius:5px;}
-.tc.stk .sl:not(.top){
-  position:absolute; left:calc(var(--d) * 4px); top:calc(var(--d) * -4px); width:100%; z-index:calc(-1 * var(--d));
-  filter:brightness(calc(1 - var(--d) * .08)); box-shadow:0 0 0 1px rgba(0,0,0,.6), 2px -1px 5px rgba(0,0,0,.55);
-}
-.tc.stk .sl:not(.top)::after{content:''; position:absolute; inset:0; border-radius:5px; box-shadow:inset 0 0 0 1px rgba(240,207,133,.22);}
-.stkct{
-  position:absolute; top:-10px; left:-10px; z-index:4; min-width:26px; height:26px; padding:0 6px; border-radius:13px;
-  background:var(--gold-grad); color:var(--gold-ink); font:700 13px/26px var(--ui); text-align:center;
-  box-shadow:0 2px 8px rgba(0,0,0,.65); border:1px solid #f0cf85; pointer-events:none;
-}
-.stkbar{
-  position:absolute; left:0; right:0; bottom:0; z-index:3; padding:10px 4px 4px; display:flex; flex-wrap:wrap; gap:3px;
-  justify-content:center; align-items:center; border-radius:0 0 5px 5px; pointer-events:none;
-  background:linear-gradient(0deg,rgba(8,5,2,.95),rgba(8,5,2,.6) 65%,transparent);
-}
-.stkbar i{width:8px; height:8px; border-radius:50%; background:var(--gold-hi); border:1px solid #5a4521; display:block;}
-.stkbar i.t{background:transparent; border-color:rgba(212,169,78,.6);}
-.stkbar em{font:600 11px var(--ui); color:var(--gold-hi); font-style:normal;}
-
 /* ---- docks: graveyard peek + zone viewer ---- */
 #gyPeek{
   display:none; position:fixed; z-index:150; pointer-events:none; padding:8px 10px 10px; border-radius:12px;
@@ -758,18 +735,6 @@ input[type=text],input[type=number],textarea,select{border-radius:8px; backgroun
 #srcBody{border:1px solid var(--line2); border-radius:10px; margin-top:8px;}
 input[type=checkbox]{accent-color:var(--gold); width:15px; height:15px;}
 
-/* Arena-style stat plate on battlefield cards */
-.ptp{
-  position:absolute; right:-4px; bottom:-5px; z-index:3; pointer-events:none; white-space:nowrap;
-  min-width:calc(var(--tcw,96px) * .42); padding:1px 7px 2px; text-align:center;
-  font:700 calc(var(--tcw,96px) * .185)/1.2 var(--serif); color:#f6eed2; letter-spacing:.5px;
-  background:linear-gradient(180deg,#2c2316,#120d07); border:1.5px solid var(--gold); border-radius:5px 5px 9px 5px;
-  box-shadow:0 2px 8px rgba(0,0,0,.75), inset 0 0 0 1px rgba(0,0,0,.6); text-shadow:0 1px 2px #000;
-}
-.ptp i{font-style:normal; opacity:.55; margin:0 1px; font-weight:400;}
-.ptp.up{color:#b8f0b0; border-color:#7da05a;}
-.ptp.down{color:#f2a58f; border-color:#c05237;}
-.tc.tapped .ptp{transform:rotate(-90deg); transform-origin:50% 50%;}
 </style>
 </head>
 <body>
@@ -1002,7 +967,6 @@ input[type=checkbox]{accent-color:var(--gold); width:15px; height:15px;}
     <div id="tScore"></div>
     <div id="tTicker"></div>
     <button class="btn xs ghost" id="tSpecSel" style="display:none;">table 1</button>
-    <button class="btn xs ghost on" id="tStackBtn" title="Stack identical lands in the same row. Click a stack to tap one, shift-click to untap one, drag to another row to split one off.">Stack lands</button>
     <button class="btn xs ghost" id="tRailBtn">Log &amp; chat<i id="tRailDot"></i></button>
     <button class="btn xs danger" id="tConcedeBtn">Concede</button>
   </div>
@@ -1169,6 +1133,7 @@ function cardFromScry(c){
     r: c.rarity,
     colors: (c.colors && c.colors.length) ? c.colors : (f.colors || []),
     cmc: (typeof c.cmc === 'number') ? c.cmc : 0,
+    set: c.set || null,
     img: iu.normal || iu.large || iu.small || '',
     imgL: iu.large || iu.normal || '',
     pt: (f.power != null && f.toughness != null) ? (f.power + '/' + f.toughness) : null,
@@ -1937,6 +1902,27 @@ async function fetchSetBasics(code){
   if(out.length === BASIC_NAMES.length){ DATA.setBasics[code] = out; idb.put('basics3:' + code, out); }
   return out;
 }
+// most common set among a deck's non-basic cards (needs a clear majority), or null
+function inferSet(protos){
+  const cnt = {}; let total = 0;
+  for(const p of protos){
+    if(!p || /Basic Land/.test(p.type || '') || !p.set) continue;
+    cnt[p.set] = (cnt[p.set] || 0) + 1; total++;
+  }
+  let best = null;
+  for(const k in cnt) if(!best || cnt[k] > cnt[best]) best = k;
+  return (best && total >= 5 && cnt[best] / total >= 0.5) ? best : null;
+}
+// swap plain basics for the deck's set basics; basics the list pinned to a specific printing are left alone
+async function useSetBasics(protos, pinned, forceCode){
+  const code = forceCode || inferSet(protos);
+  if(!code) return protos;
+  let basics = null;
+  try{ basics = await fetchSetBasics(code); }catch(e){}
+  if(!basics || !basics.length) return protos;
+  const byName = {}; for(const b of basics) byName[b.name] = b;
+  return protos.map(p=>(p && /Basic Land/.test(p.type || '') && byName[p.name] && !(pinned && pinned.has(p.name))) ? byName[p.name] : p);
+}
 async function fetchByIds(ids){
   const out = [];
   for(let i=0; i<ids.length; i+=75){
@@ -2507,7 +2493,11 @@ async function deckFromReg(seat){
   const byId = {}; for(const c of reg.pool) byId[c.id] = c;
   const protos = reg.mainIds.map(id=>byId[id]).filter(Boolean)
     .map(c=>{ const p = Object.assign({}, c); delete p.id; return p; });
-  const basics = await fetchBasics(H.draft ? (await fetchSetBasics(H.cfg.sets[0]).catch(()=>null)) : null);
+  const basics = await fetchBasics(H.draft ? (await (async()=>{
+    const sets = (H.cfg.sets || []).filter(Boolean);
+    const one = new Set(sets).size === 1 ? sets[0] : (inferSet(protos) || sets[0]);
+    return one ? fetchSetBasics(one) : null;
+  })().catch(()=>null)) : null);
   for(const nmk of BASIC_NAMES){
     const n = (reg.lands && reg.lands[BASIC_KEY[nmk]]) || 0;
     for(let i=0;i<n;i++) protos.push(basics[nmk]);
@@ -2664,6 +2654,10 @@ async function hostImportDeck(seat, text){
     if(!mains.length){ hsend(seat, { t: 'priv', k: 'deckres', msg: 'empty list' }); return; }
     const rm = await resolveNames(mains);
     const rs = sides.length ? await resolveNames(sides) : { protos: [], missing: [] };
+    const pinned = new Set(entries.filter(e=>e.set && BASIC_NAMES.includes(e.name)).map(e=>e.name));
+    const inferred = inferSet(rm.protos);
+    rm.protos = await useSetBasics(rm.protos, pinned, inferred);
+    rs.protos = await useSetBasics(rs.protos, pinned, inferred);
     H.sbSeq = H.sbSeq || 0;
     H.sbReg = H.sbReg || {};
     const pool = rm.protos.concat(rs.protos).map(p=>Object.assign({}, p, { id: 'i' + (++H.sbSeq) }));
@@ -3599,17 +3593,19 @@ function renderTable(){
   renderOppHand(S[opp].handN);
   // battlefield: free 2D snap grid per half, FLIP-style carryover so taps/moves animate
   $('tMyField').innerHTML = ''; $('tOppField').innerHTML = '';
-  const prevBF = A.prevBF || {}, nextBF = {}, deferred = [];
+  const prevBF = A.prevBF || {}, nextBF = {};
   for(const side of [me, opp]){
     const mine = side === me;
     const fieldEl = $(mine ? 'tMyField' : 'tOppField');
     const byId = {}, idxOf = {};
     S[side].bf.forEach((c,i)=>{ byId[c.id] = c; idxOf[c.id] = i; });
-    const stackOf = A.stackLands ? stackGroups(S[side].bf) : {};
+    const pile = {};
     for(const c of S[side].bf){
-      const grp = stackOf[c.id];
-      if(grp && grp[0] !== c){ deferred.push([c.id, grp[0].id]); continue; }
-      let row = c.row|0, slotF = c.slot|0, attOff = 0;
+      let row = c.row|0, slotF = c.slot|0, attOff = 0, dx = 0, dy = 0;
+      if(!c.att && !c.wtype && !c.fd && isLandCard(c)){
+        const pk = c.name + '|' + row + '|' + slotF; const pn = pile[pk] || 0; pile[pk] = pn + 1;
+        dx = pn * PILE_STEP; dy = (mine ? -1 : 1) * pn * PILE_STEP;
+      }
       let z = 5 + (idxOf[c.id]|0)*2;
       if(c.att && byId[c.att]){
         row = byId[c.att].row|0;
@@ -3624,11 +3620,11 @@ function renderTable(){
       }
       const el = document.createElement('div');
       el.className = 'tc' + (c.fd ? ' fd' : '') + (mine ? ' mine' : ' opphl');
-      const leftCss = 'calc(26px + (100% - ' + (TCW + 52) + 'px) * ' + (Math.min(MAXS, Math.max(0, slotF))/MAXS).toFixed(4) + ')';
+      const leftCss = 'calc(26px + (100% - ' + (TCW + 52) + 'px) * ' + (Math.min(MAXS, Math.max(0, slotF))/MAXS).toFixed(4) + (dx ? ' + ' + dx + 'px' : '') + ')';
       const yFrac = Math.min(MAXY, Math.max(0, row))/MAXY;
       const frac = mine ? yFrac : (1 - yFrac); // row 0 hugs the midline on both sides
-      const topCss = 'calc(8px + (100% - ' + (TCH + 16) + 'px) * ' + frac.toFixed(4) + (attOff ? ' + ' + attOff + 'px' : '') + ')';
-      const tapped = grp ? grp.every(x=>x.tapped) : !!c.tapped;
+      const topCss = 'calc(8px + (100% - ' + (TCH + 16) + 'px) * ' + frac.toFixed(4) + ((attOff + dy) ? ' + ' + (attOff + dy) + 'px' : '') + ')';
+      const tapped = !!c.tapped;
       const pv = prevBF[c.id];
       nextBF[c.id] = { left: leftCss, top: topCss, tapped, row: mine ? 'my' : 'opp', val: c.val, rn: c.rn };
       if(pv && (pv.left !== leftCss || pv.top !== topCss || pv.tapped !== tapped) && pv.row === nextBF[c.id].row){
@@ -3644,7 +3640,6 @@ function renderTable(){
         if(!pv) el.classList.add('enterbf');
       }
       el.style.zIndex = z;
-      if(grp){ buildStack(el, grp, mine); fieldEl.appendChild(el); continue; }
       if(c.wtype){ // physical die / counter chip
         el.classList.add('widget');
         if(c.wtype === 'die'){
@@ -3680,7 +3675,6 @@ function renderTable(){
       else if(c.fd) el.innerHTML = '<div class="back" style="outline:1px solid var(--gold);"></div>';
       else if(c.img) el.innerHTML = '<img src="' + c.img + '" alt="">';
       else el.innerHTML = '<div class="ph" style="font-size:11px;"><b>' + esc(c.name||'') + '</b>' + (c.pt ? '<span>' + esc(c.pt) + '</span>' : '') + '</div>';
-      if(!c.fd){ const pp = ptPlate(c); if(pp) el.insertAdjacentHTML('beforeend', pp); }
       // counter badges — click +1, shift-click or right-click −1, any type, either player
       const ctrs = c.ctrs || {};
       const badges = [];
@@ -3713,7 +3707,6 @@ function renderTable(){
       fieldEl.appendChild(el);
     }
   }
-  for(const [mid, lid] of deferred) nextBF[mid] = nextBF[lid];
   A.prevBF = nextBF;
   renderHand();
   renderMullBar();
@@ -3961,7 +3954,6 @@ function openGrid(title, cards, menuFn){
   });
 }
 // ================= v2 table helpers =================
-A.stackLands = localStorage.getItem('wheel-stack') !== '0';
 function escRe(s){ return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 // Does this card in a graveyard do something from there? Returns a short label or null.
 function gyAbility(c){
@@ -4009,75 +4001,6 @@ function renderOppHand(n){
   }
   el.innerHTML = h + (n ? '<b>' + n + '</b>' : '');
 }
-// ---------- stacked lands ----------
-function stackGroups(bf){
-  const hosts = new Set(); bf.forEach(x=>{ if(x.att) hosts.add(x.att); });
-  const groups = {};
-  for(const c of bf){
-    if(c.wtype || c.fd || c.att || c.note || hosts.has(c.id)) continue;
-    if(!/\bLand\b/.test(c.type || '')) continue;
-    if(c.ctrs && Object.keys(c.ctrs).some(k=>c.ctrs[k])) continue;
-    (groups[c.name + '|' + (c.row|0)] = groups[c.name + '|' + (c.row|0)] || []).push(c);
-  }
-  const of = {};
-  for(const k in groups){
-    const g = groups[k]; if(g.length < 2) continue;
-    g.sort((a,b)=>(a.slot|0) - (b.slot|0));
-    for(const c of g) of[c.id] = g;
-  }
-  return of;
-}
-function stackPick(grp, wantTapped){
-  return grp.find(x=>!!x.tapped === wantTapped) || grp[grp.length - 1];
-}
-function buildStack(el, grp, mine){
-  const n = grp.length, tN = grp.filter(x=>x.tapped).length, lead = grp[0];
-  const vis = Math.min(n, 6);
-  el.classList.add('stk');
-  let h = '';
-  for(let i = vis - 1; i >= 1; i--) h += '<div class="sl" style="--d:' + i + '">' + cardFace(lead) + '</div>';
-  h += '<div class="sl top">' + cardFace(lead) + '</div>';
-  h += '<span class="stkct" title="' + n + ' ' + esc(lead.name) + '">×' + n + '</span>';
-  let pips = '';
-  if(n <= 12) for(let i = 0; i < n; i++) pips += '<i class="' + (i < n - tN ? '' : 't') + '"></i>';
-  else pips = '<em>' + (n - tN) + '/' + n + '</em>';
-  h += '<div class="stkbar">' + pips + '</div>';
-  el.innerHTML = h;
-  attachHover(el, lead);
-  el._card = lead;
-  if(mine && A.ts >= 0){
-    el.addEventListener('pointerdown', e=>{
-      if(e.button !== 0) return;
-      beginDrag(e, stackPick(grp, e.shiftKey), 'bf', el);
-    });
-    el.addEventListener('contextmenu', e=>{ e.preventDefault(); stackMenu(e, grp); });
-  }
-}
-function stackMenu(e, grp){
-  const ut = grp.filter(x=>!x.tapped), tp = grp.filter(x=>x.tapped);
-  const one = ut[0] || tp[0], row = grp[0].row|0;
-  const items = [];
-  if(ut.length) items.push({ label: 'Tap one', k: 'click', fn: ()=>act({ t: 'tap', id: ut[0].id, v: true }) });
-  if(tp.length) items.push({ label: 'Untap one', k: 'shift-click', fn: ()=>act({ t: 'tap', id: tp[0].id, v: false }) });
-  if(ut.length > 1) items.push({ label: 'Tap all (' + ut.length + ')', fn: ()=>ut.forEach(c=>act({ t: 'tap', id: c.id, v: true })) });
-  if(tp.length > 1) items.push({ label: 'Untap all (' + tp.length + ')', fn: ()=>tp.forEach(c=>act({ t: 'tap', id: c.id, v: false })) });
-  items.push({ sep: true });
-  items.push({ label: 'Split one off', fn: ()=>act({ t: 'bfmove', id: one.id, row: row < MAXY ? row + 1 : row - 1, slot: one.slot|0 }) });
-  items.push({ label: 'Duplicate one (token)', fn: ()=>act({ t: 'dupe', id: one.id }) });
-  items.push({ sep: true });
-  items.push({ label: 'One to graveyard', fn: ()=>act({ t: 'move', id: one.id, to: 'gy' }) });
-  items.push({ label: 'One to exile', fn: ()=>act({ t: 'move', id: one.id, to: 'ex' }) });
-  items.push({ label: 'One to hand', fn: ()=>act({ t: 'move', id: one.id, to: 'hand' }) });
-  openMenu(e.clientX, e.clientY, items);
-}
-function syncStackBtn(){ $('tStackBtn').classList.toggle('on', !!A.stackLands); }
-$('tStackBtn').onclick = ()=>{
-  A.stackLands = !A.stackLands;
-  localStorage.setItem('wheel-stack', A.stackLands ? '1' : '0');
-  syncStackBtn(); A.prevBF = {}; renderTable();
-  toast(A.stackLands ? 'identical lands stack by row' : 'lands spread out');
-};
-syncStackBtn();
 // ---------- zone viewers (graveyard / exile) ----------
 function openZone(title, cards, menuFn, isGY){
   openModal(title, body=>{
@@ -4147,31 +4070,20 @@ function setTicker(s){
   el.classList.remove('fresh'); void el.offsetWidth; el.classList.add('fresh');
 }
 
-// ---------- Arena-style stat plate ----------
-function ptPlate(c){
-  const m = /^\s*(\*|X|-?\d+)\s*\/\s*(\*|X|-?\d+)\s*$/.exec(c.pt || '');
-  if(!m) return '';
-  let p = m[1], t = m[2], tone = '';
-  const ctrs = c.ctrs || {};
-  const d = (ctrs['+1/+1']|0) - (ctrs['-1/-1']|0);
-  if(d && /^-?\d+$/.test(p) && /^-?\d+$/.test(t)){ p = (+p + d); t = (+t + d); tone = d > 0 ? ' up' : ' down'; }
-  return '<div class="ptp' + tone + '" title="power / toughness">' + p + '<i>/</i>' + t + '</div>';
-}
 // ---------- lands go to the bottom-left of your side ----------
 function isLandCard(c){ return /\bLand\b/.test((c && c.type) || ''); }
+const PILE_STEP = 6; // identical lands on one spot fan out by this many px, up and to the right
 function landSpot(card){
   const f = $('tMyField'), me = mySeat();
   const slotPx = Math.max(1, (f.clientWidth - TCW) / MAXS);
-  const step = Math.max(2, Math.ceil(TCW * 1.2 / slotPx));
+  const step = Math.max(2, Math.ceil(TCW * 1.04 / slotPx));
   const rowPx = Math.max(1, (f.clientHeight - TCH - 16) / MAXY);
   const rowStep = Math.max(1, Math.ceil((TCH + 10) / rowPx));
   const lands = ((A.snap && A.snap.seats[me].bf) || []).filter(c=>!c.att && !c.wtype && isLandCard(c));
   for(let k = 0, r = MAXY; k < 3 && r >= 0; k++, r -= rowStep){
     const inRow = lands.filter(c=>(c.row|0) === r);
-    if(A.stackLands && card){
-      const same = inRow.find(c=>c.name === card.name && !c.fd);
-      if(same) return { row: r, slot: same.slot|0 };
-    }
+    const same = card && inRow.find(c=>c.name === card.name && !c.fd);
+    if(same) return { row: r, slot: same.slot|0 }; // identical land: pile on top of it
     for(let s = 0; s <= MAXS; s += step){
       if(!inRow.some(c=>Math.abs((c.slot|0) - s) < step)) return { row: r, slot: s };
     }
