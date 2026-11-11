@@ -486,7 +486,7 @@ label.cfg{display:flex; align-items:center; gap:8px; font-size:13px; color:var(-
    graveyard emphasis, phone-friendly draft
    ===================================================================== */
 :root{
-  --ui:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",system-ui,sans-serif;
+  --ui:Georgia,'Times New Roman',serif;
   --serif:Georgia,'Times New Roman',serif;
   --pw:clamp(46px,7.2vh,72px);
   --gold-ink:#1a1206;
@@ -589,12 +589,8 @@ input[type=text],input[type=number],textarea,select{border-radius:8px; backgroun
 .zpile img{position:absolute; inset:0; width:100%; height:100%; object-fit:cover; border-radius:5px; opacity:.92;}
 .zpile .plbl{position:relative; z-index:2; background:rgba(10,8,5,.8); border-radius:3px; padding:1px 6px; font-size:10px; color:var(--ink-soft);}
 .zpile .pn{position:relative; z-index:2; background:rgba(10,8,5,.8); border-radius:3px; padding:0 8px; font-size:16px; color:var(--ink); font-variant-numeric:tabular-nums;}
-.zpile.gy.hasab{border-color:var(--gold); animation:gyPulse 2.6s ease-in-out infinite;}
+.zpile.gy.hasab{border-color:var(--gold); box-shadow:0 0 12px rgba(212,169,78,.4);}
 @keyframes gyPulse{0%,100%{box-shadow:0 0 0 0 rgba(212,169,78,.0);}50%{box-shadow:0 0 16px 2px rgba(212,169,78,.55);}}
-.pab{
-  position:absolute; top:-9px; right:-9px; z-index:4; background:var(--gold-grad); color:var(--gold-ink);
-  font-size:11px; font-weight:700; padding:1px 8px; border-radius:11px; box-shadow:0 2px 8px rgba(0,0,0,.55); font-family:var(--ui);
-}
 .zpill{
   width:var(--pw); text-align:center; font-size:11px; padding:4px 0; flex:none; border:1px solid var(--line2); border-radius:14px;
   color:var(--ink-soft); background:rgba(0,0,0,.35); cursor:pointer; transition:border-color .15s,color .15s; user-select:none;
@@ -649,22 +645,19 @@ input[type=text],input[type=number],textarea,select{border-radius:8px; backgroun
   background:rgba(14,10,5,.96); border:1px solid var(--line2); box-shadow:0 14px 36px rgba(0,0,0,.65);
 }
 #gyPeek .pkt{font:600 12px var(--ui); color:var(--ink); margin-bottom:6px;}
-#gyPeek .pks{font:11px var(--ui); color:var(--ink-dim); margin:8px 0 5px;}
-#gyPeek .pks:first-of-type{margin-top:0;}
 #gyPeek .pkf{display:flex; align-items:flex-start; padding-left:2px;}
 #gyPeek .pkf.flat{gap:8px;}
+#gyPeek .pkgap{height:10px;}
 #gyPeek .pkc{position:relative; width:92px; margin-left:-56px; border-radius:5px; box-shadow:-4px 0 10px rgba(0,0,0,.6);}
 #gyPeek .pkf.flat .pkc,#gyPeek .pkf .pkc:first-child{margin-left:0;}
 #gyPeek .pkc img,#gyPeek .pkc .ph{width:100%; display:block; border-radius:5px; aspect-ratio:63/88; background:#1d160c;}
 #gyPeek .pkc.play{box-shadow:0 0 0 2px var(--gold), 0 0 12px rgba(212,169,78,.35);}
-#gyPeek .pkc span{position:absolute; left:3px; right:3px; bottom:3px; text-align:center; background:var(--gold-grad); color:var(--gold-ink); font:700 10px var(--ui); border-radius:3px; padding:1px 0;}
 .zsec{margin-bottom:18px;}
 .zsec h4{font:600 14px var(--ui); color:var(--ink-soft); margin:0 0 9px; display:flex; gap:8px; align-items:baseline; letter-spacing:.2px;}
 .zsec.play h4{color:var(--gold-hi); font-size:15px;}
 .zsec.play{padding:12px 12px 4px; margin-left:-12px; margin-right:-12px; border-radius:12px; background:rgba(212,169,78,.07); border:1px solid rgba(212,169,78,.3);}
 .zgrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(118px,1fr)); gap:10px; min-width:min(660px,84vw);}
 .zgrid .crd.playable{box-shadow:0 0 0 2px var(--gold),0 0 18px rgba(212,169,78,.4);}
-.zgrid .gybadge{position:absolute; left:4px; right:4px; bottom:4px; text-align:center; background:var(--gold-grad); color:var(--gold-ink); font:700 11px var(--ui); padding:2px 0; border-radius:4px; pointer-events:none;}
 
 /* ---- rail ---- */
 #tRail{width:268px; background:rgba(8,5,2,.55); border-left:1px solid rgba(212,169,78,.14);}
@@ -764,6 +757,19 @@ input[type=text],input[type=number],textarea,select{border-radius:8px; backgroun
 @media (min-width:761px){#bTabs{display:none;}}
 #srcBody{border:1px solid var(--line2); border-radius:10px; margin-top:8px;}
 input[type=checkbox]{accent-color:var(--gold); width:15px; height:15px;}
+
+/* Arena-style stat plate on battlefield cards */
+.ptp{
+  position:absolute; right:-4px; bottom:-5px; z-index:3; pointer-events:none; white-space:nowrap;
+  min-width:calc(var(--tcw,96px) * .42); padding:1px 7px 2px; text-align:center;
+  font:700 calc(var(--tcw,96px) * .185)/1.2 var(--serif); color:#f6eed2; letter-spacing:.5px;
+  background:linear-gradient(180deg,#2c2316,#120d07); border:1.5px solid var(--gold); border-radius:5px 5px 9px 5px;
+  box-shadow:0 2px 8px rgba(0,0,0,.75), inset 0 0 0 1px rgba(0,0,0,.6); text-shadow:0 1px 2px #000;
+}
+.ptp i{font-style:normal; opacity:.55; margin:0 1px; font-weight:400;}
+.ptp.up{color:#b8f0b0; border-color:#7da05a;}
+.ptp.down{color:#f2a58f; border-color:#c05237;}
+.tc.tapped .ptp{transform:rotate(-90deg); transform-origin:50% 50%;}
 </style>
 </head>
 <body>
@@ -1910,6 +1916,27 @@ async function fetchBasics(preferPool){
   }
   return out;
 }
+// the drafted set's ordinary basics: black border, no full art / promo / special frame, lowest collector number
+async function fetchSetBasics(code){
+  if(!code) return null;
+  code = String(code).toLowerCase();
+  DATA.setBasics = DATA.setBasics || {};
+  if(DATA.setBasics[code]) return DATA.setBasics[code];
+  const cached = await idb.get('basics3:' + code);
+  if(cached && cached.length){ DATA.setBasics[code] = cached; return cached; }
+  const j = await jget(SCRY + '/cards/search?q=' + encodeURIComponent('e:' + code + ' t:basic') + '&unique=prints&include_variations=true');
+  const out = [];
+  for(const n of BASIC_NAMES){
+    const all = (j.data || []).filter(c=>c.name === n && (c.image_uris || (c.card_faces && c.card_faces[0].image_uris)));
+    const num = c=>parseInt(c.collector_number, 10) || 9999;
+    const plain = c=>!c.full_art && c.border_color === 'black' && !c.promo && !(c.frame_effects && c.frame_effects.length);
+    const pick = (all.filter(plain).sort((a,b)=>num(a)-num(b))[0]) ||
+                 (all.filter(c=>!c.full_art).sort((a,b)=>num(a)-num(b))[0]) || all[0];
+    if(pick) out.push(cardFromScry(pick));
+  }
+  if(out.length === BASIC_NAMES.length){ DATA.setBasics[code] = out; idb.put('basics3:' + code, out); }
+  return out;
+}
 async function fetchByIds(ids){
   const out = [];
   for(let i=0; i<ids.length; i+=75){
@@ -2480,7 +2507,7 @@ async function deckFromReg(seat){
   const byId = {}; for(const c of reg.pool) byId[c.id] = c;
   const protos = reg.mainIds.map(id=>byId[id]).filter(Boolean)
     .map(c=>{ const p = Object.assign({}, c); delete p.id; return p; });
-  const basics = await fetchBasics(H.draft ? (await fetchSetCards(H.cfg.sets[0]).catch(()=>null)) : null);
+  const basics = await fetchBasics(H.draft ? (await fetchSetBasics(H.cfg.sets[0]).catch(()=>null)) : null);
   for(const nmk of BASIC_NAMES){
     const n = (reg.lands && reg.lands[BASIC_KEY[nmk]]) || 0;
     for(let i=0;i<n;i++) protos.push(basics[nmk]);
@@ -3509,11 +3536,11 @@ $('sumRematchBtn').onclick = ()=>{
 function act(a){ if(A.ts < 0 && a.t !== 'view') return; gsend({ t: 'act', a }); }
 function isAttachType(c){ return /\bAura\b|\bEquipment\b|\bFortification\b/.test((c && c.type) || ''); }
 function mySeat(){ return A.ts >= 0 ? A.ts : 0; }
-let TCW = 86, TCH = Math.round(86*88/63);
+let TCW = 96, TCH = Math.round(96*88/63);
 const MAXS = 47; // horizontal snap slots (fine grid)
 const MAXY = 11; // vertical snap slots per half
 const ZOOMS = [1, 1.15, 1.3, 0.85];
-function autoZoom(){ return Math.max(0.85, Math.min(1.4, Math.round(innerHeight / 940 * 20) / 20)); }
+function autoZoom(){ return Math.max(0.85, Math.min(1.3, Math.round(innerHeight / 1000 * 20) / 20)); }
 A.zoom = parseFloat(localStorage.getItem('wheel-zoom')) || autoZoom();
 let zoomTimer = null;
 window.addEventListener('resize', ()=>{
@@ -3521,9 +3548,9 @@ window.addEventListener('resize', ()=>{
   clearTimeout(zoomTimer); zoomTimer = setTimeout(()=>{ A.zoom = autoZoom(); applyZoom(); }, 150);
 });
 function applyZoom(){
-  TCW = Math.round(86 * A.zoom); TCH = Math.round(TCW * 88/63);
+  TCW = Math.round(96 * A.zoom); TCH = Math.round(TCW * 88/63);
   document.documentElement.style.setProperty('--tcw', TCW + 'px');
-  document.documentElement.style.setProperty('--handw', Math.round(78 * A.zoom) + 'px');
+  document.documentElement.style.setProperty('--handw', Math.round(86 * A.zoom) + 'px');
   A.prevBF = {}; // don't animate a zoom shift
   renderTable();
 }
@@ -3653,6 +3680,7 @@ function renderTable(){
       else if(c.fd) el.innerHTML = '<div class="back" style="outline:1px solid var(--gold);"></div>';
       else if(c.img) el.innerHTML = '<img src="' + c.img + '" alt="">';
       else el.innerHTML = '<div class="ph" style="font-size:11px;"><b>' + esc(c.name||'') + '</b>' + (c.pt ? '<span>' + esc(c.pt) + '</span>' : '') + '</div>';
+      if(!c.fd){ const pp = ptPlate(c); if(pp) el.insertAdjacentHTML('beforeend', pp); }
       // counter badges — click +1, shift-click or right-click −1, any type, either player
       const ctrs = c.ctrs || {};
       const badges = [];
@@ -3710,7 +3738,7 @@ function renderHand(){
     if(!prevHand.has(c.id)) el.classList.add('dealt');
     el.addEventListener('pointerdown', e=>{ if(e.button === 0) beginDrag(e, c, 'hand', el); });
     el.addEventListener('contextmenu', e=>{ e.preventDefault(); handMenu(e, c); });
-    el.ondblclick = ()=>{ if(!A.bottomMode) act({ t: 'play', id: c.id, row: 0, slot: freeSlot(0) }); };
+    el.ondblclick = ()=>{ if(!A.bottomMode){ const sp = playSpot(c); act({ t: 'play', id: c.id, row: sp.row, slot: sp.slot }); } };
     handEl.appendChild(el);
   });
   layoutHand();
@@ -3725,7 +3753,7 @@ function layoutHand(){
   for(const el of cards){ el.style.marginLeft = ''; el.style.zIndex = ''; }
   const n = cards.length;
   if(n < 2) return;
-  const w = Math.round(78 * A.zoom);
+  const w = Math.round(86 * A.zoom);
   const availW = handEl.clientWidth - 12;
   if(n * w + (n - 1) * 6 <= availW) return;
   handEl.classList.add('overlap');
@@ -3812,7 +3840,7 @@ document.addEventListener('pointerup', e=>{
     const slot = Math.min(MAXS, Math.max(0, Math.round(fx*MAXS)));
     const fy = (e.clientY - r.top - TCH/2) / Math.max(1, r.height - TCH);
     const row = Math.min(MAXY, Math.max(0, Math.round(fy*MAXY)));
-    if(d.from === 'hand') act({ t: 'play', id: d.card.id, row, slot, fd: e.shiftKey });
+    if(d.from === 'hand'){ const sp = (!e.shiftKey && isLandCard(d.card)) ? landSpot(d.card) : { row, slot }; act({ t: 'play', id: d.card.id, row: sp.row, slot: sp.slot, fd: e.shiftKey }); }
     else act({ t: 'bfmove', id: d.card.id, row, slot });
     return;
   }
@@ -3863,7 +3891,7 @@ function widgetMenu(e, c){
 }
 function handMenu(e, c){
   openMenu(e.clientX, e.clientY, [
-    { label: 'Play', fn: ()=>act({ t: 'play', id: c.id, row: 0, slot: freeSlot(0) }) },
+    { label: 'Play', fn: ()=>{ const sp = playSpot(c); act({ t: 'play', id: c.id, row: sp.row, slot: sp.slot }); } },
     { label: 'Play face down', fn: ()=>act({ t: 'play', id: c.id, row: 0, slot: freeSlot(0), fd: true }) },
     { label: 'Reveal', fn: ()=>act({ t: 'reveal', id: c.id }) },
     { sep: true },
@@ -3913,7 +3941,7 @@ $('tEX').onclick = ()=>{ if(A.snap && A.ts >= 0) openZone('Your exile', A.snap.s
 function zoneMenuItems(c){
   return [
     { label: 'To hand', fn: ()=>{ act({ t: 'move', id: c.id, to: 'hand' }); closeModal(); } },
-    { label: 'To battlefield', fn: ()=>{ act({ t: 'move', id: c.id, to: 'bf' }); setTimeout(()=>act({ t: 'bfmove', id: c.id, row: 0, slot: freeSlot(0) }), 150); closeModal(); } },
+    { label: 'To battlefield', fn: ()=>{ act({ t: 'move', id: c.id, to: 'bf' }); const sp = playSpot(c); setTimeout(()=>act({ t: 'bfmove', id: c.id, row: sp.row, slot: sp.slot }), 150); closeModal(); } },
     { label: 'Exile', fn: ()=>{ act({ t: 'move', id: c.id, to: 'ex' }); closeModal(); } },
     { label: 'To graveyard', fn: ()=>{ act({ t: 'move', id: c.id, to: 'gy' }); closeModal(); } },
     { label: 'Top of library', fn: ()=>{ act({ t: 'move', id: c.id, to: 'libtop' }); closeModal(); } },
@@ -3966,8 +3994,7 @@ function fillDock(pre, s){
   const top = s.gy[s.gy.length - 1];
   const ab = s.gy.filter(gyAbility).length;
   gy.innerHTML = (top && top.img ? '<img src="' + top.img + '" alt="">' : '') +
-    '<span class="plbl">Graveyard</span><span class="pn">' + s.gy.length + '</span>' +
-    (ab ? '<span class="pab" title="' + ab + ' card' + (ab > 1 ? 's' : '') + ' with a graveyard ability">★ ' + ab + '</span>' : '');
+    '<span class="plbl">Graveyard</span><span class="pn">' + s.gy.length + '</span>';
   gy.classList.toggle('hasab', ab > 0);
   gy.classList.toggle('empty', !s.gy.length);
   ex.innerHTML = 'Exile <b>' + s.ex.length + '</b>';
@@ -4062,7 +4089,6 @@ function openZone(title, cards, menuFn, isGY){
       const g = document.createElement('div'); g.className = 'zgrid';
       for(const c of list){
         const el = crdEl(c, badge ? 'playable' : '');
-        if(badge) el.insertAdjacentHTML('beforeend', '<span class="gybadge">' + esc(badge(c)) + '</span>');
         if(menuFn) el.onclick = (e)=>openMenu(e.clientX, e.clientY, menuFn(c));
         g.appendChild(el);
       }
@@ -4072,7 +4098,7 @@ function openZone(title, cards, menuFn, isGY){
     if(isGY){
       const play = newest.filter(gyAbility);
       const rest = newest.filter(c=>!gyAbility(c));
-      if(play.length) addSec('★ Playable from graveyard', play, 'play', gyAbility);
+      if(play.length) addSec('Playable from graveyard', play, 'play', gyAbility);
       if(rest.length) addSec(play.length ? 'Everything else' : 'Graveyard', rest, '', null);
       body.insertAdjacentHTML('beforeend', '<div class="dimmer" style="font-size:11px;">Most recent first.</div>');
     } else addSec('Exiled cards', newest, '', null);
@@ -4085,13 +4111,10 @@ function showPeek(anchor, cards, label){
   const newest = cards.slice().reverse();
   const play = newest.filter(gyAbility).slice(0, 4);
   const top = newest.slice(0, 3).reverse(); // oldest of the three first, newest drawn on top
-  const one = (c, cls)=>{
-    const ab = gyAbility(c);
-    return '<div class="pkc' + (ab ? ' play' : '') + (cls ? ' ' + cls : '') + '">' + cardFace(c) + (ab ? '<span>' + esc(ab) + '</span>' : '') + '</div>';
-  };
+  const one = c=>'<div class="pkc' + (gyAbility(c) ? ' play' : '') + '">' + cardFace(c) + '</div>';
   let h = '<div class="pkt">' + esc(label) + ' · ' + cards.length + ' card' + (cards.length > 1 ? 's' : '') + '</div>';
-  if(play.length) h += '<div class="pks">★ Playable from graveyard</div><div class="pkf flat">' + play.map(c=>one(c)).join('') + '</div>';
-  h += '<div class="pks">Top of graveyard</div><div class="pkf">' + top.map(c=>one(c)).join('') + '</div>';
+  if(play.length) h += '<div class="pkf flat">' + play.map(one).join('') + '</div><div class="pkgap"></div>';
+  h += '<div class="pkf">' + top.map(one).join('') + '</div>';
   peekEl.innerHTML = h;
   peekEl.style.display = 'block';
   const r = anchor.getBoundingClientRect();
@@ -4123,6 +4146,39 @@ function setTicker(s){
   const el = $('tTicker'); el.textContent = s;
   el.classList.remove('fresh'); void el.offsetWidth; el.classList.add('fresh');
 }
+
+// ---------- Arena-style stat plate ----------
+function ptPlate(c){
+  const m = /^\s*(\*|X|-?\d+)\s*\/\s*(\*|X|-?\d+)\s*$/.exec(c.pt || '');
+  if(!m) return '';
+  let p = m[1], t = m[2], tone = '';
+  const ctrs = c.ctrs || {};
+  const d = (ctrs['+1/+1']|0) - (ctrs['-1/-1']|0);
+  if(d && /^-?\d+$/.test(p) && /^-?\d+$/.test(t)){ p = (+p + d); t = (+t + d); tone = d > 0 ? ' up' : ' down'; }
+  return '<div class="ptp' + tone + '" title="power / toughness">' + p + '<i>/</i>' + t + '</div>';
+}
+// ---------- lands go to the bottom-left of your side ----------
+function isLandCard(c){ return /\bLand\b/.test((c && c.type) || ''); }
+function landSpot(card){
+  const f = $('tMyField'), me = mySeat();
+  const slotPx = Math.max(1, (f.clientWidth - TCW) / MAXS);
+  const step = Math.max(2, Math.ceil(TCW * 1.2 / slotPx));
+  const rowPx = Math.max(1, (f.clientHeight - TCH - 16) / MAXY);
+  const rowStep = Math.max(1, Math.ceil((TCH + 10) / rowPx));
+  const lands = ((A.snap && A.snap.seats[me].bf) || []).filter(c=>!c.att && !c.wtype && isLandCard(c));
+  for(let k = 0, r = MAXY; k < 3 && r >= 0; k++, r -= rowStep){
+    const inRow = lands.filter(c=>(c.row|0) === r);
+    if(A.stackLands && card){
+      const same = inRow.find(c=>c.name === card.name && !c.fd);
+      if(same) return { row: r, slot: same.slot|0 };
+    }
+    for(let s = 0; s <= MAXS; s += step){
+      if(!inRow.some(c=>Math.abs((c.slot|0) - s) < step)) return { row: r, slot: s };
+    }
+  }
+  return { row: MAXY, slot: 0 };
+}
+function playSpot(card){ return isLandCard(card) ? landSpot(card) : { row: 0, slot: freeSlot(0) }; }
 // ---------- buttons / life ----------
 $('tDrawBtn').onclick = ()=>act({ t: 'draw', n: 1 });
 $('tUntapBtn').onclick = ()=>act({ t: 'untapAll' });
