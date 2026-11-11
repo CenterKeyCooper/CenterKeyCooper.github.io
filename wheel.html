@@ -735,6 +735,8 @@ input[type=text],input[type=number],textarea,select{border-radius:8px; backgroun
 #srcBody{border:1px solid var(--line2); border-radius:10px; margin-top:8px;}
 input[type=checkbox]{accent-color:var(--gold); width:15px; height:15px;}
 
+
+.tc.piled{box-shadow:0 0 0 1px rgba(240,207,133,.42), -3px 3px 6px rgba(0,0,0,.55);}
 </style>
 </head>
 <body>
@@ -3599,12 +3601,12 @@ function renderTable(){
     const fieldEl = $(mine ? 'tMyField' : 'tOppField');
     const byId = {}, idxOf = {};
     S[side].bf.forEach((c,i)=>{ byId[c.id] = c; idxOf[c.id] = i; });
-    const pile = {};
+    const pile = {}, shiftBefore = landShifts(S[side].bf);
     for(const c of S[side].bf){
-      let row = c.row|0, slotF = c.slot|0, attOff = 0, dx = 0, dy = 0;
+      let row = c.row|0, slotF = c.slot|0, attOff = 0, dx = 0, dy = 0, piled = false;
       if(!c.att && !c.wtype && !c.fd && isLandCard(c)){
         const pk = c.name + '|' + row + '|' + slotF; const pn = pile[pk] || 0; pile[pk] = pn + 1;
-        dx = pn * PILE_STEP; dy = (mine ? -1 : 1) * pn * PILE_STEP;
+        dx = pn * PILE_STEP + (shiftBefore[row + '|' + slotF] || 0); dy = (mine ? -1 : 1) * pn * PILE_STEP; piled = pn > 0;
       }
       let z = 5 + (idxOf[c.id]|0)*2;
       if(c.att && byId[c.att]){
@@ -3619,7 +3621,7 @@ function renderTable(){
         }
       }
       const el = document.createElement('div');
-      el.className = 'tc' + (c.fd ? ' fd' : '') + (mine ? ' mine' : ' opphl');
+      el.className = 'tc' + (c.fd ? ' fd' : '') + (mine ? ' mine' : ' opphl') + (piled ? ' piled' : '');
       const leftCss = 'calc(26px + (100% - ' + (TCW + 52) + 'px) * ' + (Math.min(MAXS, Math.max(0, slotF))/MAXS).toFixed(4) + (dx ? ' + ' + dx + 'px' : '') + ')';
       const yFrac = Math.min(MAXY, Math.max(0, row))/MAXY;
       const frac = mine ? yFrac : (1 - yFrac); // row 0 hugs the midline on both sides
@@ -4072,7 +4074,27 @@ function setTicker(s){
 
 // ---------- lands go to the bottom-left of your side ----------
 function isLandCard(c){ return /\bLand\b/.test((c && c.type) || ''); }
-const PILE_STEP = 6; // identical lands on one spot fan out by this many px, up and to the right
+const PILE_STEP = 10; // identical lands on one spot fan out by this many px, up and to the right
+const PILE_GROW = 13; // a pile of n pushes the lands to its right over by (n-1) * this, so gaps widen a little as it grows
+function landShifts(bf){
+  const rows = {}, cnt = {};
+  for(const c of bf){
+    if(c.att || c.wtype || c.fd || !isLandCard(c)) continue;
+    const r = c.row|0, s = c.slot|0, k = r + '|' + s + '|' + c.name;
+    cnt[k] = (cnt[k] || 0) + 1;
+    const spot = (rows[r] = rows[r] || {});
+    spot[s] = Math.max(spot[s] || 0, cnt[k]);
+  }
+  const out = {};
+  for(const r in rows){
+    let acc = 0;
+    for(const s of Object.keys(rows[r]).map(Number).sort((a,b)=>a-b)){
+      out[r + '|' + s] = acc;
+      acc += (rows[r][s] - 1) * PILE_GROW;
+    }
+  }
+  return out;
+}
 function landSpot(card){
   const f = $('tMyField'), me = mySeat();
   const slotPx = Math.max(1, (f.clientWidth - TCW) / MAXS);
