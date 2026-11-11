@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Wheel</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='4.5' fill='%231a1712'/%3E%3Ccircle cx='12' cy='12' r='9' fill='none' stroke='%23d4a94e' stroke-width='1.3'/%3E%3Cg stroke='%23d4a94e' stroke-width='1.3'%3E%3Cline x1='12' y1='12' x2='17.29' y2='4.72'/%3E%3Cline x1='12' y1='12' x2='20.56' y2='14.78'/%3E%3Cline x1='12' y1='12' x2='12' y2='21'/%3E%3Cline x1='12' y1='12' x2='3.44' y2='14.78'/%3E%3Cline x1='12' y1='12' x2='6.71' y2='4.72'/%3E%3C/g%3E%3Ccircle cx='12' cy='12' r='1.6' fill='%23d4a94e'/%3E%3Ccircle cx='12' cy='6.2' r='1.5' fill='%23f2ecc8'/%3E%3Ccircle cx='17.52' cy='10.21' r='1.5' fill='%2358a6e8'/%3E%3Ccircle cx='15.41' cy='16.69' r='1.5' fill='%236b5391'/%3E%3Ccircle cx='8.59' cy='16.69' r='1.5' fill='%23e2604a'/%3E%3Ccircle cx='6.48' cy='10.21' r='1.5' fill='%2362b06c'/%3E%3C/svg%3E">
 <style>
@@ -480,6 +480,290 @@ label.cfg{display:flex; align-items:center; gap:8px; font-size:13px; color:var(-
 ::-webkit-scrollbar{width:9px; height:9px;}
 ::-webkit-scrollbar-thumb{background:#3a3426; border-radius:5px;}
 ::-webkit-scrollbar-track{background:transparent;}
+
+/* =====================================================================
+   v2 refresh: sleeker controls, symmetric table docks, land stacks,
+   graveyard emphasis, phone-friendly draft
+   ===================================================================== */
+:root{
+  --ui:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",system-ui,sans-serif;
+  --serif:Georgia,'Times New Roman',serif;
+  --pw:clamp(46px,7.2vh,72px);
+  --gold-ink:#1a1206;
+  --gold-grad:linear-gradient(180deg,#e6c06a,#b98a2e);
+}
+body{font-family:var(--ui);}
+h1,h2,h3,.brand,#homeTitle,.lv,#tLife,#dTimer,#tTurn,#turnBanner,.pn{font-family:var(--serif);}
+.scr{height:100vh; height:100dvh;}
+button,.crd,.tc{-webkit-tap-highlight-color:transparent;}
+.crd,.tc{-webkit-touch-callout:none;}
+.tc{touch-action:none;}
+.crd{touch-action:manipulation;}
+@media (prefers-reduced-motion:reduce){ *{animation-duration:.01ms !important; animation-iteration-count:1 !important; transition-duration:.01ms !important;} }
+:focus-visible{outline:2px solid var(--gold-hi); outline-offset:2px;}
+
+/* ---- controls ---- */
+.btn{
+  font-size:13px; letter-spacing:.2px; text-transform:none; font-weight:500;
+  border-radius:8px; padding:8px 16px;
+  background:rgba(255,236,190,.06); border:1px solid rgba(212,169,78,.28);
+}
+.btn:hover:not(:disabled){background:rgba(255,236,190,.1); border-color:var(--gold); color:var(--gold-hi);}
+.btn.gold{
+  color:var(--gold-ink); font-weight:700; background:var(--gold-grad); border-color:#f0cf85; animation:none;
+  box-shadow:0 2px 10px rgba(212,169,78,.25);
+}
+.btn.gold:hover:not(:disabled){color:var(--gold-ink); background:linear-gradient(180deg,#f0cf85,#c9993a);}
+.btn.gold:disabled{box-shadow:none;}
+.btn.ghost{background:transparent; border-color:rgba(212,169,78,.18);}
+.btn.on,.btn.ghost.on{border-color:var(--gold); color:var(--gold-hi); background:rgba(212,169,78,.1);}
+.btn.sm{font-size:12px; padding:5px 12px; letter-spacing:.2px;}
+.btn.xs{font-size:11px; padding:3px 9px; letter-spacing:.2px; border-radius:6px;}
+.btn .hk{font-weight:600; color:var(--gold); margin-left:4px; font-size:.92em;}
+input[type=text],input[type=number],textarea,select{border-radius:8px; background:#120d06; border-color:rgba(212,169,78,.2);}
+.chip{text-transform:none; letter-spacing:.3px; font-size:12px; border-radius:12px;}
+.tabs{gap:4px; padding:3px; background:#120d06; border:1px solid var(--line); border-radius:10px;}
+.tabs .tab{text-transform:none; letter-spacing:.2px; font-size:13px; border:none; border-radius:7px; background:transparent; padding:7px 4px;}
+.tabs .tab.on{background:linear-gradient(180deg,#33260f,#271c0b); color:var(--gold-hi); box-shadow:inset 0 0 0 1px var(--line2);}
+.panel{border-radius:14px; background:linear-gradient(180deg,#201609,#171008); border-color:rgba(212,169,78,.16); box-shadow:0 10px 30px rgba(0,0,0,.35);}
+.panel h3,.tovlBox h3,#modalBox h3{text-transform:none; letter-spacing:.3px; font-size:15px; color:var(--gold-hi);}
+.panel h3{color:var(--ink-soft);}
+.topbar{padding:9px 18px; background:linear-gradient(180deg,rgba(0,0,0,.45),rgba(0,0,0,.2)); border-bottom-color:rgba(212,169,78,.14);}
+.topbar .brand{letter-spacing:4px;}
+.cfgrow .lbl{text-transform:none; letter-spacing:.2px; font-size:13px;}
+.seatrow{border-radius:8px;}
+#modalBox,.tovlBox{border-radius:14px; box-shadow:0 20px 60px rgba(0,0,0,.6);}
+#modalBox.wide{width:min(1000px,94vw);}
+#homeBox{width:min(340px,90vw);}
+#homeSub{letter-spacing:4px;}
+
+/* ---- table: top bar ---- */
+#tTop{gap:12px; padding:6px 14px; background:linear-gradient(180deg,rgba(0,0,0,.55),rgba(0,0,0,.28)); border-bottom:1px solid rgba(212,169,78,.14);}
+#tTurn{
+  flex:none; font-size:15px; letter-spacing:.2px; text-transform:none; padding:3px 16px; border:1px solid var(--line2);
+  border-radius:999px; background:rgba(0,0,0,.4); color:var(--ink-soft); white-space:nowrap; text-align:center; transition:background .2s,color .2s;
+}
+#tTurn.mine{color:var(--gold-ink); background:var(--gold-grad); border-color:#f0cf85; font-weight:700; box-shadow:0 0 14px rgba(212,169,78,.3);}
+#tGameLbl{font-size:12px; white-space:nowrap;}
+#tTicker{flex:1; min-width:0; font-size:12px; color:var(--ink-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding:0 8px;}
+#tTicker.fresh{animation:tick 2.4s ease-out;}
+@keyframes tick{0%{color:var(--gold-hi);}100%{color:var(--ink-dim);}}
+#tScore{margin-left:0;}
+#tRailBtn{position:relative;}
+#tRailDot{display:none; position:absolute; top:-3px; right:-3px; width:9px; height:9px; border-radius:50%; background:var(--ember); box-shadow:0 0 8px var(--ember);}
+#tRailDot.on{display:block;}
+
+/* ---- table: halves + docks ---- */
+.half{flex:1; display:flex; min-height:0; position:relative;}
+.half.opp{background:linear-gradient(180deg,rgba(0,0,0,.28),transparent 75%);}
+.half.mine{background:linear-gradient(0deg,rgba(0,0,0,.26),transparent 75%);}
+.dock{
+  flex:none; width:calc(var(--pw) + 34px); display:flex; flex-direction:column; align-items:center; gap:8px;
+  padding:10px 6px; background:rgba(0,0,0,.3); border-right:1px solid rgba(212,169,78,.12); overflow:hidden; position:relative; z-index:3;
+}
+.dock .dpl{display:flex; flex-direction:column; align-items:center; gap:3px; width:100%;}
+.dock .nm{font-size:12px; color:var(--gold-hi); max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:center; letter-spacing:.2px;}
+.lifeline{display:flex; align-items:center; gap:2px;}
+.lifeline .lv{
+  font-size:clamp(26px,4.2vh,40px); line-height:1; min-width:1.7ch; text-align:center; color:var(--gold-hi);
+  cursor:pointer; font-variant-numeric:tabular-nums; text-shadow:0 2px 12px rgba(212,169,78,.25);
+}
+.lifeline .lv.low{color:#ee8a6b; text-shadow:0 2px 12px rgba(226,96,74,.4);}
+.lifeline .b{width:20px; height:20px; padding:0; line-height:17px; text-align:center; border-radius:50%; font-size:14px; user-select:none;}
+.dock .sub{display:flex; gap:4px; flex-wrap:wrap; justify-content:center; min-height:0;}
+.pill{font-size:10px; padding:1px 7px; border-radius:9px; background:rgba(0,0,0,.45); border:1px solid var(--line2); color:var(--ink-soft);}
+.pill.tox{color:#b6e08a; border-color:#4d6b2e;}
+.zpile{
+  width:var(--pw); height:calc(var(--pw) * 88 / 63); border:1px solid var(--line2); border-radius:6px; flex:none;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; position:relative;
+  text-transform:none; letter-spacing:0; font-size:10px; color:var(--ink-soft); background:rgba(0,0,0,.3); cursor:pointer;
+  transition:border-color .15s, transform .12s;
+}
+.zpile:hover{border-color:var(--gold); transform:translateY(-2px);}
+.zpile.lib{
+  background:repeating-linear-gradient(45deg,#3a2c12 0 5px,#2a1f0d 5px 10px); border-color:#6a5226;
+  box-shadow:1px 1px 0 #241a0b,2px 2px 0 #342711,3px 3px 0 #241a0b,4px 4px 0 #342711,0 8px 12px rgba(0,0,0,.45);
+}
+.zpile.lib.empty{box-shadow:none; opacity:.5;}
+.zpile.gy.empty{border-style:dashed; opacity:.6;}
+.zpile img{position:absolute; inset:0; width:100%; height:100%; object-fit:cover; border-radius:5px; opacity:.92;}
+.zpile .plbl{position:relative; z-index:2; background:rgba(10,8,5,.8); border-radius:3px; padding:1px 6px; font-size:10px; color:var(--ink-soft);}
+.zpile .pn{position:relative; z-index:2; background:rgba(10,8,5,.8); border-radius:3px; padding:0 8px; font-size:16px; color:var(--ink); font-variant-numeric:tabular-nums;}
+.zpile.gy.hasab{border-color:var(--gold); animation:gyPulse 2.6s ease-in-out infinite;}
+@keyframes gyPulse{0%,100%{box-shadow:0 0 0 0 rgba(212,169,78,.0);}50%{box-shadow:0 0 16px 2px rgba(212,169,78,.55);}}
+.pab{
+  position:absolute; top:-9px; right:-9px; z-index:4; background:var(--gold-grad); color:var(--gold-ink);
+  font-size:11px; font-weight:700; padding:1px 8px; border-radius:11px; box-shadow:0 2px 8px rgba(0,0,0,.55); font-family:var(--ui);
+}
+.zpill{
+  width:var(--pw); text-align:center; font-size:11px; padding:4px 0; flex:none; border:1px solid var(--line2); border-radius:14px;
+  color:var(--ink-soft); background:rgba(0,0,0,.35); cursor:pointer; transition:border-color .15s,color .15s; user-select:none;
+}
+.zpill b{font-weight:600; color:var(--ink); margin-left:3px;}
+.zpill:hover{border-color:var(--gold); color:var(--gold-hi);}
+
+/* opponent's hand: a face-down fan hanging off the top edge */
+#tOppHand{position:absolute; top:0; left:calc(50% + (var(--pw) + 34px) / 2); width:0; height:0; z-index:6; pointer-events:none;}
+#tOppHand i{
+  position:absolute; left:0; top:-34px; width:44px; height:62px; margin-left:-22px; border-radius:4px;
+  background:repeating-linear-gradient(45deg,#3a2c12 0 5px,#2a1f0d 5px 10px); border:1px solid #6a5226;
+  box-shadow:0 4px 10px rgba(0,0,0,.6); transform-origin:50% 0; transform:translate(var(--x),var(--y)) rotate(var(--r));
+  transition:transform .25s ease;
+}
+#tOppHand b{
+  position:absolute; left:0; top:34px; transform:translateX(-50%); background:rgba(10,8,5,.88); border:1px solid var(--line2);
+  color:var(--gold-hi); font-size:11px; font-weight:600; padding:0 9px; border-radius:10px; font-family:var(--ui);
+}
+
+/* ---- battlefield cards ---- */
+.tc{filter:drop-shadow(0 4px 7px rgba(0,0,0,.6));}
+.tc.opphl:hover,.tc.mine:hover{outline:1px solid rgba(240,207,133,.55); outline-offset:1px;}
+.cbadge{border-radius:9px; font-family:var(--ui);}
+
+/* stacked lands: real layers peeking out behind the top card */
+.tc.stk{cursor:pointer;}
+.tc.stk .sl{position:relative; border-radius:5px;}
+.tc.stk .sl img,.tc.stk .sl .ph{width:100%; display:block; border-radius:5px;}
+.tc.stk .sl:not(.top){
+  position:absolute; left:calc(var(--d) * 4px); top:calc(var(--d) * -4px); width:100%; z-index:calc(-1 * var(--d));
+  filter:brightness(calc(1 - var(--d) * .08)); box-shadow:0 0 0 1px rgba(0,0,0,.6), 2px -1px 5px rgba(0,0,0,.55);
+}
+.tc.stk .sl:not(.top)::after{content:''; position:absolute; inset:0; border-radius:5px; box-shadow:inset 0 0 0 1px rgba(240,207,133,.22);}
+.stkct{
+  position:absolute; top:-10px; left:-10px; z-index:4; min-width:26px; height:26px; padding:0 6px; border-radius:13px;
+  background:var(--gold-grad); color:var(--gold-ink); font:700 13px/26px var(--ui); text-align:center;
+  box-shadow:0 2px 8px rgba(0,0,0,.65); border:1px solid #f0cf85; pointer-events:none;
+}
+.stkbar{
+  position:absolute; left:0; right:0; bottom:0; z-index:3; padding:10px 4px 4px; display:flex; flex-wrap:wrap; gap:3px;
+  justify-content:center; align-items:center; border-radius:0 0 5px 5px; pointer-events:none;
+  background:linear-gradient(0deg,rgba(8,5,2,.95),rgba(8,5,2,.6) 65%,transparent);
+}
+.stkbar i{width:8px; height:8px; border-radius:50%; background:var(--gold-hi); border:1px solid #5a4521; display:block;}
+.stkbar i.t{background:transparent; border-color:rgba(212,169,78,.6);}
+.stkbar em{font:600 11px var(--ui); color:var(--gold-hi); font-style:normal;}
+
+/* ---- docks: graveyard peek + zone viewer ---- */
+#gyPeek{
+  display:none; position:fixed; z-index:150; pointer-events:none; padding:8px 10px 10px; border-radius:12px;
+  background:rgba(14,10,5,.96); border:1px solid var(--line2); box-shadow:0 14px 36px rgba(0,0,0,.65);
+}
+#gyPeek .pkt{font:600 12px var(--ui); color:var(--ink); margin-bottom:6px;}
+#gyPeek .pks{font:11px var(--ui); color:var(--ink-dim); margin:8px 0 5px;}
+#gyPeek .pks:first-of-type{margin-top:0;}
+#gyPeek .pkf{display:flex; align-items:flex-start; padding-left:2px;}
+#gyPeek .pkf.flat{gap:8px;}
+#gyPeek .pkc{position:relative; width:92px; margin-left:-56px; border-radius:5px; box-shadow:-4px 0 10px rgba(0,0,0,.6);}
+#gyPeek .pkf.flat .pkc,#gyPeek .pkf .pkc:first-child{margin-left:0;}
+#gyPeek .pkc img,#gyPeek .pkc .ph{width:100%; display:block; border-radius:5px; aspect-ratio:63/88; background:#1d160c;}
+#gyPeek .pkc.play{box-shadow:0 0 0 2px var(--gold), 0 0 12px rgba(212,169,78,.35);}
+#gyPeek .pkc span{position:absolute; left:3px; right:3px; bottom:3px; text-align:center; background:var(--gold-grad); color:var(--gold-ink); font:700 10px var(--ui); border-radius:3px; padding:1px 0;}
+.zsec{margin-bottom:18px;}
+.zsec h4{font:600 14px var(--ui); color:var(--ink-soft); margin:0 0 9px; display:flex; gap:8px; align-items:baseline; letter-spacing:.2px;}
+.zsec.play h4{color:var(--gold-hi); font-size:15px;}
+.zsec.play{padding:12px 12px 4px; margin-left:-12px; margin-right:-12px; border-radius:12px; background:rgba(212,169,78,.07); border:1px solid rgba(212,169,78,.3);}
+.zgrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(118px,1fr)); gap:10px; min-width:min(660px,84vw);}
+.zgrid .crd.playable{box-shadow:0 0 0 2px var(--gold),0 0 18px rgba(212,169,78,.4);}
+.zgrid .gybadge{position:absolute; left:4px; right:4px; bottom:4px; text-align:center; background:var(--gold-grad); color:var(--gold-ink); font:700 11px var(--ui); padding:2px 0; border-radius:4px; pointer-events:none;}
+
+/* ---- rail ---- */
+#tRail{width:268px; background:rgba(8,5,2,.55); border-left:1px solid rgba(212,169,78,.14);}
+#tRail.shut{display:none;}
+#tLogSec h4{font:600 12px var(--ui); color:var(--ink-dim); margin-bottom:6px; letter-spacing:.3px;}
+#tMain{position:relative;}
+@media (max-width:1100px){
+  #tRail{position:absolute; right:0; top:0; bottom:0; z-index:80; background:rgba(14,10,5,.97); box-shadow:-12px 0 34px rgba(0,0,0,.55);}
+}
+
+/* ---- hand + action bar ---- */
+#tHandWrap{
+  background:linear-gradient(180deg,rgba(0,0,0,.3),rgba(0,0,0,.6)); border-top:1px solid rgba(212,169,78,.16);
+  min-height:calc(var(--handw,78px) * 1.4 + 22px); padding:8px 16px 10px;
+}
+#tBtns{gap:6px;}
+#tBtnsRow2{display:flex; gap:5px; justify-content:flex-end;}
+#tTurnBtn.gold .hk{color:var(--gold-ink);}
+
+/* ---- draft ---- */
+#dHdr{padding:8px 18px; gap:14px; background:linear-gradient(180deg,rgba(0,0,0,.5),rgba(0,0,0,.22)); border-bottom:1px solid rgba(212,169,78,.14);}
+#dHdr .stat{font-size:13px; letter-spacing:.2px;}
+#dTimer{font-size:21px;}
+#dPack{
+  grid-template-columns:repeat(auto-fill,minmax(clamp(128px,11.5vw,200px),1fr)); gap:16px; padding:20px 24px 12px; justify-items:center;
+}
+#dPack .crd{width:100%; max-width:210px; box-shadow:0 6px 14px rgba(0,0,0,.5); transition:transform .14s ease, box-shadow .14s ease;}
+#dPack .crd:hover{transform:translateY(-5px) scale(1.03); box-shadow:0 14px 26px rgba(0,0,0,.6);}
+#dPack .crd.sel{outline:none; transform:translateY(-6px) scale(1.04); box-shadow:0 0 0 2px var(--gold-hi), 0 0 28px rgba(240,207,133,.45);}
+#dPack .crd.sel::after{
+  content:'Selected'; position:absolute; top:-11px; left:50%; transform:translateX(-50%); z-index:2; background:var(--gold-grad);
+  color:var(--gold-ink); font:700 11px var(--ui); padding:2px 11px; border-radius:11px; box-shadow:0 2px 8px rgba(0,0,0,.5);
+}
+#dWait .big{text-transform:none; letter-spacing:1px; font-family:var(--serif);}
+#dConfirm{min-width:240px; padding:11px 26px; font-size:15px;}
+#dRail{background:rgba(8,5,2,.4);}
+.railsec h4,.poolgroup h5,.bandlbl,.bcol h6{text-transform:none; letter-spacing:.3px; font-size:12px; font-family:var(--ui);}
+#dTray{background:linear-gradient(180deg,#1a1207,#130d05); box-shadow:0 -10px 30px rgba(0,0,0,.4);}
+#dTrayLbl{text-transform:none; letter-spacing:.3px; font-size:13px;}
+.bhead{text-transform:none; letter-spacing:.3px; font-size:13px;}
+#bFoot{background:linear-gradient(180deg,rgba(0,0,0,.3),rgba(0,0,0,.55));}
+.crd{box-shadow:0 2px 6px rgba(0,0,0,.35);}
+#hoverCard.touch{left:50% !important; top:7vh !important; transform:translateX(-50%); width:min(300px,78vw);}
+
+/* ---- phones ---- */
+@media (max-width:760px){
+  #homeTitle{font-size:32px; letter-spacing:10px; text-indent:10px;}
+  .topbar,#dHdr{padding:8px 12px; gap:10px;}
+  .topbar .brand,#dHdr .brand{display:none;}
+  #dHdr .stat{font-size:12px;}
+  #dTimer{font-size:18px; min-width:34px;}
+  #dPack{grid-template-columns:repeat(3,minmax(0,1fr)); gap:9px; padding:20px 10px 8px;}
+  #dPack .crd{max-width:none;}
+  #dPack .crd:hover{transform:none; box-shadow:0 6px 14px rgba(0,0,0,.5);}
+  #dPack .crd.sel{transform:translateY(-3px) scale(1.02);}
+  #dConfirmRow{padding:8px 12px calc(8px + env(safe-area-inset-bottom));}
+  #dConfirm{width:100%; min-width:0; padding:13px 0; font-size:16px;}
+  #dTrayBar{padding:9px 12px; gap:9px; flex-wrap:wrap;}
+  #dCurve{display:none;}
+  #dTrayStrip{padding:0 10px 8px; min-height:60px;}
+  #dTrayStrip .mini{width:40px;}
+  #dTrayGrid{max-height:62vh; padding:4px 10px 14px;}
+  .poolgrid{grid-template-columns:repeat(3,minmax(0,1fr));}
+  #dWait{padding:0 24px; text-align:center;}
+  #lobWrap{flex-direction:column; align-items:stretch; padding:12px; gap:12px;}
+  #lobRosterP,#lobCfgP{width:100%;}
+  .cfgrow{gap:8px;}
+  .cfgrow .lbl{width:100%;}
+  .packslots{flex-wrap:wrap;}
+  #lobBtns .btn.gold{flex:1;}
+  #scr-bridge .panel,#scr-summary .panel{width:auto; margin:16px 12px;}
+  .pairrow{flex-wrap:wrap;}
+  #bMain{flex-direction:column;}
+  #bTabs{display:flex; gap:6px; padding:8px 12px; border-bottom:1px solid var(--line); background:rgba(0,0,0,.2);}
+  #bTabs .btn{flex:1; padding:9px 0; font-size:14px;}
+  #scr-build:not([data-tab="deck"]) #bDeckWrap{display:none;}
+  #scr-build[data-tab="deck"] #bPoolWrap{display:none;}
+  #bPoolWrap{border-right:none;}
+  #bPool,#bDeck{padding:8px 10px;}
+  .bcols{flex-wrap:wrap; row-gap:6px;}
+  .bcol{flex:0 0 calc(25% - 6px); min-width:0; max-width:none;}
+  .landctl{font-size:14px;}
+  .bcol .crd{margin-bottom:-108%;}
+  .bcol .crd:last-child{margin-bottom:0;}
+  #bLands{padding:8px 12px; gap:8px 12px;}
+  #bFoot{flex-wrap:wrap; padding:8px 12px;}
+  #bRoster{margin-left:0;}
+  #bFilter{width:100px !important;}
+  .samplegrid{grid-template-columns:repeat(3,minmax(0,1fr));}
+  .ovlgrid{min-width:0; grid-template-columns:repeat(auto-fill,minmax(90px,1fr));}
+  #modalBox{padding:16px 14px; max-width:96vw;}
+  .tovlBox{padding:14px;}
+  .zgrid{min-width:0; grid-template-columns:repeat(3,minmax(0,1fr));}
+}
+
+#bPoolWrap,#bDeckWrap{min-height:0;}
+@media (min-width:761px){#bTabs{display:none;}}
+#srcBody{border:1px solid var(--line2); border-radius:10px; margin-top:8px;}
+input[type=checkbox]{accent-color:var(--gold); width:15px; height:15px;}
 </style>
 </head>
 <body>
@@ -668,6 +952,7 @@ label.cfg{display:flex; align-items:center; gap:8px; font-size:13px; color:var(-
     <button class="btn sm ghost" id="bRecapBtn">Draft recap</button>
     <button class="btn sm ghost" id="bExportBtn">Export deck</button>
   </div>
+  <div id="bTabs"><button class="btn sm" id="bTabPoolBtn">Pool <b id="bTabPool">0</b></button><button class="btn sm" id="bTabDeckBtn">Deck <b id="bTabDeck">0</b></button></div>
   <div id="bMain">
     <div id="bPoolWrap">
       <div class="bhead">Pool <span class="ct" id="bPoolCt">0</span>
@@ -706,41 +991,56 @@ label.cfg{display:flex; align-items:center; gap:8px; font-size:13px; color:var(-
 <!-- ============ TABLE ============ -->
 <div id="scr-table" class="scr">
   <div id="tTop">
-    <div class="statline" id="tOppLine">
-      <span class="nm" id="tOppName">&mdash;</span>
-      <span class="b btn xs ghost" id="tOppMinus">&minus;</span>
-      <span class="lv" id="tOppLife" title="click to set" style="cursor:pointer;">20</span>
-      <span class="b btn xs ghost" id="tOppPlus">+</span>
-      <span class="zc" id="tOppCounts"></span>
-    </div>
-    <span class="sp" style="flex:1;"></span>
+    <div id="tTurn">&mdash;</div>
     <span class="dim" id="tGameLbl"></span>
     <div id="tScore"></div>
+    <div id="tTicker"></div>
     <button class="btn xs ghost" id="tSpecSel" style="display:none;">table 1</button>
+    <button class="btn xs ghost on" id="tStackBtn" title="Stack identical lands in the same row. Click a stack to tap one, shift-click to untap one, drag to another row to split one off.">Stack lands</button>
+    <button class="btn xs ghost" id="tRailBtn">Log &amp; chat<i id="tRailDot"></i></button>
     <button class="btn xs danger" id="tConcedeBtn">Concede</button>
   </div>
   <div id="tMain">
     <div id="tField">
-      <div class="bffield" data-half="opp" id="tOppField"></div>
-      <div id="tMid"></div>
-      <div class="bffield mine" data-half="my" id="tMyField"></div>
-    </div>
-    <div id="tZonesBar">
-      <div id="tLifeBox">
-        <div id="tLife" title="click to set">20</div>
-        <div id="tLifeBtns">
-          <span class="b btn xs ghost" data-d="-1">&minus;</span>
-          <span class="b btn xs ghost" data-d="1">+</span>
+      <div id="tOppHand"></div>
+      <div class="half opp">
+        <div class="dock opp" id="oDock">
+          <div class="dpl">
+            <div class="nm" id="tOppName">&mdash;</div>
+            <div class="lifeline">
+              <span class="b btn xs ghost" id="tOppMinus">&minus;</span>
+              <div class="lv" id="tOppLife" title="click to set">20</div>
+              <span class="b btn xs ghost" id="tOppPlus">+</span>
+            </div>
+            <div class="sub" id="tOppSub"></div>
+          </div>
+          <div class="zpile lib" id="oLib"></div>
+          <div class="zpile gy" id="oGY"></div>
+          <div class="zpill" id="oEX">Exile <b>0</b></div>
         </div>
-        <div class="dim" id="tSubLife" style="font-size:10px;"></div>
+        <div class="bffield" data-half="opp" id="tOppField"></div>
       </div>
-      <div class="zpile" id="tLib"><span class="ovl">Library</span><span class="n ovl" id="tLibN">0</span></div>
-      <div class="zpile" id="tGY"><span class="ovl">Grave</span><span class="n ovl" id="tGYN">0</span></div>
-      <div class="zpile" id="tEX"><span class="ovl">Exile</span><span class="n ovl" id="tEXN">0</span></div>
+      <div id="tMid"></div>
+      <div class="half mine">
+        <div class="dock mine" id="mDock">
+          <div class="dpl">
+            <div class="nm" id="tMyName">You</div>
+            <div class="lifeline" id="tLifeBtns">
+              <span class="b btn xs ghost" data-d="-1">&minus;</span>
+              <div class="lv" id="tLife" title="click to set">20</div>
+              <span class="b btn xs ghost" data-d="1">+</span>
+            </div>
+            <div class="sub" id="tSubLife"></div>
+          </div>
+          <div class="zpile lib" id="tLib"></div>
+          <div class="zpile gy" id="tGY"></div>
+          <div class="zpill" id="tEX">Exile <b>0</b></div>
+        </div>
+        <div class="bffield mine" data-half="my" id="tMyField"></div>
+      </div>
     </div>
-    <div id="tRail">
-      <div id="tTurn">&mdash;</div>
-      <div id="tLogSec"><h4 class="dim" style="font-size:10px; letter-spacing:2px; text-transform:uppercase; margin-bottom:6px;">Log</h4><div id="tLog"></div></div>
+    <div id="tRail" class="shut">
+      <div id="tLogSec"><h4>Game log</h4><div id="tLog"></div></div>
       <div class="chatsec"><div class="chatlog" id="tChatLog"></div><input class="chatin" id="tChatIn" type="text" placeholder="say&hellip;" maxlength="200"></div>
     </div>
   </div>
@@ -748,11 +1048,11 @@ label.cfg{display:flex; align-items:center; gap:8px; font-size:13px; color:var(-
     <div id="tHand"></div>
     <div id="tBtns">
       <div id="tBtnsRow">
-        <button class="btn sm" id="tDrawBtn" title="hotkey: D">Draw &middot; <b style="font-weight:normal; color:var(--gold);">D</b></button>
-        <button class="btn sm" id="tUntapBtn" title="hotkey: U">Untap &middot; <b style="font-weight:normal; color:var(--gold);">U</b></button>
-        <button class="btn sm" id="tTurnBtn" title="hotkey: N">Take turn &middot; N</button>
+        <button class="btn sm" id="tDrawBtn" title="hotkey: D">Draw <b class="hk">D</b></button>
+        <button class="btn sm" id="tUntapBtn" title="hotkey: U">Untap <b class="hk">U</b></button>
+        <button class="btn sm" id="tTurnBtn" title="hotkey: N">Take turn <b class="hk">N</b></button>
       </div>
-      <div id="tBtnsRow2" style="display:flex; gap:5px;">
+      <div id="tBtnsRow2">
         <button class="btn xs ghost" id="tTokenBtn">Token</button>
         <button class="btn xs ghost" id="tD6Btn">d6</button>
         <button class="btn xs ghost" id="tD20Btn">d20</button>
@@ -1125,7 +1425,7 @@ function suggestLands(deckCards){
 // ---------------- table engine ----------------
 function makeTable(tid, players, bo){
   return {
-    tid, bo: bo||1, game: 1, turnNum: 0, turnSeat: -1, between: false, over: false,
+    tid, bo: bo||1, game: 1, turnNum: 0, turnSeat: -1, tc: players.map(()=>0), between: false, over: false,
     score: players.map(()=>0),
     pending: players.map(()=>null),
     seats: players.map(p=>({
@@ -1167,7 +1467,7 @@ function tSpawn(T, proto, seat, zone, extra){
   return T.cards[id];
 }
 function tStartGame(T, rng){
-  T.turnNum = 0; T.turnSeat = -1; T.between = false;
+  T.turnNum = 0; T.turnSeat = -1; T.between = false; T.tc = T.seats.map(()=>0);
   T.cards = {}; T.nid = 1;
   T.seats.forEach((s, si)=>{
     s.lib=[]; s.hand=[]; s.bf=[]; s.gy=[]; s.ex=[];
@@ -1324,7 +1624,8 @@ function tableApply(T, si, a, rng){
       // press when you hold the turn = pass it; otherwise claim it
       const holder = (T.turnSeat === si) ? (si + 1) % T.seats.length : si;
       T.turnNum++; T.turnSeat = holder;
-      return '— turn ' + T.turnNum + ': ' + T.seats[holder].name + ' —';
+      T.tc = T.tc || T.seats.map(()=>0); T.tc[holder] = (T.tc[holder]|0) + 1;
+      return '— ' + T.seats[holder].name + '’s turn ' + T.tc[holder] + ' —';
     }
     case 'roll': { const sides=a.sides||6; const r=1+Math.floor(rng()*sides); return nm + ' rolls a d' + sides + ': ' + r; }
     case 'dice': { // physical die on the table
@@ -1437,7 +1738,7 @@ function tPubBF(c, forOwner){
 function sanitizeTable(T, forSi){
   return {
     tid: T.tid, bo: T.bo, game: T.game, score: T.score.slice(),
-    turnNum: T.turnNum, turnSeat: T.turnSeat, between: T.between, over: T.over,
+    turnNum: T.turnNum, turnSeat: T.turnSeat, tc: (T.tc || []).slice(), between: T.between, over: T.over,
     seats: T.seats.map((s,si)=>({
       name: s.name, lobbySeat: s.lobbySeat, life: s.life, poison: s.poison, energy: s.energy, mull: s.mull,
       libN: s.lib.length, handN: s.hand.length,
@@ -2420,11 +2721,27 @@ function positionHover(x, y){
   let top = Math.min(Math.max(8, y - h/3), innerHeight - h - 8);
   hov.style.top = Math.max(6, top) + 'px';
 }
-function hideHover(){ hov.style.display = 'none'; }
+function hideHover(){ hov.style.display = 'none'; hov.classList.remove('touch'); }
+function showHoverTouch(card){ showHover(card, 0, 0); hov.classList.add('touch'); }
 function attachHover(el, card){
-  el.addEventListener('mouseenter', e=>showHover(card, e.clientX, e.clientY));
-  el.addEventListener('mousemove', e=>positionHover(e.clientX, e.clientY));
-  el.addEventListener('mouseleave', hideHover);
+  // mouse: hover preview. touch: press and hold to peek (a tap still selects / taps as usual)
+  el.addEventListener('pointerenter', e=>{ if(e.pointerType === 'mouse') showHover(card, e.clientX, e.clientY); });
+  el.addEventListener('pointermove', e=>{ if(e.pointerType === 'mouse') positionHover(e.clientX, e.clientY); });
+  el.addEventListener('pointerleave', e=>{ if(e.pointerType === 'mouse') hideHover(); });
+  let t = null, sx = 0, sy = 0;
+  const cancel = ()=>{ clearTimeout(t); t = null; };
+  el.addEventListener('touchstart', e=>{
+    if(e.touches.length !== 1) return;
+    sx = e.touches[0].clientX; sy = e.touches[0].clientY; cancel();
+    t = setTimeout(()=>{ t = null; el._lp = true; showHoverTouch(card); }, 380);
+  }, { passive: true });
+  el.addEventListener('touchmove', e=>{
+    const p = e.touches[0]; if(p && Math.hypot(p.clientX - sx, p.clientY - sy) > 10) cancel();
+  }, { passive: true });
+  const end = ()=>{ cancel(); if(el._lp){ hideHover(); setTimeout(()=>{ el._lp = false; }, 400); } };
+  el.addEventListener('touchend', end); el.addEventListener('touchcancel', end);
+  el.addEventListener('click', e=>{ if(el._lp){ e.stopImmediatePropagation(); e.preventDefault(); } }, true);
+  el.addEventListener('contextmenu', e=>{ if(el._lp) e.preventDefault(); });
 }
 function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function crdEl(card, cls){
@@ -2442,7 +2759,7 @@ function openModal(title, build){
   build(body);
   $('modal').classList.add('on');
 }
-function closeModal(){ $('modal').classList.remove('on'); }
+function closeModal(){ $('modal').classList.remove('on'); $('modalBox').classList.remove('wide'); }
 $('modalX').onclick = closeModal;
 $('modal').addEventListener('click', e=>{ if(e.target === $('modal')) closeModal(); });
 // in-app confirm / input (no browser dialogs)
@@ -2590,6 +2907,8 @@ function appendChat(m){
   for(const id of ['dChatLog','tChatLog']){
     const el = $(id); el.insertAdjacentHTML('beforeend', line); el.scrollTop = el.scrollHeight;
   }
+  if(!m.sys && A.screen === 'table' && A.rail !== '1') $('tRailDot').classList.add('on');
+  if(!m.sys && A.screen === 'table') setTicker(m.from + ': ' + m.x);
 }
 // ---------- home ----------
 $('nameIn').value = localStorage.getItem('wheel-name') || '';
@@ -2995,6 +3314,12 @@ function initBuild(){
   $('bFilter').value = '';
   renderBuild();
 }
+function setBuildTab(t){
+  $('scr-build').dataset.tab = t;
+  $('bTabPoolBtn').classList.toggle('on', t !== 'deck'); $('bTabDeckBtn').classList.toggle('on', t === 'deck');
+}
+$('bTabPoolBtn').onclick = ()=>setBuildTab('pool'); $('bTabDeckBtn').onclick = ()=>setBuildTab('deck');
+setBuildTab('pool');
 function deckCards(){ return A.pool.filter(c=>A.deckIds.has(c.id)); }
 function renderBuild(){
   const filter = $('bFilter').value.trim().toLowerCase();
@@ -3006,6 +3331,7 @@ function renderBuild(){
   const landN = Object.values(A.lands).reduce((a,b)=>a+b,0);
   const total = dk.length + landN;
   $('bDeckCt').textContent = total;
+  $('bTabPool').textContent = poolCards.length; $('bTabDeck').textContent = total;
   $('bDeckCt').classList.toggle('bad', total < 40);
   // land station
   const bl = $('bLands'); bl.innerHTML = '';
@@ -3187,7 +3513,13 @@ let TCW = 86, TCH = Math.round(86*88/63);
 const MAXS = 47; // horizontal snap slots (fine grid)
 const MAXY = 11; // vertical snap slots per half
 const ZOOMS = [1, 1.15, 1.3, 0.85];
-A.zoom = parseFloat(localStorage.getItem('wheel-zoom')) || 1;
+function autoZoom(){ return Math.max(0.85, Math.min(1.4, Math.round(innerHeight / 940 * 20) / 20)); }
+A.zoom = parseFloat(localStorage.getItem('wheel-zoom')) || autoZoom();
+let zoomTimer = null;
+window.addEventListener('resize', ()=>{
+  if(localStorage.getItem('wheel-zoom')) return;
+  clearTimeout(zoomTimer); zoomTimer = setTimeout(()=>{ A.zoom = autoZoom(); applyZoom(); }, 150);
+});
 function applyZoom(){
   TCW = Math.round(86 * A.zoom); TCH = Math.round(TCW * 88/63);
   document.documentElement.style.setProperty('--tcw', TCW + 'px');
@@ -3205,56 +3537,51 @@ function renderTable(){
   const me = mySeat(), opp = 1 - me;
   const S = snap.seats;
   // header
-  $('tOppName').textContent = S[opp].name;
-  $('tOppLife').textContent = S[opp].life + (S[opp].poison ? ' ☠' + S[opp].poison : '');
-  $('tOppCounts').innerHTML =
-    'hand ' + S[opp].handN + ' · lib ' + S[opp].libN +
-    ' · <span style="cursor:pointer" id="oppGyLink">gy ' + S[opp].gy.length + '</span>' +
-    ' · <span style="cursor:pointer" id="oppExLink">ex ' + S[opp].ex.length + '</span>';
-  $('oppGyLink').onclick = ()=>openGrid(S[opp].name + ' — graveyard', S[opp].gy, null);
-  $('oppExLink').onclick = ()=>openGrid(S[opp].name + ' — exile', S[opp].ex, null);
-  $('tGameLbl').textContent = 'game ' + snap.game + ' · bo' + snap.bo + (A.ts < 0 ? ' · spectating' : '');
+  const myTurn = snap.turnSeat === me && A.ts >= 0;
+  const turnN = (snap.tc && snap.turnSeat >= 0 && snap.tc[snap.turnSeat] != null) ? snap.tc[snap.turnSeat] : snap.turnNum;
+  $('tGameLbl').textContent = 'Game ' + snap.game + ' · Bo' + snap.bo + (A.ts < 0 ? ' · spectating' : '');
   const need = Math.floor(snap.bo/2) + 1;
   let dots = '';
   for(let i=0;i<need;i++) dots += '<span class="g' + (snap.score[me] > i ? ' w' : '') + '"></span>';
   dots += '<span style="margin:0 4px;">·</span>';
   for(let i=0;i<need;i++) dots += '<span class="g' + (snap.score[opp] > i ? ' w' : '') + '"></span>';
   $('tScore').innerHTML = dots;
-  // turn
+  // turn chip: counted per player (Cooper's turn 1, Sam's turn 1, Cooper's turn 2 ...)
   const tt = $('tTurn');
-  if(snap.turnNum === 0) tt.textContent = 'pre-game';
-  else tt.textContent = 'turn ' + snap.turnNum + ' — ' + S[snap.turnSeat].name;
-  tt.classList.toggle('mine', snap.turnSeat === me && A.ts >= 0);
-  const myTurn = snap.turnSeat === me && A.ts >= 0;
+  if(snap.turnNum === 0) tt.textContent = 'Pre-game';
+  else tt.textContent = S[snap.turnSeat].name + '’s turn ' + turnN;
+  tt.classList.toggle('mine', myTurn);
   if(snap.turnNum !== A.lastTurn){
     A.lastTurn = snap.turnNum;
-    if(snap.turnNum > 0) showBanner(myTurn ? 'Your turn' : S[snap.turnSeat].name + '’s turn', myTurn);
+    if(snap.turnNum > 0) showBanner(myTurn ? 'Your turn ' + turnN : S[snap.turnSeat].name + '’s turn ' + turnN, myTurn);
   }
   if(snap.between && A.ts >= 0){
     $('tTurnBtn').textContent = 'Deal game ' + (snap.game + 1);
     $('tTurnBtn').classList.add('gold');
   } else {
-    $('tTurnBtn').innerHTML = (myTurn ? 'Pass turn' : 'Take turn') + ' &middot; <b style="font-weight:normal; color:var(--gold);">N</b>';
+    $('tTurnBtn').innerHTML = (myTurn ? 'Pass turn' : 'Take turn') + ' <b class="hk">N</b>';
     $('tTurnBtn').classList.toggle('gold', myTurn);
   }
-  // my zone bar
-  $('tLife').textContent = S[me].life;
-  $('tSubLife').textContent = (S[me].poison ? '☠' + S[me].poison + ' ' : '') + (S[me].energy ? '⚡' + S[me].energy : '');
-  $('tLibN').textContent = S[me].libN;
-  $('tGYN').textContent = S[me].gy.length;
-  $('tEXN').textContent = S[me].ex.length;
-  const gyTop = S[me].gy[S[me].gy.length-1];
-  $('tGY').querySelectorAll('img').forEach(x=>x.remove());
-  if(gyTop && gyTop.img){ const im = document.createElement('img'); im.src = gyTop.img; $('tGY').prepend(im); }
+  // docks (life, library, graveyard, exile) — one per side
+  $('tOppName').textContent = S[opp].name;
+  $('tMyName').textContent = A.ts < 0 ? S[me].name : 'You';
+  $('tOppLife').textContent = S[opp].life; $('tOppLife').classList.toggle('low', S[opp].life <= 5);
+  $('tLife').textContent = S[me].life; $('tLife').classList.toggle('low', S[me].life <= 5);
+  setSub('tOppSub', S[opp]); setSub('tSubLife', S[me]);
+  fillDock('t', S[me]); fillDock('o', S[opp]);
+  renderOppHand(S[opp].handN);
   // battlefield: free 2D snap grid per half, FLIP-style carryover so taps/moves animate
   $('tMyField').innerHTML = ''; $('tOppField').innerHTML = '';
-  const prevBF = A.prevBF || {}, nextBF = {};
+  const prevBF = A.prevBF || {}, nextBF = {}, deferred = [];
   for(const side of [me, opp]){
     const mine = side === me;
     const fieldEl = $(mine ? 'tMyField' : 'tOppField');
     const byId = {}, idxOf = {};
     S[side].bf.forEach((c,i)=>{ byId[c.id] = c; idxOf[c.id] = i; });
+    const stackOf = A.stackLands ? stackGroups(S[side].bf) : {};
     for(const c of S[side].bf){
+      const grp = stackOf[c.id];
+      if(grp && grp[0] !== c){ deferred.push([c.id, grp[0].id]); continue; }
       let row = c.row|0, slotF = c.slot|0, attOff = 0;
       let z = 5 + (idxOf[c.id]|0)*2;
       if(c.att && byId[c.att]){
@@ -3274,7 +3601,7 @@ function renderTable(){
       const yFrac = Math.min(MAXY, Math.max(0, row))/MAXY;
       const frac = mine ? yFrac : (1 - yFrac); // row 0 hugs the midline on both sides
       const topCss = 'calc(8px + (100% - ' + (TCH + 16) + 'px) * ' + frac.toFixed(4) + (attOff ? ' + ' + attOff + 'px' : '') + ')';
-      const tapped = !!c.tapped;
+      const tapped = grp ? grp.every(x=>x.tapped) : !!c.tapped;
       const pv = prevBF[c.id];
       nextBF[c.id] = { left: leftCss, top: topCss, tapped, row: mine ? 'my' : 'opp', val: c.val, rn: c.rn };
       if(pv && (pv.left !== leftCss || pv.top !== topCss || pv.tapped !== tapped) && pv.row === nextBF[c.id].row){
@@ -3290,6 +3617,7 @@ function renderTable(){
         if(!pv) el.classList.add('enterbf');
       }
       el.style.zIndex = z;
+      if(grp){ buildStack(el, grp, mine); fieldEl.appendChild(el); continue; }
       if(c.wtype){ // physical die / counter chip
         el.classList.add('widget');
         if(c.wtype === 'die'){
@@ -3357,6 +3685,7 @@ function renderTable(){
       fieldEl.appendChild(el);
     }
   }
+  for(const [mid, lid] of deferred) nextBF[mid] = nextBF[lid];
   A.prevBF = nextBF;
   renderHand();
   renderMullBar();
@@ -3450,6 +3779,7 @@ document.addEventListener('pointerup', e=>{
   const d = drag; drag = null;
   if(d.ghost) d.ghost.remove();
   if(!d.started){
+    if(d.el && d.el._lp) return; // long-press preview, not a click
     // click
     if(A.attachFrom && d.from === 'bf' && d.card.id !== A.attachFrom){
       act({ t: 'attach', id: A.attachFrom, to: d.card.id }); A.attachFrom = null; return;
@@ -3578,8 +3908,8 @@ $('tLib').onclick = (e)=>{
     { label: 'Mill N…', fn: ()=>askNum('Mill how many?', 1, n=>act({ t: 'mill', n })) }
   ]);
 };
-$('tGY').onclick = ()=>{ if(A.snap && A.ts >= 0) openGrid('Your graveyard', A.snap.seats[mySeat()].gy, zoneMenuItems); };
-$('tEX').onclick = ()=>{ if(A.snap && A.ts >= 0) openGrid('Your exile', A.snap.seats[mySeat()].ex, zoneMenuItems); };
+$('tGY').onclick = ()=>{ if(A.snap && A.ts >= 0) openZone('Your graveyard', A.snap.seats[mySeat()].gy, zoneMenuItems, true); };
+$('tEX').onclick = ()=>{ if(A.snap && A.ts >= 0) openZone('Your exile', A.snap.seats[mySeat()].ex, zoneMenuItems, false); };
 function zoneMenuItems(c){
   return [
     { label: 'To hand', fn: ()=>{ act({ t: 'move', id: c.id, to: 'hand' }); closeModal(); } },
@@ -3601,6 +3931,197 @@ function openGrid(title, cards, menuFn){
     }
     body.appendChild(g);
   });
+}
+// ================= v2 table helpers =================
+A.stackLands = localStorage.getItem('wheel-stack') !== '0';
+function escRe(s){ return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+// Does this card in a graveyard do something from there? Returns a short label or null.
+function gyAbility(c){
+  const t = c && c.text; if(!t) return null;
+  const k = t.match(/^(Flashback|Escape|Unearth|Disturb|Jump-start|Retrace|Embalm|Eternalize|Aftermath|Harmonize|Encore|Scavenge|Dredge|Mayhem)\b/m);
+  if(k) return k[1];
+  const names = ['this card'];
+  for(const part of String(c.name||'').split(' // ')){
+    if(part) names.push(part); const short = part.split(',')[0]; if(short && short !== part) names.push(short);
+  }
+  const nm = names.map(escRe).join('|');
+  if(new RegExp('(?:cast|play) (?:' + nm + ')[^.\\n]{0,80}from your graveyard', 'i').test(t)) return 'Cast from graveyard';
+  if(new RegExp('(?:return|exile|put) (?:' + nm + ')[^.\\n]{0,80}from your graveyard', 'i').test(t)) return 'Graveyard ability';
+  if(new RegExp('(?:' + nm + ') from your graveyard', 'i').test(t)) return 'Graveyard ability';
+  return null;
+}
+function cardFace(c){
+  return c.img ? '<img src="' + c.img + '" alt="">' : '<div class="ph" style="font-size:11px;"><b>' + esc(c.name||'') + '</b></div>';
+}
+function setSub(id, s){
+  let h = '';
+  if(s.poison) h += '<span class="pill tox" title="poison counters">☠ ' + s.poison + '</span>';
+  if(s.energy) h += '<span class="pill" title="energy counters">⚡ ' + s.energy + '</span>';
+  $(id).innerHTML = h;
+}
+function fillDock(pre, s){
+  const lib = $(pre + 'Lib'), gy = $(pre + 'GY'), ex = $(pre + 'EX');
+  lib.innerHTML = '<span class="plbl">Library</span><span class="pn">' + s.libN + '</span>';
+  lib.classList.toggle('empty', !s.libN);
+  const top = s.gy[s.gy.length - 1];
+  const ab = s.gy.filter(gyAbility).length;
+  gy.innerHTML = (top && top.img ? '<img src="' + top.img + '" alt="">' : '') +
+    '<span class="plbl">Graveyard</span><span class="pn">' + s.gy.length + '</span>' +
+    (ab ? '<span class="pab" title="' + ab + ' card' + (ab > 1 ? 's' : '') + ' with a graveyard ability">★ ' + ab + '</span>' : '');
+  gy.classList.toggle('hasab', ab > 0);
+  gy.classList.toggle('empty', !s.gy.length);
+  ex.innerHTML = 'Exile <b>' + s.ex.length + '</b>';
+}
+function renderOppHand(n){
+  const el = $('tOppHand');
+  const k = Math.min(n, 14), mid = (k - 1) / 2;
+  let h = '';
+  for(let i = 0; i < k; i++){
+    const d = i - mid;
+    h += '<i style="--r:' + (d * 3.4).toFixed(1) + 'deg; --x:' + (d * 21).toFixed(0) + 'px; --y:' + (d * d * 0.8).toFixed(1) + 'px"></i>';
+  }
+  el.innerHTML = h + (n ? '<b>' + n + '</b>' : '');
+}
+// ---------- stacked lands ----------
+function stackGroups(bf){
+  const hosts = new Set(); bf.forEach(x=>{ if(x.att) hosts.add(x.att); });
+  const groups = {};
+  for(const c of bf){
+    if(c.wtype || c.fd || c.att || c.note || hosts.has(c.id)) continue;
+    if(!/\bLand\b/.test(c.type || '')) continue;
+    if(c.ctrs && Object.keys(c.ctrs).some(k=>c.ctrs[k])) continue;
+    (groups[c.name + '|' + (c.row|0)] = groups[c.name + '|' + (c.row|0)] || []).push(c);
+  }
+  const of = {};
+  for(const k in groups){
+    const g = groups[k]; if(g.length < 2) continue;
+    g.sort((a,b)=>(a.slot|0) - (b.slot|0));
+    for(const c of g) of[c.id] = g;
+  }
+  return of;
+}
+function stackPick(grp, wantTapped){
+  return grp.find(x=>!!x.tapped === wantTapped) || grp[grp.length - 1];
+}
+function buildStack(el, grp, mine){
+  const n = grp.length, tN = grp.filter(x=>x.tapped).length, lead = grp[0];
+  const vis = Math.min(n, 6);
+  el.classList.add('stk');
+  let h = '';
+  for(let i = vis - 1; i >= 1; i--) h += '<div class="sl" style="--d:' + i + '">' + cardFace(lead) + '</div>';
+  h += '<div class="sl top">' + cardFace(lead) + '</div>';
+  h += '<span class="stkct" title="' + n + ' ' + esc(lead.name) + '">×' + n + '</span>';
+  let pips = '';
+  if(n <= 12) for(let i = 0; i < n; i++) pips += '<i class="' + (i < n - tN ? '' : 't') + '"></i>';
+  else pips = '<em>' + (n - tN) + '/' + n + '</em>';
+  h += '<div class="stkbar">' + pips + '</div>';
+  el.innerHTML = h;
+  attachHover(el, lead);
+  el._card = lead;
+  if(mine && A.ts >= 0){
+    el.addEventListener('pointerdown', e=>{
+      if(e.button !== 0) return;
+      beginDrag(e, stackPick(grp, e.shiftKey), 'bf', el);
+    });
+    el.addEventListener('contextmenu', e=>{ e.preventDefault(); stackMenu(e, grp); });
+  }
+}
+function stackMenu(e, grp){
+  const ut = grp.filter(x=>!x.tapped), tp = grp.filter(x=>x.tapped);
+  const one = ut[0] || tp[0], row = grp[0].row|0;
+  const items = [];
+  if(ut.length) items.push({ label: 'Tap one', k: 'click', fn: ()=>act({ t: 'tap', id: ut[0].id, v: true }) });
+  if(tp.length) items.push({ label: 'Untap one', k: 'shift-click', fn: ()=>act({ t: 'tap', id: tp[0].id, v: false }) });
+  if(ut.length > 1) items.push({ label: 'Tap all (' + ut.length + ')', fn: ()=>ut.forEach(c=>act({ t: 'tap', id: c.id, v: true })) });
+  if(tp.length > 1) items.push({ label: 'Untap all (' + tp.length + ')', fn: ()=>tp.forEach(c=>act({ t: 'tap', id: c.id, v: false })) });
+  items.push({ sep: true });
+  items.push({ label: 'Split one off', fn: ()=>act({ t: 'bfmove', id: one.id, row: row < MAXY ? row + 1 : row - 1, slot: one.slot|0 }) });
+  items.push({ label: 'Duplicate one (token)', fn: ()=>act({ t: 'dupe', id: one.id }) });
+  items.push({ sep: true });
+  items.push({ label: 'One to graveyard', fn: ()=>act({ t: 'move', id: one.id, to: 'gy' }) });
+  items.push({ label: 'One to exile', fn: ()=>act({ t: 'move', id: one.id, to: 'ex' }) });
+  items.push({ label: 'One to hand', fn: ()=>act({ t: 'move', id: one.id, to: 'hand' }) });
+  openMenu(e.clientX, e.clientY, items);
+}
+function syncStackBtn(){ $('tStackBtn').classList.toggle('on', !!A.stackLands); }
+$('tStackBtn').onclick = ()=>{
+  A.stackLands = !A.stackLands;
+  localStorage.setItem('wheel-stack', A.stackLands ? '1' : '0');
+  syncStackBtn(); A.prevBF = {}; renderTable();
+  toast(A.stackLands ? 'identical lands stack by row' : 'lands spread out');
+};
+syncStackBtn();
+// ---------- zone viewers (graveyard / exile) ----------
+function openZone(title, cards, menuFn, isGY){
+  openModal(title, body=>{
+    $('modalBox').classList.add('wide');
+    if(!cards.length){ body.innerHTML = '<span class="dim">Empty.</span>'; return; }
+    const addSec = (head, list, cls, badge)=>{
+      const sec = document.createElement('div'); sec.className = 'zsec ' + (cls||'');
+      sec.innerHTML = '<h4>' + head + ' <span class="dimmer">' + list.length + '</span></h4>';
+      const g = document.createElement('div'); g.className = 'zgrid';
+      for(const c of list){
+        const el = crdEl(c, badge ? 'playable' : '');
+        if(badge) el.insertAdjacentHTML('beforeend', '<span class="gybadge">' + esc(badge(c)) + '</span>');
+        if(menuFn) el.onclick = (e)=>openMenu(e.clientX, e.clientY, menuFn(c));
+        g.appendChild(el);
+      }
+      sec.appendChild(g); body.appendChild(sec);
+    };
+    const newest = cards.slice().reverse(); // top of the pile first
+    if(isGY){
+      const play = newest.filter(gyAbility);
+      const rest = newest.filter(c=>!gyAbility(c));
+      if(play.length) addSec('★ Playable from graveyard', play, 'play', gyAbility);
+      if(rest.length) addSec(play.length ? 'Everything else' : 'Graveyard', rest, '', null);
+      body.insertAdjacentHTML('beforeend', '<div class="dimmer" style="font-size:11px;">Most recent first.</div>');
+    } else addSec('Exiled cards', newest, '', null);
+  });
+}
+// hover peek: last few cards in a graveyard, fanned out beside the pile
+const peekEl = document.createElement('div'); peekEl.id = 'gyPeek'; document.body.appendChild(peekEl);
+function showPeek(anchor, cards, label){
+  if(!cards.length || (typeof drag !== 'undefined' && drag && drag.started)) return;
+  const newest = cards.slice().reverse();
+  const play = newest.filter(gyAbility).slice(0, 4);
+  const top = newest.slice(0, 3).reverse(); // oldest of the three first, newest drawn on top
+  const one = (c, cls)=>{
+    const ab = gyAbility(c);
+    return '<div class="pkc' + (ab ? ' play' : '') + (cls ? ' ' + cls : '') + '">' + cardFace(c) + (ab ? '<span>' + esc(ab) + '</span>' : '') + '</div>';
+  };
+  let h = '<div class="pkt">' + esc(label) + ' · ' + cards.length + ' card' + (cards.length > 1 ? 's' : '') + '</div>';
+  if(play.length) h += '<div class="pks">★ Playable from graveyard</div><div class="pkf flat">' + play.map(c=>one(c)).join('') + '</div>';
+  h += '<div class="pks">Top of graveyard</div><div class="pkf">' + top.map(c=>one(c)).join('') + '</div>';
+  peekEl.innerHTML = h;
+  peekEl.style.display = 'block';
+  const r = anchor.getBoundingClientRect();
+  const ph = peekEl.offsetHeight;
+  peekEl.style.left = (r.right + 12) + 'px';
+  peekEl.style.top = Math.min(Math.max(8, r.top + r.height / 2 - ph / 2), innerHeight - ph - 8) + 'px';
+}
+function hidePeek(){ peekEl.style.display = 'none'; }
+function peekOn(el, getSeat, label){
+  el.addEventListener('pointerenter', e=>{ if(e.pointerType === 'mouse' && A.snap) showPeek(el, getSeat().gy, label); });
+  el.addEventListener('pointerleave', hidePeek);
+  el.addEventListener('pointerdown', hidePeek);
+}
+peekOn($('tGY'), ()=>A.snap.seats[mySeat()], 'Your graveyard');
+peekOn($('oGY'), ()=>A.snap.seats[1 - mySeat()], 'Graveyard');
+$('oGY').onclick = ()=>{ if(A.snap){ const s = A.snap.seats[1 - mySeat()]; openZone(s.name + ' — graveyard', s.gy, null, true); } };
+$('oEX').onclick = ()=>{ if(A.snap){ const s = A.snap.seats[1 - mySeat()]; openZone(s.name + ' — exile', s.ex, null, false); } };
+// ---------- log & chat rail ----------
+A.rail = localStorage.getItem('wheel-rail');
+A.rail = A.rail == null ? (innerWidth >= 1500 ? '1' : '0') : A.rail;
+function syncRail(){
+  $('tRail').classList.toggle('shut', A.rail !== '1');
+  $('tRailBtn').classList.toggle('on', A.rail === '1');
+  if(A.rail === '1'){ $('tRailDot').classList.remove('on'); const l = $('tLog'); l.scrollTop = l.scrollHeight; }
+}
+$('tRailBtn').onclick = ()=>{ A.rail = A.rail === '1' ? '0' : '1'; localStorage.setItem('wheel-rail', A.rail); syncRail(); };
+syncRail();
+function setTicker(s){
+  const el = $('tTicker'); el.textContent = s;
+  el.classList.remove('fresh'); void el.offsetWidth; el.classList.add('fresh');
 }
 // ---------- buttons / life ----------
 $('tDrawBtn').onclick = ()=>act({ t: 'draw', n: 1 });
@@ -3737,6 +4258,7 @@ function appendTLog(e){
     lastLog.el.classList.remove('flash'); void lastLog.el.offsetWidth;
     lastLog.el.classList.add('flash');
     el.scrollTop = el.scrollHeight;
+    setTicker(lastLog.s);
   };
   // "Ada taps Plains" bursts fold into "Ada taps 3 Plains and 2 Forest"
   const tm = (typeof e.s === 'string') && e.s.match(/^(.+?) (taps|untaps) (.+)$/);
@@ -3771,6 +4293,7 @@ function appendTLog(e){
     agg: tm ? { actor: tm[1], verb: tm[2], counts: { [tm[3]]: 1 } } : null };
   while(el.children.length > 300) el.removeChild(el.firstChild);
   el.scrollTop = el.scrollHeight;
+  setTicker(e.s);
 }
 let bannerTimer = null;
 function showBanner(s, mine){
